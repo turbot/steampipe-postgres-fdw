@@ -1,0 +1,240 @@
+name: Build And Publish Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  PROJECT_ID: steampipe
+  IMAGE_NAME: fdw
+  CORE_REPO: us-docker.pkg.dev/steampipe/steampipe
+  ORG: turbot
+  CONFIG_SCHEMA_VERSION: "2020-11-18"
+
+jobs:
+  build-osx:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: brew install --force postgresql@12
+
+    - name: Hook private repo
+      run: git config --global url."https://turbot-mods:${{ secrets.TURBOT_MODS_GH_PAT }}@github.com".insteadOf "https://github.com"
+
+    - name: make clean
+      run: make clean
+      working-directory: ./fdw
+
+    - name: make go
+      run: make go
+      working-directory: ./fdw
+
+    - name: make
+      run: |-
+        export PATH="/usr/local/opt/postgresql@12/bin:$PATH"
+        export LDFLAGS="-L/usr/local/opt/postgresql@12/lib"
+        export CPPFLAGS="-I/usr/local/opt/postgresql@12/include"
+        export PKG_CONFIG_PATH="/usr/local/opt/postgresql@12/lib/pkgconfig"
+        export PG_LDFLAGS="-framework Foundation -framework AppKit -framework Security"
+        which pg_config
+        pg_config --version
+        make
+      working-directory: ./fdw
+
+    - name: gzip the steampipe_postgres_fdw.so
+      run: |-
+        gzip steampipe_postgres_fdw.so
+        mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.darwin_amd64.gz
+      working-directory: ./fdw
+
+    - name: Save MacOS Build Artifact - AMD64
+      uses: actions/upload-artifact@v2
+      with:
+        name: steampipe_postgres_fdw.so.darwin_amd64
+        path: ./fdw/steampipe_postgres_fdw.so.darwin_amd64.gz
+        if-no-files-found: error
+
+    - name: Save steampipe_postgres_fdw.control    # only need this once for ALL platforms
+      uses: actions/upload-artifact@v2
+      with:
+        name: steampipe_postgres_fdw.control
+        path: ./fdw/steampipe_postgres_fdw.control
+        if-no-files-found: error
+
+    - name: Save steampipe_postgres_fdw--1.0.sql   # only need this once for ALL platforms
+      uses: actions/upload-artifact@v2
+      with:
+        name: steampipe_postgres_fdw--1.0.sql
+        path: ./fdw/steampipe_postgres_fdw--1.0.sql
+        if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: |-
+        sudo apt-get update
+        sudo apt-get upgrade
+        sudo apt-get -y install postgresql-server-dev-12
+
+    - name: Hook private repo
+      run: git config --global url."https://turbot-mods:${{ secrets.TURBOT_MODS_GH_PAT }}@github.com".insteadOf "https://github.com"
+
+    - name: make clean
+      run: make clean
+      working-directory: ./fdw
+
+    - name: make go
+      run: make go
+      working-directory: ./fdw
+
+    - name: make
+      run: |-
+        export PATH="/usr/lib/postgresql/12/bin/:$PATH"
+        which pg_config
+        pg_config --version
+        make
+      working-directory: ./fdw
+
+    - name: gzip the steampipe_postgres_fdw.so
+      run: |-
+        gzip steampipe_postgres_fdw.so
+        mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_amd64.gz
+      working-directory: ./fdw
+
+    - name: Save MacOS Build Artifact - AMD64
+      uses: actions/upload-artifact@v2
+      with:
+        name: steampipe_postgres_fdw.so.linux_amd64
+        path: ./fdw/steampipe_postgres_fdw.so.linux_amd64.gz
+        if-no-files-found: error
+
+  publish:
+    runs-on: ubuntu-latest
+    needs:
+      - build-linux
+      - build-osx
+    steps:
+
+      # Setup gcloud CLI
+      - uses: google-github-actions/setup-gcloud@v0.2.0
+        with:
+          service_account_key: ${{ secrets.STEAMPIPE_REGISTRY_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - run: gcloud config list
+
+      - run: gcloud components install beta
+
+      - run: gcloud components install alpha --quiet
+
+
+      # Configure Docker to use the gcloud command-line tool as a credential
+      # helper for authentication
+      - run: |-
+          gcloud beta auth configure-docker us-docker.pkg.dev
+
+      - name: Get latest version tag
+        run: |-
+          echo "VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Trim tag
+        run: |-
+          echo $VERSION
+          trim=${VERSION#"v"}
+          echo $trim
+          echo "VERSION=${trim}" >> $GITHUB_ENV
+
+      - name: Validate Version String
+        run: |-
+          if [[ $VERSION =~  ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version OK: $VERSION"
+          else
+            echo "Invalid version: $VERSION"
+            exit 1
+          fi
+
+      - name: Download steampipe_postgres_fdw.so - darwin_amd64
+        uses: actions/download-artifact@v2
+        with:
+          name: steampipe_postgres_fdw.so.darwin_amd64
+
+      - name: Download steampipe_postgres_fdw.so - linux_amd64
+        uses: actions/download-artifact@v2
+        with:
+          name: steampipe_postgres_fdw.so.linux_amd64
+
+      - name: Download steampipe_postgres_fdw.control
+        uses: actions/download-artifact@v2
+        with:
+          name: steampipe_postgres_fdw.control
+
+      - name: Download steampipe_postgres_fdw--1.0.sql
+        uses: actions/download-artifact@v2
+        with:
+          name: steampipe_postgres_fdw--1.0.sql
+
+      - name: List files
+        run: ls -l
+
+      - run: oras version   # oras is pre-installed on the image...
+
+      # create the config file
+      - run: |-
+          JSON_STRING=$( jq -n \
+            --arg name "$IMAGE_NAME" \
+            --arg organization "$ORG" \
+            --arg version "$VERSION" \
+            --arg schemaVersion "$CONFIG_SCHEMA_VERSION" \
+            '{schemaVersion: $schemaVersion, fdw: { name: $name, organization: $organization, version: $version} }' )
+
+          echo $JSON_STRING > config.json
+
+      - run: cat config.json
+
+      # create the annotations file
+      - run: |-
+          JSON_STRING=$( jq -n \
+              --arg title "$IMAGE_NAME" \
+              --arg desc "$ORG" \
+              --arg version "$VERSION" \
+              --arg timestamp "$(date +%FT%T%z)" \
+              --arg vendor "Turbot HQ, Inc." \
+            '{
+                "$manifest": {
+                    "org.opencontainers.image.title": $title,
+                    "org.opencontainers.image.description": $desc,
+                    "org.opencontainers.image.version": $version,
+                    "org.opencontainers.image.created": $timestamp,
+                    "org.opencontainers.image.vendor":  $vendor
+                }
+            }' )
+
+            echo $JSON_STRING > annotations.json
+
+      - run: cat annotations.json
+
+    # push to the registry
+      - run: |-
+          REF="$CORE_REPO/$IMAGE_NAME:$GITHUB_RUN_ID"
+
+          oras push $REF \
+              --manifest-config config.json:application/vnd.turbot.steampipe.config.v1+json \
+              --manifest-annotations annotations.json \
+                steampipe_postgres_fdw.so.darwin_amd64.gz:application/vnd.turbot.steampipe.fdw.darwin-amd64.layer.v1+gzip \
+                steampipe_postgres_fdw.so.linux_amd64.gz:application/vnd.turbot.steampipe.fdw.linux-amd64.layer.v1+gzip \
+                steampipe_postgres_fdw.control:application/vnd.turbot.steampipe.fdw.control.layer.v1+text \
+                steampipe_postgres_fdw--1.0.sql:application/vnd.turbot.steampipe.fdw.sql.layer.v1+text
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set version tags
+        uses: ./.github/actions/semver-tags
+        id: semver
+        with:
+          image-to-tag: "${{ env.CORE_REPO }}/${{ env.IMAGE_NAME }}:${{ github.run_id  }}"
+          image-version: ${{ env.VERSION }}

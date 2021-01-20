@@ -14,6 +14,7 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
@@ -127,20 +128,29 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 		ipAddrBytes := C.GoBytes(unsafe.Pointer(C.ipAddr(inet)), 16)
 		netmaskBits := int32(C.netmaskBits(inet))
 		var ipAddrString string
+		var protocolVersion string
 		if C.isIpV6(inet) {
 			ipAddrString = net.IP(ipAddrBytes).String()
+			protocolVersion = grpc.IPv6
 			log.Printf("[DEBUG] ipv6 qual: %s/%d", ipAddrString, netmaskBits)
-			result.Value = &proto.QualValue_IpValue{IpValue: &proto.IpAddr{Value: &proto.IpAddr_V6{V6: ipAddrString}, Mask: netmaskBits}}
 		} else {
 			ipAddrString = net.IPv4(ipAddrBytes[0], ipAddrBytes[1], ipAddrBytes[2], ipAddrBytes[3]).String()
+			protocolVersion = grpc.IPv4
 			log.Printf("[DEBUG] ipv4 qual: %s/%d", ipAddrString, netmaskBits)
-			result.Value = &proto.QualValue_IpValue{IpValue: &proto.IpAddr{Value: &proto.IpAddr_V4{V4: ipAddrString}, Mask: netmaskBits}}
+		}
+		result.Value = &proto.QualValue_InetValue{
+			InetValue: &proto.Inet{
+				Mask:            netmaskBits,
+				Addr:            ipAddrString,
+				Cidr:            fmt.Sprintf("%s/%d", ipAddrString, netmaskBits),
+				ProtocolVersion: protocolVersion,
+			},
 		}
 	//case C.JSONBOID:
 	//	result.Value = &proto.QualValue_JsonbValue{JsonbValue: C.GoString(C.datumJSONB(datum, cinfo))}
 	case C.DATEOID:
 		pgts := int64(C.datumDate(datum, cinfo))
-		result.Value = &proto.QualValue_DatetimeValue{DatetimeValue: PgTimeToTimestamp(pgts)}
+		result.Value = &proto.QualValue_TimestampValue{TimestampValue: PgTimeToTimestamp(pgts)}
 
 	case C.INT2OID, C.INT4OID, C.INT8OID:
 		result.Value = &proto.QualValue_Int64Value{Int64Value: int64(C.datumInt64(datum, cinfo))}

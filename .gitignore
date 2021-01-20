@@ -1,3 +1,9 @@
+# intermediate files
+*.a
+*.o
+# generated header
+steampipe_postgres_fdw.h
+
 # Binaries for programs and plugins
 *.exe
 *.exe~

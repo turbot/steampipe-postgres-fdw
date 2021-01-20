@@ -75,7 +75,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 				if err := json.Unmarshal(bytes, &val); err != nil {
 					return nil, fmt.Errorf("failed to populate column '%s': %v", columnName, err)
 				}
-			} else if timestamp := column.GetDatetimeValue(); timestamp != nil {
+			} else if timestamp := column.GetTimestampValue(); timestamp != nil {
 				// convert from protobuf timestamp to time.Time
 				timeString := ptypes.TimestampString(timestamp)
 
@@ -140,7 +140,9 @@ func (i *scanIterator) readResults() {
 		row, err := i.stream.Recv()
 		logging.LogTime("[hub] receive complete")
 		if err != nil {
-			log.Printf("[WARN] stream receive error %v\n", err)
+			if err.Error() != "EOF" {
+				log.Printf("[WARN] stream receive error %v\n", err)
+			}
 			i.setError(err)
 		}
 		if row == nil {

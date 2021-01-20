@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/turbot/go-kit v0.0.0-20210119154454-db924443f736
 	github.com/turbot/steampipe v0.0.0-20210119164829-e85f286e46e0
-	github.com/turbot/steampipe-plugin-sdk v0.0.0-20210119154656-52569ae6f10d
+	github.com/turbot/steampipe-plugin-sdk v0.0.0-20210120214727-bb3e0ba7e84f
 	google.golang.org/protobuf v1.25.0
 )
 

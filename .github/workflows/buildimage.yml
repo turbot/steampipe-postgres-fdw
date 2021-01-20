@@ -21,7 +21,7 @@ jobs:
     - run: brew install --force postgresql@12
 
     - name: Hook private repo
-      run: git config --global url."https://turbot-mods:${{ secrets.TURBOT_MODS_GH_PAT }}@github.com".insteadOf "https://github.com"
+        run: git config --global url."https://${{ secrets.GH_ACCESS_TOKEN }}:x-oauth-basic@github.com".insteadOf "https://github.com"
 
     - name: make clean
       run: make clean

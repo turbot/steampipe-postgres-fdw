@@ -61,7 +61,7 @@ func sqlTypeForColumnType(columnType proto.ColumnType) (string, error) {
 		return "cidr", nil
 	case proto.ColumnType_JSON:
 		return "jsonb", nil
-	case proto.ColumnType_DATETIME:
+	case proto.ColumnType_DATETIME, proto.ColumnType_TIMESTAMP:
 		return "timestamp", nil
 	}
 	return "", fmt.Errorf("unsupported column type %v", columnType)

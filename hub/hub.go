@@ -53,19 +53,17 @@ func GetHub() (*Hub, error) {
 
 func newHub() (*Hub, error) {
 	log.Println("[DEBUG] newHub")
-	connectionConfig, err := connection_config.Load()
-	if err != nil {
-		return nil, err
-	}
 
 	connections := newConnectionMap()
 
-	hub := &Hub{connections, connectionConfig}
-
+	hub := &Hub{connections: connections}
+	if _, err := hub.LoadConnectionConfig(); err != nil {
+		return nil, err
+	}
 	for connectionName, connectionConfig := range hub.connectionConfig.Connections {
 		log.Printf("[DEBUG] create connection %s, plugin %s", connectionName, connectionConfig.Plugin)
 
-		if _, err := hub.createConnectionPlugin(connection_config.PluginFQNToSchemaName(connectionConfig.Plugin), connectionName); err != nil {
+		if _, err := hub.createConnectionPlugin(connection_config.PluginFQNToSchemaName(connectionConfig.Plugin), connectionName, connectionConfig.Config); err != nil {
 			return nil, err
 		}
 	}
@@ -95,14 +93,51 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 	if c == nil {
 		log.Printf("[TRACE] connection plugin is not loaded - loading\n")
 
+		// load the config for this connection
+		config, ok := h.connectionConfig.Connections[connectionName]
+		if !ok {
+			return nil, fmt.Errorf("no config found for connection %s", connectionName)
+		}
+
 		var err error
-		c, err = h.createConnectionPlugin(pluginFQN, connectionName)
+		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Config)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return c.Schema, nil
+}
+
+// send the locally cached connection config to the plugin
+func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error {
+	pluginFQN := remoteSchema
+	connectionName := localSchema
+	log.Printf("[DEBUG] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+
+	c := h.connections.get(pluginFQN, connectionName)
+
+	// if we do not have this ConnectionPlugin loaded, create
+	if c == nil {
+		log.Printf("[TRACE] connection plugin is not loaded - loading\n")
+
+		// load the config for this connection
+		config, ok := h.connectionConfig.Connections[connectionName]
+		if !ok {
+			return fmt.Errorf("no config found for connection %s", connectionName)
+		}
+
+		var err error
+		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Config)
+		if err != nil {
+			return err
+		}
+	}
+	_, err := c.Plugin.Stub.SetConnectionConfig(&proto.SetConnectionDataRequest{
+		ConnectionName:   connectionName,
+		ConnectionConfig: c.ConnectionConfig,
+	})
+	return err
 }
 
 // Scan :: Start a table scan. Returns an iterator
@@ -236,8 +271,9 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, quals []*proto
 }
 
 // load the given plugin connection into the connection map and return the schema
-func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*connection_config.ConnectionPlugin, error) {
-	opts := &connection_config.ConnectionPluginOptions{PluginFQN: pluginFQN, ConnectionName: connectionName}
+func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, connectionConfig string) (*connection_config.ConnectionPlugin, error) {
+	log.Printf("[WARN] createConnectionPlugin config: %s\n", connectionConfig)
+	opts := &connection_config.ConnectionPluginOptions{PluginFQN: pluginFQN, ConnectionName: connectionName, ConnectionConfig: connectionConfig}
 	c, err := connection_config.CreateConnectionPlugin(opts)
 	if err != nil {
 		return nil, err
@@ -246,4 +282,18 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*connect
 		return nil, err
 	}
 	return c, nil
+}
+
+// LoadConnectionConfig :: load the connection config and return whether it has changed
+func (h *Hub) LoadConnectionConfig() (bool, error) {
+	connectionConfig, err := connection_config.Load()
+	if err != nil {
+		return false, err
+	}
+
+	log.Printf("[WARN] LoadConnectionConfig: loaded %s\n", connectionConfig)
+	configChanged := h.connectionConfig == connectionConfig
+	h.connectionConfig = connectionConfig
+	return configChanged, nil
+
 }

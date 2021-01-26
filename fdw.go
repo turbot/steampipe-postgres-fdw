@@ -263,12 +263,34 @@ func fdwEndForeignScan(node *C.ForeignScanState) {
 
 //export goFdwImportForeignSchema
 func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) *C.List {
-	log.Printf("[INFO] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+	log.Printf("[WARN] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+	// get the plugin hub,
+	// NOTE: refresh connection config
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
+		return nil
 	}
-	schema, err := pluginHub.GetSchema(C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+	// reload conecction config - the ImportSchema command may be called because the config has been changed
+	connectionConfigChanged, err := pluginHub.LoadConnectionConfig()
+	if err != nil {
+		FdwError(err)
+		return nil
+	}
+
+	remoteSchema := C.GoString(stmt.remote_schema)
+	localSchema := C.GoString(stmt.local_schema)
+
+	// if the connection config has changed locally, send it to the plugin
+	if connectionConfigChanged {
+		err := pluginHub.SetConnectionConfig(remoteSchema, localSchema)
+		if err != nil {
+			FdwError(err)
+			return nil
+		}
+
+	}
+	schema, err := pluginHub.GetSchema(remoteSchema, localSchema)
 	if err != nil {
 		FdwError(err)
 		return nil

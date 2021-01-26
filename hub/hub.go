@@ -99,6 +99,12 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 			return nil, fmt.Errorf("no config found for connection %s", connectionName)
 		}
 
+		// load the config for this connection
+		config, ok := h.connectionConfig.Connections[connectionName]
+		if !ok {
+			return nil, fmt.Errorf("no config found for connection %s", connectionName)
+		}
+
 		var err error
 		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Config)
 		if err != nil {

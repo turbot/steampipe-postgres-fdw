@@ -133,7 +133,7 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 			return err
 		}
 	}
-	_, err := c.Plugin.Stub.SetConnectionConfig(&proto.SetConnectionDataRequest{
+	_, err := c.Plugin.Stub.SetConnectionConfig(&proto.SetConnectionConfigRequest{
 		ConnectionName:   connectionName,
 		ConnectionConfig: c.ConnectionConfig,
 	})
@@ -254,6 +254,7 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, quals []*proto
 	req := &proto.ExecuteRequest{
 		Table:        table,
 		QueryContext: queryContext,
+		Connection:   connection,
 	}
 	log.Println("[TRACE] stub execute")
 	str, err := c.Plugin.Stub.Execute(req)

@@ -284,12 +284,13 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 
 	// if the connection config has changed locally, send it to the plugin
 	if connectionConfigChanged {
+		log.Printf("[WARN] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+
 		err := pluginHub.SetConnectionConfig(remoteSchema, localSchema)
 		if err != nil {
 			FdwError(err)
 			return nil
 		}
-
 	}
 	schema, err := pluginHub.GetSchema(remoteSchema, localSchema)
 	if err != nil {

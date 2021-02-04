@@ -19,7 +19,7 @@ const (
 // Hub :: structure representing plugin hub
 type Hub struct {
 	connections      *connectionMap
-	connectionConfig *connection_config.ConnectionConfig
+	connectionConfig *connection_config.ConnectionConfigMap
 }
 
 // global hub instance

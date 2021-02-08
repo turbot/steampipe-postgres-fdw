@@ -137,7 +137,8 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 		ConnectionName:   connectionName,
 		ConnectionConfig: c.ConnectionConfig,
 	})
-	return err
+	// format GRPC errors and ignore not implemented errors for backwards compatibility
+	return connection_config.HandleGrpcError(err, connectionName, "GetSchema")
 }
 
 // Scan :: Start a table scan. Returns an iterator
@@ -260,6 +261,8 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, quals []*proto
 	str, err := c.Plugin.Stub.Execute(req)
 	if err != nil {
 		log.Printf("[TRACE] set iterator error %v\n", err)
+		// format GRPC errors and ignore not implemented errors for backwards compatibility
+		err = connection_config.HandleGrpcError(err, connection, "Execute")
 		iterator.setError(err)
 		return err
 	}

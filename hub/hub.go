@@ -5,6 +5,8 @@ import (
 	"log"
 	"sync"
 
+	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
+
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/types"
@@ -20,6 +22,7 @@ const (
 type Hub struct {
 	connections      *connectionMap
 	connectionConfig *connection_config.ConnectionConfigMap
+	queryCache       *cache.QueryCache
 }
 
 // global hub instance
@@ -56,7 +59,7 @@ func newHub() (*Hub, error) {
 
 	connections := newConnectionMap()
 
-	hub := &Hub{connections: connections}
+	hub := &Hub{connections: connections, queryCache:       cache.NewQueryCache(),}
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
@@ -150,8 +153,17 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 // Scan :: Start a table scan. Returns an iterator
 func (h *Hub) Scan(rel *types.Relation, columns []string, quals []*proto.Qual, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
-	iterator := newIterator(h, rel, opts)
-	err := h.startScan(iterator, columns, quals)
+
+	qualMap, err := h.buildQualMap(quals)
+	// do we have a cached query result
+	table := opts["table"]
+	cachedResult := h.queryCache.Get(table, qualMap, columns)
+	if cachedResult != nil {
+		return newCacheIterator(cachedResult), nil
+	}
+
+	iterator := newScanIterator(h, rel, columns, qualMap, h.queryCache, opts)
+	err = h.startScan(iterator, columns, qualMap)
 	logging.LogTime("Scan end")
 	return iterator, err
 }
@@ -228,19 +240,17 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 //// internal implementation ////
 
 // split startScan into a separate function to allow iterator to restart the scan
-func (h *Hub) startScan(iterator *scanIterator, columns []string, quals []*proto.Qual) error {
+func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[string]*proto.Quals) error {
 	table := iterator.opts["table"]
 	// get the namespace (i.e. the local schema) - this is the connection name
-	connection := iterator.rel.Namespace
+	connectionName := iterator.rel.Namespace
 
 	log.Printf("[INFO] StartScan\n  table: %s\n  columns: %v\n", table, columns)
 	// get ConnectionPlugin which serves this table
-	c, err := h.connections.getConnectionPluginForTable(table, connection)
+	c, err := h.connections.getConnectionPluginForTable(table, connectionName)
 	if err != nil {
 		return err
 	}
-
-	qualMap, err := h.buildQualMap(quals)
 
 	if err != nil {
 		return err
@@ -260,7 +270,7 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, quals []*proto
 		QueryContext: queryContext,
 		Connection:   connection,
 	}
-	str, err := c.Plugin.Stub.Execute(req)
+	stream, err := c.Plugin.Stub.Execute(req)
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
@@ -268,7 +278,7 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, quals []*proto
 		iterator.setError(err)
 		return err
 	}
-	iterator.start(str)
+	iterator.start(stream)
 	return nil
 }
 

@@ -271,7 +271,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		}
 	}()
 
-	log.Printf("[WARN] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+	log.Printf("[DEBUG] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
 	// get the plugin hub,
 	pluginHub, err := hub.GetHub()
 	if err != nil {
@@ -296,7 +296,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	// TODO add a mechanism to prevent reloading the first time - we just need to know if the hub was created  in call to GetHub
 
 	if connectionConfigChanged {
-		log.Printf("[WARN] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+		log.Printf("[DEBUG] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
 
 		err := pluginHub.SetConnectionConfig(remoteSchema, localSchema)
 		if err != nil {

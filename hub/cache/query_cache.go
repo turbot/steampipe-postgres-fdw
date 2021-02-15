@@ -7,7 +7,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/connection"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbot/steampipe/utils"
 )
 
 type QueryCache struct {
@@ -41,7 +40,9 @@ func (c QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns [
 	c.indexCache.Set(indexBucketKey, indexBucket)
 }
 
-func (c QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string) []map[string]interface{} {
+func (c QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
+	fmt.Println("Get")
+
 	// get the index bucket for this table and quals
 	//- this contains cache keys for all cache entries for specified table and quals
 
@@ -49,22 +50,25 @@ func (c QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns [
 	indexBucketKey := c.BuildIndexKey(table, qualMap)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 	if !ok {
+		fmt.Printf("Get not got it %s\n", indexBucketKey)
 		return nil
 	}
 
 	// now check whether we have a cache entry that covers the required columns
 	indexItem := indexBucket.Get(columns)
 	if indexItem == nil {
+		fmt.Printf("No index item\n")
 		return nil
 	}
 
 	// so we have a cache index, retrieve the item
 	result, ok := c.getResult(indexItem.Key)
 	if !ok {
+		fmt.Printf("No result\n")
 		return nil
 	}
 
-	return result.Rows
+	return result
 }
 
 // GetIndex :: retrieve an index bucket for a given cache key
@@ -86,11 +90,12 @@ func (c QueryCache) getResult(resultKey string) (*QueryResult, bool) {
 }
 
 func (c QueryCache) BuildIndexKey(table string, qualMap map[string]*proto.Quals) string {
-	hash := utils.StringHash(fmt.Sprintf("%s-%s", table, grpc.QualMapToString(qualMap)))
-	return fmt.Sprintf("%x", hash)
+	str := fmt.Sprintf("%s%s", table, grpc.QualMapToString(qualMap))
+	str = strings.Replace(str, "\n", "", -1)
+	str = strings.Replace(str, "\t", "", -1)
+	return str
 }
 
 func (c QueryCache) BuildResultKey(table string, qualMap map[string]*proto.Quals, columns []string) string {
-	hash := utils.StringHash(fmt.Sprintf("%s-%s-s", table, grpc.QualMapToString(qualMap), strings.Join(columns, ",")))
-	return fmt.Sprintf("%x", hash)
+	return c.BuildIndexKey(table, qualMap) + strings.Join(columns, ",")
 }

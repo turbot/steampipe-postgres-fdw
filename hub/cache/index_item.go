@@ -16,12 +16,12 @@ func newIndexBucket(columns []string, key string) *IndexBucket {
 	}
 }
 
-func (b IndexBucket) Append(item *IndexItem) {
+func (b *IndexBucket) Append(item *IndexItem) {
 	b.Items = append(b.Items, item)
 }
 
 // find an index item which satisfies all columns
-func (b IndexBucket) Get(columns []string) *IndexItem {
+func (b *IndexBucket) Get(columns []string) *IndexItem {
 	for _, item := range b.Items {
 		if item.SatisfiesColumns(columns) {
 			return item

@@ -37,7 +37,7 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 			tables = append(tables, t)
 		}
 	}
-	log.Printf("[TRACE] tables %v\n", tables)
+	log.Printf("[TRACE] SchemaToSql: tables %v\n", tables)
 
 	// TODO we do not handle any options currently
 

@@ -73,7 +73,7 @@ func newHub() (*Hub, error) {
 
 // shutdown all plugin clients
 func (h *Hub) Close() {
-	log.Println("[TRACE] close")
+	log.Println("[TRACE] hub: close")
 	for _, connection := range h.connections.connectionPlugins {
 		connection.Plugin.Client.Kill()
 	}
@@ -85,13 +85,13 @@ func (h *Hub) Close() {
 func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema, error) {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
-	log.Printf("[DEBUG] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
 	c := h.connections.get(pluginFQN, connectionName)
 
 	// if we do not have this ConnectionPlugin loaded, create
 	if c == nil {
-		log.Printf("[TRACE] connection plugin is not loaded - loading\n")
+		log.Printf("[TRACE] hub: connection plugin is not loaded - loading\n")
 
 		// load the config for this connection
 		config, ok := h.connectionConfig.Connections[connectionName]
@@ -160,7 +160,6 @@ func (h *Hub) Scan(rel *types.Relation, columns []string, quals []*proto.Qual, o
 //        Returns:
 //            A struct of the form (expected_number_of_rows, avg_row_width (in bytes))
 func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Options) (types.RelSize, error) {
-	log.Println("[TRACE] GetRelSize")
 	result := types.RelSize{
 		// Default to 1M rows, because these tables are typically expensive
 		// relative to standard postgres.
@@ -210,7 +209,6 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //            For example, the return value corresponding to the previous scenario would be::
 //                [(('id',), 1)]
 func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
-	log.Println("[TRACE] GetPathKeys")
 	return make([]types.PathKey, 0), nil
 }
 
@@ -218,7 +216,6 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 //        Returns:
 //            An iterable of strings to display in the EXPLAIN output.
 func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, verbose bool, opts types.Options) ([]string, error) {
-	log.Println("[TRACE] Explain")
 	return make([]string, 0), nil
 }
 
@@ -257,26 +254,21 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, quals []*proto
 		QueryContext: queryContext,
 		Connection:   connection,
 	}
-	log.Println("[TRACE] stub execute")
 	str, err := c.Plugin.Stub.Execute(req)
 	if err != nil {
-		log.Printf("[TRACE] set iterator error %v\n", err)
+		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
 		err = connection_config.HandleGrpcError(err, connection, "Execute")
 		iterator.setError(err)
 		return err
 	}
-	log.Println("[TRACE] stub execute returned")
-
-	log.Println("[TRACE] got stream")
 	iterator.start(str)
-	log.Println("[TRACE] iterator start returned")
 	return nil
 }
 
 // load the given plugin connection into the connection map and return the schema
 func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, connectionConfig string) (*connection_config.ConnectionPlugin, error) {
-	log.Printf("[WARN] createConnectionPlugin config: %s\n", connectionConfig)
+	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", pluginFQN, connectionName, connectionConfig)
 	opts := &connection_config.ConnectionPluginOptions{PluginFQN: pluginFQN, ConnectionName: connectionName, ConnectionConfig: connectionConfig}
 	c, err := connection_config.CreateConnectionPlugin(opts)
 	if err != nil {
@@ -292,10 +284,10 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, connectio
 func (h *Hub) LoadConnectionConfig() (bool, error) {
 	connectionConfig, err := connection_config.Load()
 	if err != nil {
+		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
 		return false, err
 	}
 
-	log.Printf("[WARN] LoadConnectionConfig: loaded %s\n", connectionConfig)
 	configChanged := h.connectionConfig == connectionConfig
 	h.connectionConfig = connectionConfig
 	return configChanged, nil

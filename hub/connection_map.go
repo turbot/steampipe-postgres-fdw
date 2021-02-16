@@ -53,7 +53,7 @@ func (p *connectionMap) add(connection *connection_config.ConnectionPlugin) erro
 // add the tables provided by this plugin to the tableConnectionMap
 func (p *connectionMap) updateTableMap(connection *connection_config.ConnectionPlugin) error {
 	pluginKey := p.getPluginKey(connection.PluginName, connection.ConnectionName)
-	log.Printf("[TRACE] updateTableMap for %s\n", pluginKey)
+	log.Printf("[TRACE] connectionMap:  updateTableMap for %s\n", pluginKey)
 
 	for table, columns := range connection.Schema.Schema {
 		// qualify the table with the schema
@@ -62,7 +62,6 @@ func (p *connectionMap) updateTableMap(connection *connection_config.ConnectionP
 			// this table is already in the map - not valid
 			return fmt.Errorf("table %s is implemented by more than 1 plugin: %s and %s\n", tableKey, existingPluginKey, pluginKey)
 		}
-		log.Printf("[TRACE] set %s = %s\n", tableKey, pluginKey)
 		// store the key to the plugin map rather than the plugin iteself - this way if there is an duplicate we know what it is
 		p.tableConnectionMap[tableKey] = pluginKey
 		p.tableColumnMap[tableKey] = columns.Columns
@@ -76,10 +75,9 @@ func (p *connectionMap) getConnectionPluginForTable(table, connectionName string
 	tableKey := p.getTableKey(table, connectionName)
 	connectionKey := p.tableConnectionMap[tableKey]
 
-	log.Printf("[TRACE] getConnectionPluginForTable table %s, connectionKey %s\n", tableKey, connectionKey)
+	log.Printf("[TRACE] connectionMap: getConnectionPluginForTable table %s, connectionKey %s\n", tableKey, connectionKey)
 	connectionPlugin := p.connectionPlugins[connectionKey]
 	if connectionPlugin == nil || connectionPlugin.Plugin.Stub == nil {
-		log.Printf("[TRACE] connectionPlugins %v\n", p.connectionPlugins)
 		return nil, fmt.Errorf("no ConnectionPlugin loaded which provides table '%s'", tableKey)
 	}
 	return connectionPlugin, nil

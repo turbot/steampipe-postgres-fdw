@@ -79,6 +79,10 @@ jobs:
         sudo apt-get update
         sudo apt-get upgrade
         sudo apt-get -y install postgresql-server-dev-12
+        apt update
+        apt remove buildah podman -y
+        apt autoremove -y
+        apt install buildah podman -y
 
     - name: Hook private repo
       run: git config --global url."https://${{ secrets.GH_ACCESS_TOKEN }}:x-oauth-basic@github.com".insteadOf "https://github.com"

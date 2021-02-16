@@ -71,17 +71,12 @@ jobs:
         if-no-files-found: error
 
   build-linux:
-    runs-on: ubuntu-latest
+#    limit to 18.04 for now https://github.com/actions/virtual-environments/issues/2703
+    runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v2
 
     - run: |-
-        sudo dpkg -P skopeo podman builah
-        sudo apt --fix-broken install
-        sudo apt update
-        sudo apt upgrade
-        sudo apt autoremove
-        sudo apt install skopeo podman builah
         sudo apt-get update
         sudo apt-get upgrade
         sudo apt-get -y install postgresql-server-dev-12

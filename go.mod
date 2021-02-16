@@ -3,7 +3,6 @@ module github.com/turbot/steampipe-postgres-fdw
 go 1.15
 
 require (
-	github.com/go-ole/go-ole v1.2.5 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/turbot/go-kit v0.1.1
@@ -14,4 +13,8 @@ require (
 
 replace github.com/c-bata/go-prompt => github.com/binaek89/go-prompt v0.2.7-multiline-clearscreen
 
-replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk v0.1.2-0.20210216103634-dc9924f5c950
+// issue-21
+replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk v0.1.2-0.20210216110503-b3467c637d18
+
+// issue-173
+replace github.com/turbot/steampipe => github.com/turbot/steampipe v0.1.1-0.20210216110648-5a27457d3ae8

@@ -386,6 +386,8 @@ github.com/tkrajina/go-reflector v0.5.4/go.mod h1:9PyLgEOzc78ey/JmQQHbW8cQJ1oucL
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/turbot/go-kit v0.0.0-20210119154454-db924443f736 h1:j/cfIwIBSX4Z23k50mgu7eLOGVcPi62ebV1Wm98OCyU=
 github.com/turbot/go-kit v0.0.0-20210119154454-db924443f736/go.mod h1:hO/mY90fJXLWAJnAoDkYMvi3LVZ/r+z1tiz3E1uPSNA=
+github.com/turbot/go-kit v0.1.1 h1:JkLUyVp8m8jEj45C52dzh7Tj9jpxHP90y9+m8cpW1mo=
+github.com/turbot/go-kit v0.1.1/go.mod h1:hO/mY90fJXLWAJnAoDkYMvi3LVZ/r+z1tiz3E1uPSNA=
 github.com/turbot/steampipe v0.0.0-20210119164829-e85f286e46e0 h1:OhOr9CEh3J1iUQEAOvvt6aAeSvojUwTR0jvCjPqdYJ0=
 github.com/turbot/steampipe v0.0.0-20210119164829-e85f286e46e0/go.mod h1:3kWUwWozGmy4/g813P/ed9KBN+rSL+rGtayX+FYraH8=
 github.com/turbot/steampipe-plugin-sdk v0.0.0-20210119154656-52569ae6f10d h1:/h1X0W74GUatUoaNxoS951scw+DK60CIZ49brL+uzaY=
@@ -394,6 +396,8 @@ github.com/turbot/steampipe-plugin-sdk v0.0.0-20210120124433-d26cb8ae3307 h1:yCC
 github.com/turbot/steampipe-plugin-sdk v0.0.0-20210120124433-d26cb8ae3307/go.mod h1:jhmUevBAJQhpxCtwP+pnpYI13/ODrZb7eCI8MKd8jZA=
 github.com/turbot/steampipe-plugin-sdk v0.0.0-20210120214727-bb3e0ba7e84f h1:8mMhKZxxHu0l6l7pdxZpa7ekt1RpDPW1GB9+to6zyYw=
 github.com/turbot/steampipe-plugin-sdk v0.0.0-20210120214727-bb3e0ba7e84f/go.mod h1:jhmUevBAJQhpxCtwP+pnpYI13/ODrZb7eCI8MKd8jZA=
+github.com/turbot/steampipe-plugin-sdk v0.1.2-0.20210216103634-dc9924f5c950 h1:Dt2nEilfXmx+a/mFgVFVEg9pb5RxmkmhhWzixMuWYWE=
+github.com/turbot/steampipe-plugin-sdk v0.1.2-0.20210216103634-dc9924f5c950/go.mod h1:8rtiNzdYYh/geT7h3N+Eujn4tzDJ0PIS5uPRAT6SSzI=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/ulikunitz/xz v0.5.8 h1:ERv8V6GKqVi23rgu5cj9pVfVzJbOqAY2Ntl88O6c2nQ=

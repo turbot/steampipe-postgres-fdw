@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
@@ -30,7 +29,7 @@ func init() {
 	// HACK: env vars do not all get copied into the Go env vars so explicitly copy them
 	SetEnvVars()
 
-	level := os.Getenv(logging.LogLevelEnvVar)
+	level := logging.LogLevel()
 	log.Printf("[INFO] Log level %s\n", level)
 	if level != "TRACE" {
 		// suppress logs

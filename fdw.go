@@ -244,9 +244,10 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 //export fdwReScanForeignScan
 func fdwReScanForeignScan(node *C.ForeignScanState) {
+	// not implemented for now
 	// Rescan table, possibly with new parameters
-	s := GetExecState(node.fdw_state)
-	s.Iter.Reset(nil, nil, nil)
+	//s := GetExecState(node.fdw_state)
+	//s.Iter.Reset(nil, nil, nil)
 }
 
 //export fdwEndForeignScan

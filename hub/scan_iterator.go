@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
+
 	"github.com/golang/protobuf/ptypes"
 	typeHelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
@@ -23,22 +25,29 @@ const (
 )
 
 type scanIterator struct {
-	status queryStatus
-	err    error
-	rows   chan *proto.Row
-	stream proto.WrapperPlugin_ExecuteClient
-	rel    *types.Relation
-	hub    *Hub
-	opts   types.Options
+	status     queryStatus
+	err        error
+	rows       chan *proto.Row
+	columns    []string
+	stream     proto.WrapperPlugin_ExecuteClient
+	rel        *types.Relation
+	qualMap    map[string]*proto.Quals
+	hub        *Hub
+	cachedRows *cache.QueryResult
+	opts       types.Options
 }
 
-func newIterator(hub *Hub, rel *types.Relation, opts types.Options) *scanIterator {
+func newScanIterator(hub *Hub, rel *types.Relation, columns []string, qualMap map[string]*proto.Quals, opts types.Options) *scanIterator {
+
 	return &scanIterator{
-		status: querystatusNone,
-		rows:   make(chan *proto.Row, rowBufferSize),
-		hub:    hub,
-		rel:    rel,
-		opts:   opts,
+		status:     querystatusNone,
+		rows:       make(chan *proto.Row, rowBufferSize),
+		hub:        hub,
+		rel:        rel,
+		columns:    columns,
+		qualMap:    qualMap,
+		cachedRows: &cache.QueryResult{},
+		opts:       opts,
 	}
 }
 
@@ -48,7 +57,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	logging.LogTime("[hub] Next start")
 
 	if canIterate, err := i.CanIterate(); !canIterate {
-		log.Printf("[WARN] cannot iterate: %v \n", i)
+		log.Printf("[WARN] scanIterator cannot iterate: %v \n", err)
 		return nil, fmt.Errorf("cannot iterate: %v", err)
 	}
 	row := <-i.rows
@@ -60,11 +69,11 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 
 	//log.Printf("[DEBUG] row %v  \n", row)
 
-	// if the row channel closed, reset the iterator state
+	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
 		log.Printf("[DEBUG] row channel is closed - reset iterator\n")
-		i.reset()
+		i.onComplete()
 		res = map[string]interface{}{}
 	} else {
 		res = make(map[string]interface{}, len(row.Columns))
@@ -95,22 +104,19 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 					return false
 				})
 			}
-
 			res[columnName] = val
 		}
+	}
+
+	// add row to cache
+	if i.hub.cachingEnabled {
+		i.cachedRows.Append(res)
 	}
 
 	logging.LogTime("[hub] Next end")
 	return res, nil
 }
 
-// Reset restarts an iterator from the beginning (possible with a new data snapshot).
-func (i *scanIterator) Reset(columns []string, quals []*proto.Qual, opts types.Options) {
-	i.Close()
-	i.hub.startScan(i, columns, quals)
-}
-
-// Close stops an iteration and frees any resources.
 func (i *scanIterator) Close() error {
 	// how to close?
 	return nil
@@ -165,11 +171,20 @@ func (i *scanIterator) failed() bool {
 	return i.status == querystatusError
 }
 
-// called when all the data has been read from the stream - reset status tpo querystatusNone, and clear stream and error
-func (i *scanIterator) reset() {
+// called when all the data has been read from the stream - complete status to querystatusNone, and clear stream and error
+func (i *scanIterator) onComplete() {
+
 	i.status = querystatusNone
 	i.stream = nil
 	i.err = nil
+	// write the data to the cache
+	table := i.opts["table"]
+
+	if i.hub.cachingEnabled {
+		log.Printf("[INFO] Scan complete - adding %d rows to cache", len(i.cachedRows.Rows))
+		i.hub.queryCache.Set(table, i.qualMap, i.columns, i.cachedRows)
+	}
+
 }
 
 // if there is an error other than EOF, save error and set state to querystatusError

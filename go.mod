@@ -3,6 +3,7 @@ module github.com/turbot/steampipe-postgres-fdw
 go 1.15
 
 require (
+	github.com/dgraph-io/ristretto v0.0.3
 	github.com/golang/protobuf v1.4.3
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/turbot/go-kit v0.1.1

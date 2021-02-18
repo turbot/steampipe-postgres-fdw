@@ -37,7 +37,6 @@ func NewQueryCache() (*QueryCache, error) {
 		BufferItems: 64,      // number of keys per Get buffer.
 	}
 	var err error
-
 	if cache.cache, err = ristretto.NewCache(config); err != nil {
 		return nil, err
 	}

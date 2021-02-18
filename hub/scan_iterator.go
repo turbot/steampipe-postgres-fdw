@@ -39,6 +39,7 @@ type scanIterator struct {
 }
 
 func newScanIterator(hub *Hub, rel *types.Relation, columns []string, qualMap map[string]*proto.Quals, queryCache *cache.QueryCache, opts types.Options) *scanIterator {
+
 	return &scanIterator{
 		status:     querystatusNone,
 		rows:       make(chan *proto.Row, rowBufferSize),
@@ -110,7 +111,9 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	}
 
 	// add row to cache
-	i.cachedRows.Append(res)
+	if i.hub.cachingEnabled {
+		i.cachedRows.Append(res)
+	}
 
 	logging.LogTime("[hub] Next end")
 	return res, nil
@@ -172,12 +175,17 @@ func (i *scanIterator) failed() bool {
 
 // called when all the data has been read from the stream - complete status to querystatusNone, and clear stream and error
 func (i *scanIterator) onComplete() {
+	log.Printf("[WARN] scanIterator onComplete")
 	i.status = querystatusNone
 	i.stream = nil
 	i.err = nil
 	// write the data to the cache
 	table := i.opts["table"]
-	i.queryCache.Set(table, i.qualMap, i.columns, i.cachedRows)
+
+	if i.hub.cachingEnabled {
+		log.Printf("[WARN] queryCache add %d rows to cache", len(i.cachedRows.Rows))
+		i.queryCache.Set(table, i.qualMap, i.columns, i.cachedRows)
+	}
 
 }
 

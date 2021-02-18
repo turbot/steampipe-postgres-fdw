@@ -5,10 +5,9 @@ import (
 	"log"
 	"sync"
 
-	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
-
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/connection_config"
 )
@@ -23,6 +22,7 @@ type Hub struct {
 	connections      *connectionMap
 	connectionConfig *connection_config.ConnectionConfigMap
 	queryCache       *cache.QueryCache
+	cachingEnabled   bool
 }
 
 // global hub instance
@@ -59,7 +59,16 @@ func newHub() (*Hub, error) {
 
 	connections := newConnectionMap()
 
-	hub := &Hub{connections: connections, queryCache:       cache.NewQueryCache(),}
+	queryCache, err := cache.NewQueryCache()
+	if err != nil {
+		return nil, err
+	}
+
+	hub := &Hub{
+		connections:    connections,
+		queryCache:     queryCache,
+		cachingEnabled: cache.Enabled(),
+	}
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
@@ -155,11 +164,14 @@ func (h *Hub) Scan(rel *types.Relation, columns []string, quals []*proto.Qual, o
 	logging.LogTime("Scan start")
 
 	qualMap, err := h.buildQualMap(quals)
-	// do we have a cached query result
-	table := opts["table"]
-	cachedResult := h.queryCache.Get(table, qualMap, columns)
-	if cachedResult != nil {
-		return newCacheIterator(cachedResult), nil
+
+	if h.cachingEnabled {
+		// do we have a cached query result
+		table := opts["table"]
+		cachedResult := h.queryCache.Get(table, qualMap, columns)
+		if cachedResult != nil {
+			return newCacheIterator(cachedResult), nil
+		}
 	}
 
 	iterator := newScanIterator(h, rel, columns, qualMap, h.queryCache, opts)
@@ -268,13 +280,13 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[st
 	req := &proto.ExecuteRequest{
 		Table:        table,
 		QueryContext: queryContext,
-		Connection:   connection,
+		Connection:   connectionName,
 	}
 	stream, err := c.Plugin.Stub.Execute(req)
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
-		err = connection_config.HandleGrpcError(err, connection, "Execute")
+		err = connection_config.HandleGrpcError(err, connectionName, "Execute")
 		iterator.setError(err)
 		return err
 	}

@@ -1,13 +1,17 @@
 package hub
 
+import (
+	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
+)
+
 type cacheIterator struct {
 	rows  []map[string]interface{}
 	index int
 }
 
-func newCacheIterator(rows []map[string]interface{}) *cacheIterator {
+func newCacheIterator(cachedResult *cache.QueryResult) *cacheIterator {
 	return &cacheIterator{
-		rows: rows,
+		rows: cachedResult.Rows,
 	}
 }
 

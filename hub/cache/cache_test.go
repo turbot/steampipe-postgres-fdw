@@ -110,7 +110,7 @@ var testCasesCacheTest = map[string]CacheTest{
 
 func TestCache(t *testing.T) {
 	for name, test := range testCasesCacheTest {
-		queryCache := NewQueryCache()
+		queryCache, _ := NewQueryCache()
 		for _, s := range test.set {
 			queryCache.Set(s.table, s.qualMap, s.columns, s.result)
 			time.Sleep(100 * time.Millisecond)

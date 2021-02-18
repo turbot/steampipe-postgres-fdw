@@ -34,11 +34,11 @@ func QualDefsToQuals(qualDefs *C.List, cinfos **C.ConversionInfo) []*proto.Qual 
 				quals = append(quals, qual)
 			}
 		} else {
-			log.Printf("[TRACE] non-const qual value (type %v), skipping\n", qualDef.right_type)
+			log.Printf("[TRACE] QualDefsToQuals: non-const qual value (type %v), skipping\n", qualDef.right_type)
 		}
 
 	}
-	log.Printf("[TRACE] converted quals from postgres datums to protobuff quals")
+	log.Printf("[TRACE] QualDefsToQuals: converted quals from postgres datums to protobuff quals")
 	for _, q := range quals {
 		log.Printf("[TRACE] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
 	}
@@ -54,7 +54,7 @@ func qualDefToQual(qualDef *C.FdwConstQual, cinfos **C.ConversionInfo) (*proto.Q
 	value := qualDef.value
 	isNull := qualDef.isnull
 
-	log.Printf(`[TRACE] convert postgres qual to protobuf qual
+	log.Printf(`[TRACE] qualDefToQual: convert postgres qual to protobuf qual
   arrayIndex: %d 
   operatorName: %s
   isArray: %v 
@@ -115,7 +115,7 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 	so we must handle quals of all these type
 
 	*/
-	log.Printf("[DEBUG] convert postgres datum to protobuf qual value datum: %v, typeOid: %v\n", datum, typeOid)
+	log.Printf("[TRACE] datumToQualValue: convert postgres datum to protobuf qual value datum: %v, typeOid: %v\n", datum, typeOid)
 	var result = &proto.QualValue{}
 
 	switch typeOid {
@@ -132,11 +132,11 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 		if C.isIpV6(inet) {
 			ipAddrString = net.IP(ipAddrBytes).String()
 			protocolVersion = grpc.IPv6
-			log.Printf("[DEBUG] ipv6 qual: %s/%d", ipAddrString, netmaskBits)
+			log.Printf("[TRACE] ipv6 qual: %s/%d", ipAddrString, netmaskBits)
 		} else {
 			ipAddrString = net.IPv4(ipAddrBytes[0], ipAddrBytes[1], ipAddrBytes[2], ipAddrBytes[3]).String()
 			protocolVersion = grpc.IPv4
-			log.Printf("[DEBUG] ipv4 qual: %s/%d", ipAddrString, netmaskBits)
+			log.Printf("[TRACE] ipv4 qual: %s/%d", ipAddrString, netmaskBits)
 		}
 		result.Value = &proto.QualValue_InetValue{
 			InetValue: &proto.Inet{
@@ -188,7 +188,7 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 	var isNull C.bool
 	for C.array_iterate(iterator, &elem, &isNull) {
 		if isNull == C.bool(true) {
-			log.Printf("[TRACE] null qual value: %v", isNull)
+			log.Printf("[TRACE] datumArrayToQualValue: null qual value: %v", isNull)
 			log.Println(isNull)
 			qualValues = append(qualValues, nil)
 			continue
@@ -203,7 +203,7 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 		if qualValue, err := datumToQualValue(elem, typeStruct.typelem, cinfo); err != nil {
 			return nil, err
 		} else {
-			log.Printf("[TRACE] adding qual value %v", qualValue)
+			log.Printf("[TRACE datumArrayToQualValue: successfully converted qual - adding qual value %v", qualValue)
 			qualValues = append(qualValues, qualValue)
 		}
 	}

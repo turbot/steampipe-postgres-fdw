@@ -12,7 +12,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -174,7 +173,6 @@ func valToBuffer(val interface{}, oid C.Oid, buffer C.StringInfo) (err error) {
 		valueString = typeHelpers.ToString(val)
 	}
 
-	log.Printf("[TRACE] valueString %s\n", valueString)
 	C.resetStringInfo(buffer)
 	C.appendBinaryStringInfo(buffer, C.CString(valueString), C.int(len(valueString)))
 	return

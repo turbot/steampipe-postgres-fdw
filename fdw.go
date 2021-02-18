@@ -59,6 +59,8 @@ func getRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, widt
 		columns = CListToGoArray(state.target_list)
 	}
 	qualList := QualDefsToQuals(state.qual_list, state.cinfos)
+
+	log.Println("[TRACE] getRelSize: converting qual defs to quals")
 	for _, q := range qualList {
 		log.Printf("[TRACE] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
 	}
@@ -136,11 +138,10 @@ func fdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("goFdwBeginForeignScan failed with panic: %v", r)
+			log.Printf("[WARN] goFdwBeginForeignScan failed with panic: %v", r)
+			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
-
-	log.Println("[TRACE] goFdwBeginForeignScan")
 
 	// retrieve exec state
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
@@ -161,12 +162,9 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	}
 
 	rel := BuildRelation(node.ss.ss_currentRelation)
-
 	opts := GetFTableOptions(rel.ID)
 
 	iter, err := pluginHub.Scan(rel, columns, qualList, opts)
-
-	log.Printf("[TRACE] pluginHub.Scan returned %v\n", err)
 	if err != nil {
 
 		FdwError(err)
@@ -179,7 +177,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		Iter:  iter,
 		State: execState,
 	}
-	log.Printf("[TRACE] save state %v\n", s)
+	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 
 	logging.LogTime("[gum] BeginForeignScan end")
@@ -189,7 +187,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("goFdwIterateForeignScan failed with panic: %v", r)
+			log.Printf("[WARN] goFdwIterateForeignScan failed with panic: %v", r)
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -199,8 +197,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
-
-	log.Printf("[TRACE] NEXT \n")
 
 	// row is a map of column name to value (as an interface)
 	row, err := s.Iter.Next()
@@ -222,10 +218,9 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	for i, attr := range s.Rel.Attr.Attrs {
 		column := attr.Name
-		columnType := attr.Type
+
 		var val = row[column]
 		if val == nil {
-			log.Printf("[TRACE] column NULL\n")
 			isNull[i] = C.bool(true)
 			continue
 		}
@@ -237,7 +232,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 			FdwError(err)
 			return slot
 		} else {
-			log.Printf("[TRACE] value: %v columnType %v, datum: %v\n", val, columnType, datum)
 			// everyone loves manually calculating array offsets
 			data[i] = datum
 		}
@@ -263,12 +257,47 @@ func fdwEndForeignScan(node *C.ForeignScanState) {
 
 //export goFdwImportForeignSchema
 func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) *C.List {
-	log.Printf("[INFO] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN]goFdwImportForeignSchema failed with panic: %v", r)
+			FdwError(fmt.Errorf("%v", r))
+		}
+	}()
+
+	log.Printf("[DEBUG] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+	// get the plugin hub,
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
+		return nil
 	}
-	schema, err := pluginHub.GetSchema(C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+
+	remoteSchema := C.GoString(stmt.remote_schema)
+	localSchema := C.GoString(stmt.local_schema)
+
+	// reload connection config - the ImportSchema command may be called because the config has been changed
+	connectionConfigChanged, err := pluginHub.LoadConnectionConfig()
+	if err != nil {
+		FdwError(err)
+		return nil
+	}
+
+	// if the connection config has changed locally, send it to the plugin
+	// NOTE: this is redundant the first time a schema is imported as the hub will probably be freshly created
+	// so connection config will be up to date
+	// However if steampiep detects a connection config change and calls RefreshConnections later, the hub will alreayd exist
+	// TODO add a mechanism to prevent reloading the first time - we just need to know if the hub was created  in call to GetHub
+
+	if connectionConfigChanged {
+		log.Printf("[DEBUG] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+
+		err := pluginHub.SetConnectionConfig(remoteSchema, localSchema)
+		if err != nil {
+			FdwError(err)
+			return nil
+		}
+	}
+	schema, err := pluginHub.GetSchema(remoteSchema, localSchema)
 	if err != nil {
 		FdwError(err)
 		return nil
@@ -295,6 +324,4 @@ func fdwValidate(coid C.Oid, opts *C.List) {
 }
 
 // required by buildmode=c-archive
-func main() {
-	log.Println("[TRACE] MAIN")
-}
+func main() {}

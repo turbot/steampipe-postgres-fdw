@@ -59,16 +59,19 @@ func newHub() (*Hub, error) {
 
 	connections := newConnectionMap()
 
-	queryCache, err := cache.NewQueryCache()
-	if err != nil {
-		return nil, err
-	}
-
 	hub := &Hub{
 		connections:    connections,
-		queryCache:     queryCache,
 		cachingEnabled: cache.Enabled(),
 	}
+
+	if hub.cachingEnabled {
+		queryCache, err := cache.NewQueryCache()
+		if err != nil {
+			return nil, err
+		}
+		hub.queryCache = queryCache
+	}
+
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}

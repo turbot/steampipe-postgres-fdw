@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -11,6 +12,11 @@ const CacheTTLEnvVar = "STEAMPIPE_CACHE_TTL"
 const defaultTTL = 5 * time.Minute
 
 func Enabled() bool {
-	enabled := os.Getenv(CacheEnabledEnvVar)
-	return strings.ToUpper(enabled) == "TRUE"
+	enabled := strings.ToUpper(os.Getenv(CacheEnabledEnvVar)) == "TRUE"
+	if enabled {
+		log.Printf("[INFO] caching ENABLED")
+	} else {
+		log.Printf("[INFO] caching DISABLED")
+	}
+	return enabled
 }

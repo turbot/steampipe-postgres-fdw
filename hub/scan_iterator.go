@@ -34,11 +34,10 @@ type scanIterator struct {
 	qualMap    map[string]*proto.Quals
 	hub        *Hub
 	cachedRows *cache.QueryResult
-	queryCache *cache.QueryCache
 	opts       types.Options
 }
 
-func newScanIterator(hub *Hub, rel *types.Relation, columns []string, qualMap map[string]*proto.Quals, queryCache *cache.QueryCache, opts types.Options) *scanIterator {
+func newScanIterator(hub *Hub, rel *types.Relation, columns []string, qualMap map[string]*proto.Quals, opts types.Options) *scanIterator {
 
 	return &scanIterator{
 		status:     querystatusNone,
@@ -47,7 +46,6 @@ func newScanIterator(hub *Hub, rel *types.Relation, columns []string, qualMap ma
 		rel:        rel,
 		columns:    columns,
 		qualMap:    qualMap,
-		queryCache: queryCache,
 		cachedRows: &cache.QueryResult{},
 		opts:       opts,
 	}
@@ -59,7 +57,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	logging.LogTime("[hub] Next start")
 
 	if canIterate, err := i.CanIterate(); !canIterate {
-		log.Printf("[WARN] cannot iterate: %v \n", i)
+		log.Printf("[WARN] scanIterator cannot iterate: %v \n", err)
 		return nil, fmt.Errorf("cannot iterate: %v", err)
 	}
 	row := <-i.rows
@@ -175,7 +173,7 @@ func (i *scanIterator) failed() bool {
 
 // called when all the data has been read from the stream - complete status to querystatusNone, and clear stream and error
 func (i *scanIterator) onComplete() {
-	log.Printf("[WARN] scanIterator onComplete")
+
 	i.status = querystatusNone
 	i.stream = nil
 	i.err = nil
@@ -183,8 +181,8 @@ func (i *scanIterator) onComplete() {
 	table := i.opts["table"]
 
 	if i.hub.cachingEnabled {
-		log.Printf("[WARN] queryCache add %d rows to cache", len(i.cachedRows.Rows))
-		i.queryCache.Set(table, i.qualMap, i.columns, i.cachedRows)
+		log.Printf("[INFO] Scan complete - adding %d rows to cache", len(i.cachedRows.Rows))
+		i.hub.queryCache.Set(table, i.qualMap, i.columns, i.cachedRows)
 	}
 
 }

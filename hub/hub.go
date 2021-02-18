@@ -111,12 +111,6 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 			return nil, fmt.Errorf("no config found for connection %s", connectionName)
 		}
 
-		// load the config for this connection
-		config, ok := h.connectionConfig.Connections[connectionName]
-		if !ok {
-			return nil, fmt.Errorf("no config found for connection %s", connectionName)
-		}
-
 		var err error
 		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Config)
 		if err != nil {
@@ -174,7 +168,7 @@ func (h *Hub) Scan(rel *types.Relation, columns []string, quals []*proto.Qual, o
 		}
 	}
 
-	iterator := newScanIterator(h, rel, columns, qualMap, h.queryCache, opts)
+	iterator := newScanIterator(h, rel, columns, qualMap, opts)
 	err = h.startScan(iterator, columns, qualMap)
 	logging.LogTime("Scan end")
 	return iterator, err

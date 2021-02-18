@@ -41,7 +41,7 @@ func NewQueryCache() (*QueryCache, error) {
 	if cache.cache, err = ristretto.NewCache(config); err != nil {
 		return nil, err
 	}
-	log.Printf("[WARN] query cache created with ttl %s", cache.ttl.String())
+	log.Printf("[INFO] query cache created with ttl %s", cache.ttl.String())
 	return cache, nil
 }
 
@@ -79,35 +79,34 @@ func (cache *Cache) Get(key string) (interface{}, bool) {
 }
 
 func (c QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
-	log.Printf("[WARN] QueryCache Get table %s", table)
 
 	// get the index bucket for this table and quals
 	//- this contains cache keys for all cache entries for specified table and quals
 
 	// get the index bucket for this table and quals
 	indexBucketKey := c.BuildIndexKey(table, qualMap)
-	log.Printf("[WARN] index bucket, key: %s\n", indexBucketKey)
+	log.Printf("[TRACE] QueryCache Get() - index bucket key: %s\n", indexBucketKey)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 	if !ok {
-		log.Printf("[WARN] CACHE MISS no index\n")
+		log.Printf("[INFO] CACHE MISS - no index\n")
 		return nil
 	}
 
 	// now check whether we have a cache entry that covers the required columns
 	indexItem := indexBucket.Get(columns)
 	if indexItem == nil {
-		log.Printf("[WARN] CACHE MISS no cached data covers columns %v\n", columns)
+		log.Printf("[INFO] CACHE MISS - no cached data covers columns %v\n", columns)
 		return nil
 	}
 
 	// so we have a cache index, retrieve the item
 	result, ok := c.getResult(indexItem.Key)
 	if !ok {
-		log.Printf("[WARN] CACHE MISS No item rerieved for cache key %s\n", indexItem.Key)
+		log.Printf("[INFO] CACHE MISS - no item retrieved for cache key %s\n", indexItem.Key)
 		return nil
 	}
 
-	log.Printf("[WARN] CACHE HIT")
+	log.Printf("[INFO] CACHE HIT")
 
 	return result
 }

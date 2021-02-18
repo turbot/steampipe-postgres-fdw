@@ -64,20 +64,6 @@ func (c QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns [
 	c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, c.ttl)
 }
 
-// simple cache implemented using ristretto cache library
-type Cache struct {
-	cache *ristretto.Cache
-}
-
-func (cache *Cache) Set(key string, value interface{}) {
-	ttl := 1 * time.Hour
-	cache.cache.SetWithTTL(key, value, 1, ttl)
-}
-
-func (cache *Cache) Get(key string) (interface{}, bool) {
-	return cache.cache.Get(key)
-}
-
 func (c QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
 
 	// get the index bucket for this table and quals

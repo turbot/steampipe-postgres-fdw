@@ -25,29 +25,29 @@ const (
 )
 
 type scanIterator struct {
-	status     queryStatus
-	err        error
-	rows       chan *proto.Row
-	columns    []string
-	stream     proto.WrapperPlugin_ExecuteClient
-	rel        *types.Relation
-	qualMap    map[string]*proto.Quals
-	hub        *Hub
-	cachedRows *cache.QueryResult
-	opts       types.Options
+	status         queryStatus
+	err            error
+	rows           chan *proto.Row
+	columns        []string
+	stream         proto.WrapperPlugin_ExecuteClient
+	rel            *types.Relation
+	qualMap        map[string]*proto.Quals
+	hub            *Hub
+	cachedRows     *cache.QueryResult
+	table          string
+	connectionName string
 }
 
-func newScanIterator(hub *Hub, rel *types.Relation, columns []string, qualMap map[string]*proto.Quals, opts types.Options) *scanIterator {
-
+func newScanIterator(hub *Hub, connectionName, table string, qualMap map[string]*proto.Quals, columns []string) *scanIterator {
 	return &scanIterator{
-		status:     querystatusNone,
-		rows:       make(chan *proto.Row, rowBufferSize),
-		hub:        hub,
-		rel:        rel,
-		columns:    columns,
-		qualMap:    qualMap,
-		cachedRows: &cache.QueryResult{},
-		opts:       opts,
+		status:         querystatusNone,
+		rows:           make(chan *proto.Row, rowBufferSize),
+		hub:            hub,
+		columns:        columns,
+		qualMap:        qualMap,
+		cachedRows:     &cache.QueryResult{},
+		table:          table,
+		connectionName: connectionName,
 	}
 }
 
@@ -178,11 +178,9 @@ func (i *scanIterator) onComplete() {
 	i.stream = nil
 	i.err = nil
 	// write the data to the cache
-	table := i.opts["table"]
-
 	if i.hub.cachingEnabled {
 		log.Printf("[INFO] Scan complete - adding %d rows to cache", len(i.cachedRows.Rows))
-		i.hub.queryCache.Set(table, i.qualMap, i.columns, i.cachedRows)
+		i.hub.queryCache.Set(i.connectionName, i.table, i.qualMap, i.columns, i.cachedRows)
 	}
 
 }

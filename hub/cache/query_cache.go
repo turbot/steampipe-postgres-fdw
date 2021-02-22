@@ -44,14 +44,14 @@ func NewQueryCache() (*QueryCache, error) {
 	return cache, nil
 }
 
-func (c QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult) {
+func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult) {
 	// write to the result cache
-	resultKey := c.BuildResultKey(table, qualMap, columns)
+	resultKey := c.BuildResultKey(connectionName, table, qualMap, columns)
 	c.cache.SetWithTTL(resultKey, result, 1, c.ttl)
 
 	// now update the index
 	// get the index bucket for this table and quals
-	indexBucketKey := c.BuildIndexKey(table, qualMap)
+	indexBucketKey := c.BuildIndexKey(connectionName, table, qualMap)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 
 	if ok {
@@ -63,13 +63,13 @@ func (c QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns [
 	c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, c.ttl)
 }
 
-func (c QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
+func (c QueryCache) Get(connectionName, table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
 
 	// get the index bucket for this table and quals
 	//- this contains cache keys for all cache entries for specified table and quals
 
 	// get the index bucket for this table and quals
-	indexBucketKey := c.BuildIndexKey(table, qualMap)
+	indexBucketKey := c.BuildIndexKey(connectionName, table, qualMap)
 	log.Printf("[TRACE] QueryCache Get() - index bucket key: %s\n", indexBucketKey)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 	if !ok {
@@ -114,13 +114,25 @@ func (c QueryCache) getResult(resultKey string) (*QueryResult, bool) {
 	return result.(*QueryResult), true
 }
 
-func (c QueryCache) BuildIndexKey(table string, qualMap map[string]*proto.Quals) string {
-	str := fmt.Sprintf("index__%s%s", table, grpc.QualMapToString(qualMap))
-	str = strings.Replace(str, "\n", "", -1)
-	str = strings.Replace(str, "\t", "", -1)
+func (c QueryCache) BuildIndexKey(connectionName, table string, qualMap map[string]*proto.Quals) string {
+	str := c.sanitiseKey(fmt.Sprintf("index__%s%s%s",
+		connectionName,
+		table,
+		grpc.QualMapToString(qualMap)))
 	return str
 }
 
-func (c QueryCache) BuildResultKey(table string, qualMap map[string]*proto.Quals, columns []string) string {
-	return c.BuildIndexKey(table, qualMap) + strings.Join(columns, ",")
+func (c QueryCache) BuildResultKey(connectionName, table string, qualMap map[string]*proto.Quals, columns []string) string {
+	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
+		connectionName,
+		table,
+		grpc.QualMapToString(qualMap),
+		strings.Join(columns, ",")))
+	return str
+}
+
+func (c QueryCache) sanitiseKey(str string) string {
+	str = strings.Replace(str, "\n", "", -1)
+	str = strings.Replace(str, "\t", "", -1)
+	return str
 }

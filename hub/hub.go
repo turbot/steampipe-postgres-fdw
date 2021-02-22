@@ -161,17 +161,21 @@ func (h *Hub) Scan(rel *types.Relation, columns []string, quals []*proto.Qual, o
 	logging.LogTime("Scan start")
 
 	qualMap, err := h.buildQualMap(quals)
+	// get table from opts
+	table := opts["table"]
+	// get the connection name - this is the namespace (i.e. the local schema)
+	connectionName := rel.Namespace
 
+	// do we have a cached query result
 	if h.cachingEnabled {
-		// do we have a cached query result
-		table := opts["table"]
-		cachedResult := h.queryCache.Get(table, qualMap, columns)
+		cachedResult := h.queryCache.Get(connectionName, table, qualMap, columns)
 		if cachedResult != nil {
+			// we have cache data - return a cache iterator
 			return newCacheIterator(cachedResult), nil
 		}
 	}
 
-	iterator := newScanIterator(h, rel, columns, qualMap, opts)
+	iterator := newScanIterator(h, connectionName, table, qualMap, columns)
 	err = h.startScan(iterator, columns, qualMap)
 	logging.LogTime("Scan end")
 	return iterator, err
@@ -250,9 +254,8 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 
 // split startScan into a separate function to allow iterator to restart the scan
 func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[string]*proto.Quals) error {
-	table := iterator.opts["table"]
-	// get the namespace (i.e. the local schema) - this is the connection name
-	connectionName := iterator.rel.Namespace
+	table := iterator.table
+	connectionName := iterator.connectionName
 
 	log.Printf("[INFO] StartScan\n  table: %s\n  columns: %v\n", table, columns)
 	// get ConnectionPlugin which serves this table

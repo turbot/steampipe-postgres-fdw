@@ -15,9 +15,13 @@ const defaultTTL = 300
 func CacheEnabled(settings *connection_config.Settings) (enabled bool) {
 	if settings.Cache != nil {
 		enabled = *settings.Cache
+	} else if envStr, ok := os.LookupEnv(CacheEnabledEnvVar); ok {
+		enabled = strings.ToUpper(envStr) == "TRUE"
 	} else {
-		enabled = strings.ToUpper(os.Getenv(CacheEnabledEnvVar)) == "TRUE"
+		// default to enabled
+		enabled = true
 	}
+
 	return
 }
 

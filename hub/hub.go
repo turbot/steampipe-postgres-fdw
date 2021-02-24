@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
@@ -19,10 +20,11 @@ const (
 
 // Hub :: structure representing plugin hub
 type Hub struct {
-	connections      *connectionMap
-	connectionConfig *connection_config.ConnectionConfigMap
-	queryCache       *cache.QueryCache
-	cachingEnabled   bool
+	connections         *connectionMap
+	steampipeConfig     *connection_config.SteampipeConfig
+	queryCache          *cache.QueryCache
+	defaultCacheEnabled bool
+	defaultCacheTTL     int
 }
 
 // global hub instance
@@ -57,28 +59,20 @@ func GetHub() (*Hub, error) {
 func newHub() (*Hub, error) {
 	log.Println("[DEBUG] newHub")
 
-	connections := newConnectionMap()
-
 	hub := &Hub{
-		connections:    connections,
-		cachingEnabled: cache.Enabled(),
-	}
-
-	if hub.cachingEnabled {
-		queryCache, err := cache.NewQueryCache()
-		if err != nil {
-			return nil, err
-		}
-		hub.queryCache = queryCache
+		connections: newConnectionMap(),
 	}
 
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
-	for connectionName, connectionConfig := range hub.connectionConfig.Connections {
-		log.Printf("[DEBUG] create connection %s, plugin %s", connectionName, connectionConfig.Plugin)
+	if err := hub.configureCache(); err != nil {
+		return nil, err
+	}
 
-		if _, err := hub.createConnectionPlugin(connection_config.PluginFQNToSchemaName(connectionConfig.Plugin), connectionName, connectionConfig.Config); err != nil {
+	for connectionName, connectionConfig := range hub.steampipeConfig.Connections {
+		log.Printf("[DEBUG] create connection %s, plugin %s", connectionName, connectionConfig.Plugin)
+		if _, err := hub.createConnectionPlugin(connection_config.PluginFQNToSchemaName(connectionConfig.Plugin), connectionName, connectionConfig.Cache, connectionConfig.CacheTTL, connectionConfig.Config); err != nil {
 			return nil, err
 		}
 	}
@@ -109,13 +103,13 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 		log.Printf("[TRACE] hub: connection plugin is not loaded - loading\n")
 
 		// load the config for this connection
-		config, ok := h.connectionConfig.Connections[connectionName]
+		config, ok := h.steampipeConfig.Connections[connectionName]
 		if !ok {
 			return nil, fmt.Errorf("no config found for connection %s", connectionName)
 		}
 
 		var err error
-		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Config)
+		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Cache, config.CacheTTL, config.Config)
 		if err != nil {
 			return nil, err
 		}
@@ -137,13 +131,13 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 		log.Printf("[TRACE] connection plugin is not loaded - loading\n")
 
 		// load the config for this connection
-		config, ok := h.connectionConfig.Connections[connectionName]
+		config, ok := h.steampipeConfig.Connections[connectionName]
 		if !ok {
 			return fmt.Errorf("no config found for connection %s", connectionName)
 		}
 
 		var err error
-		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Config)
+		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Cache, config.CacheTTL, config.Config)
 		if err != nil {
 			return err
 		}
@@ -166,8 +160,16 @@ func (h *Hub) Scan(rel *types.Relation, columns []string, quals []*proto.Qual, o
 	// get the connection name - this is the namespace (i.e. the local schema)
 	connectionName := rel.Namespace
 
+	cacheEnabled := h.cacheEnabled(connectionName)
+	cacheTTL := h.cacheTTL(connectionName)
+	var cacheString = "caching DISABLED"
+	if cacheEnabled {
+		cacheString = fmt.Sprintf("caching ENABLED with TTL %d seconds", int(cacheTTL.Seconds()))
+	}
+	log.Printf("[INFO] executing query for connection %s, %s", connectionName, cacheString)
+
 	// do we have a cached query result
-	if h.cachingEnabled {
+	if cacheEnabled {
 		cachedResult := h.queryCache.Get(connectionName, table, qualMap, columns)
 		if cachedResult != nil {
 			// we have cache data - return a cache iterator
@@ -295,9 +297,10 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[st
 }
 
 // load the given plugin connection into the connection map and return the schema
-func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, connectionConfig string) (*connection_config.ConnectionPlugin, error) {
+func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, cacheEnabled *bool, cacheTTL *int, connectionConfig string) (*connection_config.ConnectionPlugin, error) {
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", pluginFQN, connectionName, connectionConfig)
-	opts := &connection_config.ConnectionPluginOptions{PluginFQN: pluginFQN, ConnectionName: connectionName, ConnectionConfig: connectionConfig}
+
+	opts := &connection_config.ConnectionPluginOptions{PluginFQN: pluginFQN, ConnectionName: connectionName, ConnectionConfig: connectionConfig, Cache: cacheEnabled, CacheTTL: cacheTTL}
 	c, err := connection_config.CreateConnectionPlugin(opts)
 	if err != nil {
 		return nil, err
@@ -316,8 +319,52 @@ func (h *Hub) LoadConnectionConfig() (bool, error) {
 		return false, err
 	}
 
-	configChanged := h.connectionConfig == connectionConfig
-	h.connectionConfig = connectionConfig
-	return configChanged, nil
+	configChanged := h.steampipeConfig == connectionConfig
+	h.steampipeConfig = connectionConfig
 
+	return configChanged, nil
+}
+
+// if steampipe config contains cache args, set from there. Otherwise fall back to env vars
+func (h *Hub) configureCache() error {
+	h.defaultCacheEnabled = cache.CacheEnabled(h.steampipeConfig.Settings)
+	h.defaultCacheTTL = cache.CacheTTL(h.steampipeConfig.Settings)
+	log.Printf("[INFO] defaultCacheEnabled %v, defaultCacheTTL %d", h.defaultCacheEnabled, h.defaultCacheTTL)
+	queryCache, err := cache.NewQueryCache()
+	if err != nil {
+		return err
+	}
+	h.queryCache = queryCache
+
+	return nil
+}
+
+func (h *Hub) cacheEnabled(connectionName string) bool {
+	// first see whether the connection config specifies cache config
+	if connectionConfig := h.steampipeConfig.Connections[connectionName]; connectionConfig != nil {
+		log.Printf("[DEBUG] cacheEnabled found config for connection %s\n", connectionName)
+		if connectionCacheEnabled := connectionConfig.Cache; connectionCacheEnabled != nil {
+			log.Printf("[DEBUG] cacheEnabled found connectionCacheEnabled setting for connection %s: %v\n", connectionName, *connectionCacheEnabled)
+			return *connectionCacheEnabled
+		}
+	}
+
+	// no connection specific setting - use default
+	log.Printf("[DEBUG] cacheEnabled no connection specific setting - use default\n")
+	return h.defaultCacheEnabled
+}
+
+func (h *Hub) cacheTTL(connectionName string) time.Duration {
+	// first see whether the connection config specifies cache config
+	if connectionConfig := h.steampipeConfig.Connections[connectionName]; connectionConfig != nil {
+		log.Printf("[DEBUG] cacheTTL found config for connection %s\n", connectionName)
+
+		if connectionCacheTTL := connectionConfig.CacheTTL; connectionCacheTTL != nil {
+			log.Printf("[DEBUG] cacheEnabled found cacheTTL setting for connection %s: %v\n", connectionName, *connectionCacheTTL)
+			return time.Duration(*connectionCacheTTL) * time.Second
+		}
+	}
+	// no connection specific setting - use default
+	log.Printf("[DEBUG] cacheEnabled no connection specific setting - use default\n")
+	return time.Duration(h.defaultCacheTTL) * time.Second
 }

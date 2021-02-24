@@ -322,7 +322,7 @@ func TestCache(t *testing.T) {
 	for name, test := range testCasesCacheTest {
 		queryCache, _ := NewQueryCache()
 		for _, s := range test.set {
-			queryCache.Set(s.connection, s.table, s.qualMap, s.columns, s.result)
+			queryCache.Set(s.connection, s.table, s.qualMap, s.columns, s.result, 500*time.Second)
 			time.Sleep(100 * time.Millisecond)
 		}
 		time.Sleep(100 * time.Millisecond)

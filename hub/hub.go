@@ -72,7 +72,7 @@ func newHub() (*Hub, error) {
 
 	for connectionName, connectionConfig := range hub.steampipeConfig.Connections {
 		log.Printf("[DEBUG] create connection %s, plugin %s", connectionName, connectionConfig.Plugin)
-		if _, err := hub.createConnectionPlugin(connection_config.PluginFQNToSchemaName(connectionConfig.Plugin), connectionName, connectionConfig.Cache, connectionConfig.CacheTTL, connectionConfig.Config); err != nil {
+		if _, err := hub.createConnectionPlugin(connection_config.PluginFQNToSchemaName(connectionConfig.Plugin), connectionName, connectionConfig.FdwOptions, connectionConfig.PluginOptions, connectionConfig.Config); err != nil {
 			return nil, err
 		}
 	}
@@ -103,13 +103,13 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 		log.Printf("[TRACE] hub: connection plugin is not loaded - loading\n")
 
 		// load the config for this connection
-		config, ok := h.steampipeConfig.Connections[connectionName]
+		connection, ok := h.steampipeConfig.Connections[connectionName]
 		if !ok {
 			return nil, fmt.Errorf("no config found for connection %s", connectionName)
 		}
 
 		var err error
-		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Cache, config.CacheTTL, config.Config)
+		c, err = h.createConnectionPlugin(pluginFQN, connectionName, connection.FdwOptions, connection.PluginOptions, connection.Config)
 		if err != nil {
 			return nil, err
 		}
@@ -137,7 +137,7 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 		}
 
 		var err error
-		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.Cache, config.CacheTTL, config.Config)
+		c, err = h.createConnectionPlugin(pluginFQN, connectionName, config.FdwOptions, config.PluginOptions, config.Config)
 		if err != nil {
 			return err
 		}
@@ -297,10 +297,10 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[st
 }
 
 // load the given plugin connection into the connection map and return the schema
-func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, cacheEnabled *bool, cacheTTL *int, connectionConfig string) (*connection_config.ConnectionPlugin, error) {
+func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, fdwOptions *connection_config.FdwOptions, pluginOptions *connection_config.PluginOptions, connectionConfig string) (*connection_config.ConnectionPlugin, error) {
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", pluginFQN, connectionName, connectionConfig)
 
-	opts := &connection_config.ConnectionPluginOptions{PluginFQN: pluginFQN, ConnectionName: connectionName, ConnectionConfig: connectionConfig, Cache: cacheEnabled, CacheTTL: cacheTTL}
+	opts := &connection_config.ConnectionPluginInput{PluginName: pluginFQN, ConnectionName: connectionName, ConnectionConfig: connectionConfig, FdwOptions: fdwOptions, PluginOptions: pluginOptions}
 	c, err := connection_config.CreateConnectionPlugin(opts)
 	if err != nil {
 		return nil, err
@@ -359,7 +359,7 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 	if connectionConfig := h.steampipeConfig.Connections[connectionName]; connectionConfig != nil {
 		log.Printf("[DEBUG] cacheTTL found config for connection %s\n", connectionName)
 
-		if connectionCacheTTL := connectionConfig.CacheTTL; connectionCacheTTL != nil {
+		if connectionCacheTTL := connectionConfig.FdwOptions.CacheTTL; connectionCacheTTL != nil {
 			log.Printf("[DEBUG] cacheEnabled found cacheTTL setting for connection %s: %v\n", connectionName, *connectionCacheTTL)
 			return time.Duration(*connectionCacheTTL) * time.Second
 		}

@@ -12,7 +12,7 @@ const CacheEnabledEnvVar = "STEAMPIPE_CACHE"
 const CacheTTLEnvVar = "STEAMPIPE_CACHE_TTL"
 const defaultTTL = 300
 
-func CacheEnabled(settings *connection_config.Settings) (enabled bool) {
+func CacheEnabled(settings *connection_config.FdwOptions) (enabled bool) {
 	if settings.Cache != nil {
 		enabled = *settings.Cache
 	} else if envStr, ok := os.LookupEnv(CacheEnabledEnvVar); ok {
@@ -25,7 +25,7 @@ func CacheEnabled(settings *connection_config.Settings) (enabled bool) {
 	return
 }
 
-func CacheTTL(settings *connection_config.Settings) int {
+func CacheTTL(settings *connection_config.FdwOptions) int {
 	var ttlSecs int
 	if settings.CacheTTL != nil {
 		ttlSecs = *settings.CacheTTL

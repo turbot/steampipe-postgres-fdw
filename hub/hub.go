@@ -327,8 +327,8 @@ func (h *Hub) LoadConnectionConfig() (bool, error) {
 
 // if steampipe config contains cache args, set from there. Otherwise fall back to env vars
 func (h *Hub) configureCache() error {
-	h.defaultCacheEnabled = cache.CacheEnabled(h.steampipeConfig.Settings)
-	h.defaultCacheTTL = cache.CacheTTL(h.steampipeConfig.Settings)
+	h.defaultCacheEnabled = cache.CacheEnabled(h.steampipeConfig.FdwOptions)
+	h.defaultCacheTTL = cache.CacheTTL(h.steampipeConfig.FdwOptions)
 	log.Printf("[INFO] defaultCacheEnabled %v, defaultCacheTTL %d", h.defaultCacheEnabled, h.defaultCacheTTL)
 	queryCache, err := cache.NewQueryCache()
 	if err != nil {
@@ -343,7 +343,7 @@ func (h *Hub) cacheEnabled(connectionName string) bool {
 	// first see whether the connection config specifies cache config
 	if connectionConfig := h.steampipeConfig.Connections[connectionName]; connectionConfig != nil {
 		log.Printf("[DEBUG] cacheEnabled found config for connection %s\n", connectionName)
-		if connectionCacheEnabled := connectionConfig.Cache; connectionCacheEnabled != nil {
+		if connectionCacheEnabled := connectionConfig.FdwOptions.Cache; connectionCacheEnabled != nil {
 			log.Printf("[DEBUG] cacheEnabled found connectionCacheEnabled setting for connection %s: %v\n", connectionName, *connectionCacheEnabled)
 			return *connectionCacheEnabled
 		}

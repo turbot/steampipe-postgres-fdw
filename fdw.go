@@ -14,6 +14,8 @@ import (
 	"log"
 	"unsafe"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
@@ -22,8 +24,14 @@ import (
 
 var logger hclog.Logger
 
-func init() {
+// force loading of this module
+//export goInit
+func goInit() {}
 
+func init() {
+	if logger != nil {
+		return
+	}
 	log.Printf("[INFO] \n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
 
 	// HACK: env vars do not all get copied into the Go env vars so explicitly copy them
@@ -43,8 +51,9 @@ func init() {
 
 }
 
-//export getRelSize
-func getRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, width *C.int, baserel *C.RelOptInfo) {
+//export goFdwGetRelSize
+func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, width *C.int, baserel *C.RelOptInfo) {
+	log.Printf("[WARN] getRelSize\n")
 	logging.ClearProfileData()
 
 	pluginHub, err := hub.GetHub()
@@ -62,7 +71,7 @@ func getRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, widt
 
 	log.Println("[TRACE] getRelSize: converting qual defs to quals")
 	for _, q := range qualList {
-		log.Printf("[TRACE] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
+		log.Printf("[WARN] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
 	}
 
 	// Run the go interface
@@ -78,8 +87,10 @@ func getRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, widt
 	return
 }
 
-//export getPathKeys
-func getPathKeys(state *C.FdwPlanState) *C.List {
+//export goFdwGetPathKeys
+func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
+	//log.Println("[WARN] goFdwGetPathKeys")
+	log.Printf("[WARN] getPathKeys\n")
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
@@ -94,10 +105,13 @@ func getPathKeys(state *C.FdwPlanState) *C.List {
 		FdwError(err)
 	}
 
+	//spew.Dump(opts)
+
 	for _, pathKey := range pathKeys {
 		var item *C.List
 		var attnums *C.List
 
+		//spew.Dump(pathKey)
 		for _, key := range pathKey.ColumnNames {
 			// Lookup the attribute number by its key.
 			for k := 0; k < int(state.numattrs); k++ {
@@ -120,8 +134,9 @@ func getPathKeys(state *C.FdwPlanState) *C.List {
 	return result
 }
 
-//export fdwExplainForeignScan
-func fdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
+//export goFdwExplainForeignScan
+func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
+	log.Printf("[WARN] fdwExplainForeignScan\n")
 	s := GetExecState(node.fdw_state)
 	if s == nil {
 		return
@@ -136,6 +151,7 @@ func fdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
+	log.Printf("[WARN] goFdwBeginForeignScan\n")
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwBeginForeignScan failed with panic: %v", r)
@@ -181,6 +197,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	node.fdw_state = SaveExecState(s)
 
 	logging.LogTime("[gum] BeginForeignScan end")
+	//log.Println("[WARN] BeginForeignScan end")
 }
 
 //export goFdwIterateForeignScan
@@ -191,6 +208,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
+	//log.Println("[WARN] goFdwIterateForeignScan")
 	logging.LogTime("[gum] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
@@ -239,19 +257,20 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
 
 	logging.LogTime("[gum] IterateForeignScan end")
+	//1log.Println("[WARN] goFdwIterateForeignScan end")
 	return slot
 }
 
-//export fdwReScanForeignScan
-func fdwReScanForeignScan(node *C.ForeignScanState) {
+//export goFdwReScanForeignScan
+func goFdwReScanForeignScan(node *C.ForeignScanState) {
 	// not implemented for now
 	// Rescan table, possibly with new parameters
 	//s := GetExecState(node.fdw_state)
 	//s.Iter.Reset(nil, nil, nil)
 }
 
-//export fdwEndForeignScan
-func fdwEndForeignScan(node *C.ForeignScanState) {
+//export goFdwEndForeignScan
+func goFdwEndForeignScan(node *C.ForeignScanState) {
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
 }
@@ -306,6 +325,22 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	return SchemaToSql(schema.Schema, stmt, serverOid)
 }
 
+//export goFdwGetForeignJoinPaths
+func goFdwGetForeignJoinPaths(root *C.PlannerInfo,
+	joinrel *C.RelOptInfo,
+	outerrel *C.RelOptInfo,
+	innerrel *C.RelOptInfo,
+	jointype C.JoinType,
+	extra *C.JoinPathExtraData) {
+
+	//spew.Dump(joinrel)
+	//spew.Dump(outerrel)
+	//spew.Dump(innerrel)
+	spew.Dump(jointype)
+	//spew.Dump(extra)
+
+}
+
 //export goFdwShutdown
 func goFdwShutdown() {
 	pluginHub, err := hub.GetHub()
@@ -316,8 +351,8 @@ func goFdwShutdown() {
 
 }
 
-//export fdwValidate
-func fdwValidate(coid C.Oid, opts *C.List) {
+//export goFdwValidate
+func goFdwValidate(coid C.Oid, opts *C.List) {
 	// Validate the generic options given to a FOREIGN DATA WRAPPER, SERVER,
 	// USER MAPPING or FOREIGN TABLE that uses fdw.
 	// Raise an ERROR if the option or its value are considered invalid

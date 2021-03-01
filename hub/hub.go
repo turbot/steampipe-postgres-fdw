@@ -241,6 +241,13 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //                [(('id',), 1)]
 func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	return make([]types.PathKey, 0), nil
+	// return single path for key column
+	//return []types.PathKey{
+	//	{
+	//		ColumnNames: []string{"organization_id"},
+	//		Rows:        1,
+	//	},
+	//}
 }
 
 // Explain ::  hook called on explain.

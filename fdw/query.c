@@ -237,6 +237,9 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 			   *r;
 	OpExpr	   *result = NULL;
 
+    int length = (int)list_length(opExpr->args);
+    elog(WARNING, "canonicalOpExpr, arg length: %d", length);
+
 	/* Only treat binary operators for now. */
 	if (list_length(opExpr->args) == 2)
 	{
@@ -311,6 +314,8 @@ extractRestrictions(Relids base_relids,
 					Expr *node,
 					List **quals)
 {
+
+    elog(WARNING, "extractRestrictions, restriction type: %s",  tagTypeToString(nodeTag(node)));
 	switch (nodeTag(node))
 	{
 		case T_OpExpr:
@@ -363,12 +368,17 @@ extractClauseFromOpExpr(Relids base_relids,
 {
 	Var		   *left;
 	Expr	   *right;
+    ListCell   *lc;
+    foreach(lc, op->args){
 
+    }
 	/* Use a "canonical" version of the op expression, to ensure that the */
 	/* left operand is a Var on our relation. */
 	op = canonicalOpExpr(op, base_relids);
 	if (op)
 	{
+	    elog(WARNING, "got op from canonicalOpExpr");
+
 		left = list_nth(op->args, 0);
 		right = list_nth(op->args, 1);
 		/* Do not add it if it either contains a mutable function, or makes */
@@ -376,6 +386,7 @@ extractClauseFromOpExpr(Relids base_relids,
 		if (!(contain_volatile_functions((Node *) right) ||
 			  bms_is_subset(base_relids, pull_varnos((Node *) right))))
 		{
+		    elog(WARNING, "adding qual for OpExpr");
 			*quals = lappend(*quals, makeQual(left->varattno,
 											  getOperatorString(op->opno),
 											  right, false, false));
@@ -473,21 +484,26 @@ makeQual(AttrNumber varattno, char *opname, Expr *value, bool isarray,
 {
 	FdwBaseQual *qual;
 
+    elog(WARNING, "makeQual varattno: %d, opname: %s, value: %s, isarray: %d", varattno, opname, nodeToString(value), isarray);
+    elog(WARNING, "qual value type: %s",  tagTypeToString(nodeTag(value)));
+
 	switch (value->type)
 	{
 		case T_Const:
-			qual = palloc0(sizeof(FdwConstQual));
+		    qual = palloc0(sizeof(FdwConstQual));
 			qual->right_type = T_Const;
 			qual->typeoid = ((Const *) value)->consttype;
 			((FdwConstQual *) qual)->value = ((Const *) value)->constvalue;
 			((FdwConstQual *) qual)->isnull = ((Const *) value)->constisnull;
 			break;
 		case T_Var:
-			qual = palloc0(sizeof(FdwVarQual));
+			elog(WARNING, "T_Var");
+            qual = palloc0(sizeof(FdwVarQual));
 			qual->right_type = T_Var;
 			((FdwVarQual *) qual)->rightvarattno = ((Var *) value)->varattno;
 			break;
 		default:
+		    elog(WARNING, "FdwParamQual");
 			qual = palloc0(sizeof(FdwParamQual));
 			qual->right_type = T_Param;
 			((FdwParamQual *) qual)->expr = value;
@@ -498,6 +514,7 @@ makeQual(AttrNumber varattno, char *opname, Expr *value, bool isarray,
 	qual->opname = opname;
 	qual->isArray = isarray;
 	qual->useOr = useOr;
+
 	return qual;
 }
 

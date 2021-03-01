@@ -40,7 +40,7 @@ func QualDefsToQuals(qualDefs *C.List, cinfos **C.ConversionInfo) []*proto.Qual 
 	}
 	log.Printf("[TRACE] QualDefsToQuals: converted quals from postgres datums to protobuff quals")
 	for _, q := range quals {
-		log.Printf("[TRACE] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
+		log.Printf("[WARN] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
 	}
 	return quals
 }

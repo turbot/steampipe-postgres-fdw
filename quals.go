@@ -115,7 +115,7 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 	so we must handle quals of all these type
 
 	*/
-	log.Printf("[TRACE] datumToQualValue: convert postgres datum to protobuf qual value datum: %v, typeOid: %v\n", datum, typeOid)
+	log.Printf("[WARN] datumToQualValue: convert postgres datum to protobuf qual value datum: %v, typeOid: %v\n", datum, typeOid)
 	var result = &proto.QualValue{}
 
 	switch typeOid {
@@ -151,6 +151,9 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 	case C.DATEOID:
 		pgts := int64(C.datumDate(datum, cinfo))
 		result.Value = &proto.QualValue_TimestampValue{TimestampValue: PgTimeToTimestamp(pgts)}
+	case C.TIMESTAMPOID:
+		pgts := int64(C.datumTimestamp(datum, cinfo))
+		result.Value = &proto.QualValue_TimestampValue{TimestampValue: PgTimeToTimestamp(pgts)}
 
 	case C.INT2OID, C.INT4OID, C.INT8OID:
 		result.Value = &proto.QualValue_Int64Value{Int64Value: int64(C.datumInt64(datum, cinfo))}
@@ -171,7 +174,7 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 			log.Printf("[TRACE] datum is an array")
 			return datumArrayToQualValue(datum, typeOid, cinfo)
 		}
-		log.Printf("[ERROR] unknown qual value")
+		log.Printf("[ERROR] unknown qual value: %s")
 
 		return nil, fmt.Errorf("Unknown qual type %v", typeOid)
 	}

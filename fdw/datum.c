@@ -2,6 +2,7 @@
 #include "postgres.h"
 #include "common.h"
 #include "utils/inet.h"
+#include "utils/timestamp.h"
 
 char *datumString(Datum datum, ConversionInfo *cinfo) {
     if (datum == 0) {
@@ -29,4 +30,8 @@ bool datumBool(Datum datum, ConversionInfo *cinfo) {
 Timestamp datumDate(Datum datum, ConversionInfo *cinfo) {
 	datum = DirectFunctionCall1(date_timestamp, datum);
     return DatumGetInt64(datum);
+}
+
+Timestamp datumTimestamp(Datum datum, ConversionInfo *cinfo) {
+    return DatumGetTimestamp(datum);
 }

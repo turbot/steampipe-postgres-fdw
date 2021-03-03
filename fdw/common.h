@@ -126,9 +126,11 @@ inet *datumCIDR(Datum datum, ConversionInfo *cinfo);
 double  datumDouble(Datum datum, ConversionInfo *cinfo);
 bool  datumBool(Datum datum, ConversionInfo *cinfo);
 Timestamp datumDate(Datum datum, ConversionInfo *cinfo);
+Timestamp datumTimestamp(Datum datum, ConversionInfo *cinfo);
 
 // query.c
-void   extractRestrictions(Relids base_relids, Expr *node, List **quals);
+void   extractRestrictions(PlannerInfo *root, Relids base_relids, Expr *node, List **quals);
+void displayRestriction(PlannerInfo *root, Relids base_relids,RestrictInfo * r);
 List  *extractColumns(List *reltargetlist, List *restrictinfolist);
 void   initConversioninfo(ConversionInfo ** cinfo, AttInMetadata *attinmeta);
 Value *colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState * state);

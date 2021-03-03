@@ -27,7 +27,7 @@ fdwGetForeignJoinPaths(PlannerInfo *root,
 
 void *serializePlanState(FdwPlanState *state);
 FdwExecState *initializeExecState(void *internalstate);
-
+//int dumpStruct(const char *fmt, ...);
 // Required by postgres, doing basic checks to ensure compatibility,
 // such as being compiled against the correct major version.
 PG_MODULE_MAGIC;
@@ -90,6 +90,7 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
     // initialise logging`
     // to set the log level for fdw logging from C code, set log_min_messages in postgresql.conf
     goInit();
+    elog(WARNING, "fdwGetForeignRelSize");
 
     FdwPlanState *planstate = palloc0(sizeof(FdwPlanState));
 	ForeignTable *ftable = GetForeignTable(foreigntableid);
@@ -139,8 +140,19 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 	}
 
 	// Extract the restrictions from the plan.
-	foreach(lc, baserel->baserestrictinfo) {
-		extractRestrictions(baserel->relids, ((RestrictInfo *) lfirst(lc))->clause, &planstate->qual_list);
+	if (list_length(baserel->baserestrictinfo) > 0) {
+        elog(WARNING, "****************baserestrictinfo, %d restrictions", list_length(baserel->baserestrictinfo));
+
+        foreach(lc, baserel->baserestrictinfo) {
+//            displayRestriction(root, baserel->relids, ((RestrictInfo *) lfirst(lc)));
+            extractRestrictions(root, baserel->relids, ((RestrictInfo *) lfirst(lc))->clause, &planstate->qual_list);
+        }
+	}
+
+    if (list_length(baserel->joininfo) > 0) {
+        elog(WARNING, "joininfo");
+        foreach(lc, baserel->joininfo) {
+            displayRestriction(root, baserel->relids, ((RestrictInfo *) lfirst(lc)));
 	}
 
 	// Inject the "rows" and "width" attribute into the baserel
@@ -148,7 +160,7 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 	planstate->width = baserel->reltarget->width;
 	elog(WARNING, "fdwGetForeignRelSize finished");
 }
-
+}
 
 /*
  * fdwGetForeignPaths
@@ -287,7 +299,7 @@ static ForeignScan *fdwGetForeignPlan(
 	if (best_path->path.param_info) {
 		foreach(lc, scan_clauses) {
 		    elog(WARNING, "**************** fdwGetForeignPlan extractRestrictions");
-			extractRestrictions(baserel->relids, (Expr *) lfirst(lc), &planstate->qual_list);
+			extractRestrictions(root, baserel->relids, (Expr *) lfirst(lc), &planstate->qual_list);
 		}
 	}
 	foreach(lc, planstate->qual_list) {

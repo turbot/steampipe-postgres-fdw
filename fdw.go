@@ -75,8 +75,11 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 	}
 
 	// Run the go interface
+	log.Println("[WARN] pluginHub.GetRelSize")
+
 	result, err := pluginHub.GetRelSize(columns, qualList, opts)
 	if err != nil {
+		log.Println("[ERROR] pluginHub.GetRelSize")
 		FdwError(err)
 		return
 	}
@@ -90,7 +93,7 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 //export goFdwGetPathKeys
 func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	//log.Println("[WARN] goFdwGetPathKeys")
-	log.Printf("[WARN] getPathKeys\n")
+	log.Printf("[WARN] getPathKeys ***************************\n")
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
@@ -136,7 +139,7 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 
 //export goFdwExplainForeignScan
 func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
-	log.Printf("[WARN] fdwExplainForeignScan\n")
+	log.Printf("[WARN] fdwExplainForeignScan***************************\n")
 	s := GetExecState(node.fdw_state)
 	if s == nil {
 		return
@@ -151,7 +154,7 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
-	log.Printf("[WARN] goFdwBeginForeignScan\n")
+	log.Printf("[WARN] goFdwBeginForeignScan ***************************\n")
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwBeginForeignScan failed with panic: %v", r)

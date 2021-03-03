@@ -250,7 +250,7 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
 		 */
 		ppi_list = list_append_unique_ptr(ppi_list, param_info);
 	}
-
+    elog(WARNING, "after joinInfo");
 	/* Add each ForeignPath previously found */
 	foreach(lc, paths) {
 		ForeignPath *path = (ForeignPath *) lfirst(lc);
@@ -289,7 +289,7 @@ static ForeignScan *fdwGetForeignPlan(
 	List *scan_clauses,
 	Plan *outer_plan
 ) {
-//    elog(WARNING, "************** fdwGetForeignPlan");
+    elog(WARNING, "************** fdwGetForeignPlan");
 	Index scan_relid = baserel->relid;
 	FdwPlanState *planstate = (FdwPlanState *) baserel->fdw_private;
 	ListCell *lc;
@@ -316,7 +316,29 @@ static ForeignScan *fdwGetForeignPlan(
         NULL, /* All quals are meant to be rechecked */
         NULL
     );
-//	elog(WARNING, "************** ret");
+	elog(WARNING, "************** ret %d, %d, %d", list_length(s->fdw_exprs) , list_length(s->fdw_scan_tlist) , list_length(s->fdw_recheck_quals) );
+
+//    if (list_length(s->fdw_exprs) > 0) {
+//        elog(WARNING, "**************** fdwGetForeignPlan fdw expr");
+//
+//        foreach(lc, s->fdw_exprs) {
+//            elog(WARNING, "**************** fdwGetForeignPlan fdw expr: %s", nodeToString( (Expr *) lfirst(lc)));
+//        }
+//    }
+//    if (list_length(s->fdw_scan_tlist) > 0) {
+//        elog(WARNING, "**************** fdwGetForeignPlan fdw_scan_tlist");
+//
+//        foreach(lc, s->fdw_scan_tlist) {
+//            elog(WARNING, "**************** fdwGetForeignPlan fdw_scan_tlist: %s", nodeToString( (Expr *) lfirst(lc)));
+//        }
+//    }
+//    if (list_length(s->fdw_recheck_quals) > 0) {
+//        elog(WARNING, "**************** fdwGetForeignPlan fdw_recheck_quals");
+//
+//        foreach(lc, s->fdw_recheck_quals) {
+//            elog(WARNING, "**************** fdwGetForeignPlan fdw_recheck_quals: %s", nodeToString( (Expr *) lfirst(lc)));
+//        }
+//    }
 	return s;
 }
 

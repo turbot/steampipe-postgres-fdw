@@ -16,6 +16,7 @@
 #include "utils/lsyscache.h"
 #include "miscadmin.h"
 #include "parser/parsetree.h"
+#include "nodes/value.h"
 #include "pg_config.h"
 
 /* Third argument to get_attname was introduced in [8237f27] (release 11) */
@@ -34,6 +35,14 @@ void extractClauseFromNullTest(Relids base_relids,
 void extractClauseFromScalarArrayOpExpr(Relids base_relids,
 								   ScalarArrayOpExpr *node,
 								   List **quals);
+
+void extractClauseFromBooleanTest(Relids base_relids,
+								   BooleanTest *node,
+								   List **quals);
+
+//void extractClauseFromBooleanExpression(Relids base_relids,
+//								   BooleanExpression *node,
+//								   List **quals);
 
 char	   *getOperatorString(Oid opoid);
 
@@ -56,6 +65,9 @@ List *clausesInvolvingAttr(Index relid, AttrNumber attnum,
 					 EquivalenceClass *eq_class);
 
 Expr *fdw_get_em_expr(EquivalenceClass *ec, RelOptInfo *rel);
+
+//void displayRestriction(Relids base_relids,RestrictInfo * r);
+
 
 /*
  * The list of needed columns (represented by their respective vars)
@@ -241,13 +253,22 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
     elog(WARNING, "canonicalOpExpr, arg length: %d", length);
 
 	/* Only treat binary operators for now. */
-	if (list_length(opExpr->args) == 2)
+	if (length == 2)
 	{
 		l = unnestClause(list_nth(opExpr->args, 0));
 		r = unnestClause(list_nth(opExpr->args, 1));
+
+//		elog(WARNING, "l arg: %s", nodeToString(l));
+//		elog(WARNING, "r arg: %s", nodeToString(r));
+
 		swapOperandsAsNeeded(&l, &r, &operatorid, base_relids);
-		if (IsA(l, Var) &&bms_is_member(((Var *) l)->varno, base_relids)
-			&& ((Var *) l)->varattno >= 1)
+
+		/* varno:	    index of this var's relation in the range table, or INNER_VAR/OUTER_VAR/INDEX_VAR
+		   varattno:	attribute number of this var, or zero for all attrs ("whole-row Var") */
+
+		if (IsA(l, Var)
+		    && bms_is_member(((Var *) l)->varno, base_relids)
+		 	&& ((Var *) l)->varattno >= 1)
 		{
 			result = (OpExpr *) make_opclause(operatorid,
 											  opExpr->opresulttype,
@@ -255,8 +276,13 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 											  (Expr *) l, (Expr *) r,
 											  opExpr->opcollid,
 											  opExpr->inputcollid);
+
+          elog(WARNING, "canonicalOpExpr returning result");
 		}
-	}
+	} else {
+	  elog(WARNING, "canonicalOpExpr - arg length %d, ignoring", length);
+    }
+
 	return result;
 }
 
@@ -310,10 +336,12 @@ canonicalScalarArrayOpExpr(ScalarArrayOpExpr *opExpr,
  *
  */
 void
-extractRestrictions(Relids base_relids,
+extractRestrictions(PlannerInfo *root,
+                    Relids base_relids,
 					Expr *node,
 					List **quals)
 {
+    // see laurenz/oracle_fdw/oracle_fdw.c #4548
 
     elog(WARNING, "extractRestrictions, restriction type: %s",  tagTypeToString(nodeTag(node)));
 	switch (nodeTag(node))
@@ -331,24 +359,56 @@ extractRestrictions(Relids base_relids,
 											   (ScalarArrayOpExpr *) node,
 											   quals);
 			break;
-		case T_Var:
-		case T_BooleanTest:
-			{
-				ereport(WARNING,
-						(errmsg("TODO - bool expression for "
-								"extractClauseFrom"),
-						 errdetail("%s", nodeToString(node))));
-			}
+        case T_BooleanTest:
+			extractClauseFromBooleanTest(base_relids,
+											   (BooleanTest *) node,
+											   quals);
 			break;
+        case T_BoolExpr:
+            elog(WARNING, "T_BooleanExpr %d", ((BoolExpr *)node)->boolop);
+            ListCell *cell;
+	        foreach(cell, ((BoolExpr *)node)->args)
+            {
+                Expr *e = (Expr *)lfirst(cell);
+                elog(WARNING, "arg: %s", nodeToString(e));
+//                extractRestrictions(base_relids, (Expr *)lfirst(cell), quals);
+                // Store only a Value node containing the string name of the column.
+                if (nodeTag(e) == T_Var){
+                    Value* v = colnameFromVar((Var*)e, root, NULL);
+                    char* colname = (((Value *)(v))->val.str);
+                    if (colname != NULL && strVal(colname) != NULL) {
+                    elog(WARNING, "col: %s", colname);
+
+                }
+                }
+            }
+            elog(WARNING, "END T_BooleanExpr");
+            break;
+        case T_Var:
+            elog(WARNING, "T_Var: %s", nodeToString(node));
+            break;
 		default:
-			{
-				ereport(WARNING,
-						(errmsg("unsupported expression for "
-								"extractClauseFrom"),
-						 errdetail("%s", nodeToString(node))));
-			}
+
+//				ereport(WARNING,
+//						(errmsg("unsupported expression for "
+//								"extractClauseFrom"),
+//						 errdetail("%s", nodeToString(node))));
+
+            elog(WARNING, "unsupported expression for extractClauseFrom: %s", nodeToString(node));
+
 			break;
 	}
+	elog(WARNING, "RETURN");
+}
+
+void displayRestriction(PlannerInfo *root, Relids base_relids, RestrictInfo * r){
+    elog(WARNING, "displayRestrictions");
+    Expr *node = r->clause;
+    elog(WARNING, "restriction type: %s",  tagTypeToString(nodeTag(node)));
+    elog(WARNING, "node: %s", nodeToString(node));
+
+//    __builtin_dump_struct(r, &dumpStruct.clause);
+
 }
 
 /*
@@ -390,6 +450,8 @@ extractClauseFromOpExpr(Relids base_relids,
 			*quals = lappend(*quals, makeQual(left->varattno,
 											  getOperatorString(op->opno),
 											  right, false, false));
+		} else {
+		    elog(WARNING, "NOT adding qual for OpExpr");
 		}
 	}
 }
@@ -417,6 +479,22 @@ extractClauseFromScalarArrayOpExpr(Relids base_relids,
 		}
 	}
 }
+
+void extractClauseFromBooleanTest(Relids base_relids,
+								   BooleanTest *node,
+								   List **quals){
+    // IS_TRUE, IS_NOT_TRUE, IS_FALSE, IS_NOT_FALSE, IS_UNKNOWN, IS_NOT_UNKNOWN
+    elog(WARNING, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
+
+}
+//
+//void extractClauseFromBooleanExpression(Relids base_relids,
+//								   BooleanExpression *node,
+//								   List **quals){
+//    // IS_TRUE, IS_NOT_TRUE, IS_FALSE, IS_NOT_FALSE, IS_UNKNOWN, IS_NOT_UNKNOWN
+//    elog(WARNING, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
+//
+//}
 
 
 /*
@@ -463,6 +541,8 @@ Value *
 colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState * planstate)
 {
 	RangeTblEntry *rte = rte = planner_rt_fetch(var->varno, root);
+
+    elog(WARNING, "colnameFromVar relid %d, varattno %d", rte->relid, var->varattno);
 	char	   *attname = get_attname(rte->relid, var->varattno);
 
 	if (attname == NULL)
@@ -479,8 +559,7 @@ colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState * planstate)
  *	Build an opaque "qual" object.
  */
 FdwBaseQual *
-makeQual(AttrNumber varattno, char *opname, Expr *value, bool isarray,
-		 bool useOr)
+makeQual(AttrNumber varattno, char *opname, Expr *value, bool isarray, bool useOr)
 {
 	FdwBaseQual *qual;
 
@@ -894,3 +973,7 @@ deserializeDeparsedSortGroup(List *items)
 
 	return result;
 }
+
+
+
+

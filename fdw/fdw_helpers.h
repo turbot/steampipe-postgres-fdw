@@ -74,3 +74,5 @@ static inline RestrictInfo* cellGetRestrictInfo(ListCell *n) { return (RestrictI
 static inline FdwBaseQual* cellGetBaseQual(ListCell *n) { return (FdwBaseQual*)n->data.ptr_value; }
 static inline FdwConstQual* cellGetConstQual(ListCell *n) { return (FdwConstQual*)n->data.ptr_value; }
 
+// logging
+char* tagTypeToString(NodeTag type);

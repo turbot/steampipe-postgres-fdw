@@ -258,8 +258,8 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 		l = unnestClause(list_nth(opExpr->args, 0));
 		r = unnestClause(list_nth(opExpr->args, 1));
 
-//		elog(WARNING, "l arg: %s", nodeToString(l));
-//		elog(WARNING, "r arg: %s", nodeToString(r));
+		elog(WARNING, "l arg: %s", nodeToString(l));
+		elog(WARNING, "r arg: %s", nodeToString(r));
 
 		swapOperandsAsNeeded(&l, &r, &operatorid, base_relids);
 
@@ -365,27 +365,33 @@ extractRestrictions(PlannerInfo *root,
 											   quals);
 			break;
         case T_BoolExpr:
-            elog(WARNING, "T_BooleanExpr %d", ((BoolExpr *)node)->boolop);
+            elog(INFO, "T_BooleanExpr %d", ((BoolExpr *)node)->boolop);
             ListCell *cell;
-	        foreach(cell, ((BoolExpr *)node)->args)
+            List* args = ((BoolExpr *)node)->args;
+            // if there is a single variable argument, extract a bool qual
+            if (list_length(args) == 1){
+                elog(INFO, "bool expression with single arg");
+            //
+            }
+	        foreach(cell, args)
             {
                 Expr *e = (Expr *)lfirst(cell);
-                elog(WARNING, "arg: %s", nodeToString(e));
+                elog(INFO, "arg: %s", nodeToString(e));
 //                extractRestrictions(base_relids, (Expr *)lfirst(cell), quals);
                 // Store only a Value node containing the string name of the column.
                 if (nodeTag(e) == T_Var){
                     Value* v = colnameFromVar((Var*)e, root, NULL);
                     char* colname = (((Value *)(v))->val.str);
                     if (colname != NULL && strVal(colname) != NULL) {
-                    elog(WARNING, "col: %s", colname);
+                    elog(INFO, "col: %s", colname);
 
                 }
                 }
             }
-            elog(WARNING, "END T_BooleanExpr");
+            elog(INFO, "END T_BooleanExpr");
             break;
         case T_Var:
-            elog(WARNING, "T_Var: %s", nodeToString(node));
+            elog(INFO, "T_Var: %s", nodeToString(node));
             break;
 		default:
 
@@ -398,14 +404,14 @@ extractRestrictions(PlannerInfo *root,
 
 			break;
 	}
-	elog(WARNING, "RETURN");
+	elog(INFO, "RETURN");
 }
 
 void displayRestriction(PlannerInfo *root, Relids base_relids, RestrictInfo * r){
-    elog(WARNING, "displayRestrictions");
+    elog(INFO, "displayRestrictions");
     Expr *node = r->clause;
-    elog(WARNING, "restriction type: %s",  tagTypeToString(nodeTag(node)));
-    elog(WARNING, "node: %s", nodeToString(node));
+    elog(INFO, "restriction type: %s",  tagTypeToString(nodeTag(node)));
+    elog(INFO, "node: %s", nodeToString(node));
 
 //    __builtin_dump_struct(r, &dumpStruct.clause);
 
@@ -437,7 +443,7 @@ extractClauseFromOpExpr(Relids base_relids,
 	op = canonicalOpExpr(op, base_relids);
 	if (op)
 	{
-	    elog(WARNING, "got op from canonicalOpExpr");
+	    elog(INFO, "got op from canonicalOpExpr");
 
 		left = list_nth(op->args, 0);
 		right = list_nth(op->args, 1);
@@ -446,12 +452,12 @@ extractClauseFromOpExpr(Relids base_relids,
 		if (!(contain_volatile_functions((Node *) right) ||
 			  bms_is_subset(base_relids, pull_varnos((Node *) right))))
 		{
-		    elog(WARNING, "adding qual for OpExpr");
+		    elog(INFO, "adding qual for OpExpr");
 			*quals = lappend(*quals, makeQual(left->varattno,
 											  getOperatorString(op->opno),
 											  right, false, false));
 		} else {
-		    elog(WARNING, "NOT adding qual for OpExpr");
+		    elog(INFO, "NOT adding qual for OpExpr");
 		}
 	}
 }
@@ -484,7 +490,7 @@ void extractClauseFromBooleanTest(Relids base_relids,
 								   BooleanTest *node,
 								   List **quals){
     // IS_TRUE, IS_NOT_TRUE, IS_FALSE, IS_NOT_FALSE, IS_UNKNOWN, IS_NOT_UNKNOWN
-    elog(WARNING, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
+    elog(INFO, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
 
 }
 //
@@ -492,7 +498,7 @@ void extractClauseFromBooleanTest(Relids base_relids,
 //								   BooleanExpression *node,
 //								   List **quals){
 //    // IS_TRUE, IS_NOT_TRUE, IS_FALSE, IS_NOT_FALSE, IS_UNKNOWN, IS_NOT_UNKNOWN
-//    elog(WARNING, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
+//    elog(INFO, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
 //
 //}
 
@@ -542,7 +548,7 @@ colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState * planstate)
 {
 	RangeTblEntry *rte = rte = planner_rt_fetch(var->varno, root);
 
-    elog(WARNING, "colnameFromVar relid %d, varattno %d", rte->relid, var->varattno);
+//    elog(INFO, "colnameFromVar relid %d, varattno %d", rte->relid, var->varattno);
 	char	   *attname = get_attname(rte->relid, var->varattno);
 
 	if (attname == NULL)
@@ -563,8 +569,8 @@ makeQual(AttrNumber varattno, char *opname, Expr *value, bool isarray, bool useO
 {
 	FdwBaseQual *qual;
 
-    elog(WARNING, "makeQual varattno: %d, opname: %s, value: %s, isarray: %d", varattno, opname, nodeToString(value), isarray);
-    elog(WARNING, "qual value type: %s",  tagTypeToString(nodeTag(value)));
+    elog(INFO, "makeQual varattno: %d, opname: %s, value: %s, isarray: %d", varattno, opname, nodeToString(value), isarray);
+    elog(INFO, "qual value type: %s",  tagTypeToString(nodeTag(value)));
 
 	switch (value->type)
 	{
@@ -576,13 +582,13 @@ makeQual(AttrNumber varattno, char *opname, Expr *value, bool isarray, bool useO
 			((FdwConstQual *) qual)->isnull = ((Const *) value)->constisnull;
 			break;
 		case T_Var:
-			elog(WARNING, "T_Var");
+			elog(INFO, "T_Var");
             qual = palloc0(sizeof(FdwVarQual));
 			qual->right_type = T_Var;
 			((FdwVarQual *) qual)->rightvarattno = ((Var *) value)->varattno;
 			break;
 		default:
-		    elog(WARNING, "FdwParamQual");
+		    elog(INFO, "other value type %s", nodeToString(value));
 			qual = palloc0(sizeof(FdwParamQual));
 			qual->right_type = T_Param;
 			((FdwParamQual *) qual)->expr = value;

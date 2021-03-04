@@ -244,10 +244,10 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	// return single path for key column
 	//return []types.PathKey{
 	//	{
-	//		ColumnNames: []string{"organization_id"},
+	//		ColumnNames: []string{"domain"},
 	//		Rows:        1,
 	//	},
-	//}
+	//}, nil
 }
 
 // Explain ::  hook called on explain.

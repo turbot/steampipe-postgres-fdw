@@ -90,7 +90,7 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
     // initialise logging`
     // to set the log level for fdw logging from C code, set log_min_messages in postgresql.conf
     goInit();
-    elog(WARNING, "fdwGetForeignRelSize");
+    elog(INFO, "fdwGetForeignRelSize");
 
     FdwPlanState *planstate = palloc0(sizeof(FdwPlanState));
 	ForeignTable *ftable = GetForeignTable(foreigntableid);
@@ -140,8 +140,8 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 	}
 
 	// Extract the restrictions from the plan.
+    elog(INFO, "**************** baserestrictinfo, %d restrictions", list_length(baserel->baserestrictinfo));
 	if (list_length(baserel->baserestrictinfo) > 0) {
-        elog(WARNING, "****************baserestrictinfo, %d restrictions", list_length(baserel->baserestrictinfo));
 
         foreach(lc, baserel->baserestrictinfo) {
 //            displayRestriction(root, baserel->relids, ((RestrictInfo *) lfirst(lc)));
@@ -149,8 +149,9 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
         }
 	}
 
+    elog(INFO, "**************** joininfo, %d restrictions", list_length(baserel->joininfo));
     if (list_length(baserel->joininfo) > 0) {
-        elog(WARNING, "joininfo");
+        elog(INFO, "joininfo");
         foreach(lc, baserel->joininfo) {
             displayRestriction(root, baserel->relids, ((RestrictInfo *) lfirst(lc)));
 	}
@@ -158,7 +159,7 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 	// Inject the "rows" and "width" attribute into the baserel
 	goFdwGetRelSize(planstate, root, &baserel->rows, &baserel->reltarget->width, baserel);
 	planstate->width = baserel->reltarget->width;
-	elog(WARNING, "fdwGetForeignRelSize finished");
+	elog(INFO, "fdwGetForeignRelSize finished");
 }
 }
 
@@ -209,11 +210,11 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
 	}
 
 
-    elog(WARNING, "before joinInfo");
+    elog(INFO, "**************** joininfo, %d restrictions", list_length(baserel->joininfo));
     ppi_list = NIL;
 	foreach(lc, baserel->joininfo)
 	{
-        elog(WARNING, "joinInfo");
+        elog(INFO, "joinInfo");
 		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
 		Relids		required_outer;
 		ParamPathInfo *param_info;
@@ -250,7 +251,7 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
 		 */
 		ppi_list = list_append_unique_ptr(ppi_list, param_info);
 	}
-    elog(WARNING, "after joinInfo");
+//    elog(INFO, "after joinInfo");
 	/* Add each ForeignPath previously found */
 	foreach(lc, paths) {
 		ForeignPath *path = (ForeignPath *) lfirst(lc);
@@ -289,22 +290,24 @@ static ForeignScan *fdwGetForeignPlan(
 	List *scan_clauses,
 	Plan *outer_plan
 ) {
-    elog(WARNING, "************** fdwGetForeignPlan");
+    elog(INFO, "************** fdwGetForeignPlan");
 	Index scan_relid = baserel->relid;
 	FdwPlanState *planstate = (FdwPlanState *) baserel->fdw_private;
 	ListCell *lc;
 	best_path->path.pathtarget->width = planstate->width;
+	elog(INFO, "**************** fdwGetForeignPlan %d scan_clauses", list_length(scan_clauses));
 	scan_clauses = extract_actual_clauses(scan_clauses, false);
-	/* Extract the quals coming from a parameterized path, if any */
+    	/* Extract the quals coming from a parameterized path, if any */
 	if (best_path->path.param_info) {
 		foreach(lc, scan_clauses) {
-		    elog(WARNING, "**************** fdwGetForeignPlan extractRestrictions");
+		    elog(INFO, "**************** fdwGetForeignPlan extractRestrictions");
 			extractRestrictions(root, baserel->relids, (Expr *) lfirst(lc), &planstate->qual_list);
 		}
 	}
-	foreach(lc, planstate->qual_list) {
-
-	}
+	elog(INFO, "**************** fdwGetForeignPlan %d planstate->qual_list", list_length(planstate->qual_list));
+//	foreach(lc, planstate->qual_list) {
+//        elog(INFO, "%s", nodeToString((Expr *) lfirst(lc)));
+//	}
 	planstate->pathkeys = (List *) best_path->fdw_private;
 	ForeignScan * s = make_foreignscan(
         tlist,
@@ -316,27 +319,27 @@ static ForeignScan *fdwGetForeignPlan(
         NULL, /* All quals are meant to be rechecked */
         NULL
     );
-	elog(WARNING, "************** ret %d, %d, %d", list_length(s->fdw_exprs) , list_length(s->fdw_scan_tlist) , list_length(s->fdw_recheck_quals) );
+//	elog(INFO, "************** ret %d, %d, %d", list_length(s->fdw_exprs) , list_length(s->fdw_scan_tlist) , list_length(s->fdw_recheck_quals) );
 
 //    if (list_length(s->fdw_exprs) > 0) {
-//        elog(WARNING, "**************** fdwGetForeignPlan fdw expr");
+//        elog(INFO, "**************** fdwGetForeignPlan fdw expr");
 //
 //        foreach(lc, s->fdw_exprs) {
-//            elog(WARNING, "**************** fdwGetForeignPlan fdw expr: %s", nodeToString( (Expr *) lfirst(lc)));
+//            elog(INFO, "**************** fdwGetForeignPlan fdw expr: %s", nodeToString( (Expr *) lfirst(lc)));
 //        }
 //    }
 //    if (list_length(s->fdw_scan_tlist) > 0) {
-//        elog(WARNING, "**************** fdwGetForeignPlan fdw_scan_tlist");
+//        elog(INFO, "**************** fdwGetForeignPlan fdw_scan_tlist");
 //
 //        foreach(lc, s->fdw_scan_tlist) {
-//            elog(WARNING, "**************** fdwGetForeignPlan fdw_scan_tlist: %s", nodeToString( (Expr *) lfirst(lc)));
+//            elog(INFO, "**************** fdwGetForeignPlan fdw_scan_tlist: %s", nodeToString( (Expr *) lfirst(lc)));
 //        }
 //    }
 //    if (list_length(s->fdw_recheck_quals) > 0) {
-//        elog(WARNING, "**************** fdwGetForeignPlan fdw_recheck_quals");
+//        elog(INFO, "**************** fdwGetForeignPlan fdw_recheck_quals");
 //
 //        foreach(lc, s->fdw_recheck_quals) {
-//            elog(WARNING, "**************** fdwGetForeignPlan fdw_recheck_quals: %s", nodeToString( (Expr *) lfirst(lc)));
+//            elog(INFO, "**************** fdwGetForeignPlan fdw_recheck_quals: %s", nodeToString( (Expr *) lfirst(lc)));
 //        }
 //    }
 	return s;
@@ -404,7 +407,8 @@ fdwGetForeignJoinPaths(PlannerInfo *root,
  							JoinType jointype,
  							JoinPathExtraData *extra)
  {
-    elog(WARNING, "fdwGetForeignJoinPaths");
+    elog(ERROR, "*****************fdwGetForeignJoinPaths");
+    return
     goFdwGetForeignJoinPaths(root, joinrel, outerrel,innerrel,jointype, extra );
 
 //	PgFdwRelationInfo *fpinfo;

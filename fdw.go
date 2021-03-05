@@ -5,6 +5,7 @@ package main
 #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
 #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 #include "fdw_helpers.h"
+#include "utils/rel.h"
 */
 import "C"
 
@@ -170,6 +171,11 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	if execState.target_list != nil {
 		columns = CListToGoArray(execState.target_list)
 	}
+
+	// get cinfos here, instead of saving in planning?
+	var tupdesc C.TupleDesc = node.ss.ss_currentRelation.rd_att
+	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
+
 	qualList := QualDefsToQuals(execState.qual_list, execState.cinfos)
 
 	logging.LogTime("[gum] BeginForeignScan start")
@@ -212,6 +218,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		}
 	}()
 	//log.Println("[WARN] goFdwIterateForeignScan")
+	log.Printf("[INFO] goFdwIterateForeignScan - Start")
 	logging.LogTime("[gum] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
@@ -247,7 +254,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		}
 		// get the conversion info for this column
 		ci := C.getConversionInfo(s.State.cinfos, C.int(i))
-
 		// convert value into a datum
 		if datum, err := ValToDatum(val, ci, s.State.buffer); err != nil {
 			FdwError(err)
@@ -257,7 +263,9 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 			data[i] = datum
 		}
 	}
+
 	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
+	log.Printf("[INFO] goFdwIterateForeignScan End")
 
 	logging.LogTime("[gum] IterateForeignScan end")
 	//1log.Println("[WARN] goFdwIterateForeignScan end")

@@ -111,7 +111,7 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 		desc = RelationGetDescr(rel);
 		attinmeta = TupleDescGetAttInMetadata(desc);
 		planstate->numattrs = RelationGetNumberOfAttributes(rel);
-		planstate->cinfos = palloc0(sizeof(ConversionInfo *) *planstate->numattrs);
+		planstate->cinfos = palloc0(sizeof(ConversionInfo *) * planstate->numattrs);
 		initConversioninfo(planstate->cinfos, attinmeta);
 		needWholeRow = rel->trigdesc && rel->trigdesc->trig_insert_after_row;
 		RelationClose(rel);
@@ -357,7 +357,7 @@ static ForeignScan *fdwGetForeignPlan(
  	result = lappend(result, state->target_list);
  	result = lappend(result, serializeDeparsedSortGroup(state->pathkeys));
  	result = lappend(result, state->qual_list);
- 	result = lappend(result, state->cinfos);
+ 	// result = lappend(result, state->cinfos);
 
  	return result;
  }
@@ -385,11 +385,15 @@ FdwExecState *initializeExecState(void *internalstate) {
 
 	List* quals = (List*)lfourth(values);
     execstate->qual_list = quals;
-	//execstate->fdw_instance = getInstance(foreigntableid);
-	execstate->buffer = makeStringInfo();
-	// TODO define fifth() function or at least make this nicer
-	execstate->cinfos =	lfirst(lnext(lnext(lnext(lnext(list_head(values))))));
+	//execstate->qual_list = NULL;
 
+	// //execstate->fdw_instance = getInstance(foreigntableid);
+	execstate->buffer = makeStringInfo();
+	// // TODO define fifth() function or at least make this nicer
+	//execstate->cinfos =	lfirst(lnext(lnext(lnext(lnext(list_head(values))))));
+	
+	execstate->cinfos = palloc0(sizeof(ConversionInfo *) * numattrs);
+	
 	execstate->values = palloc(numattrs * sizeof(Datum));
 	execstate->nulls = palloc(numattrs * sizeof(bool));
 	return execstate;

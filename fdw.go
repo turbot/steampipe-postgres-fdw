@@ -65,10 +65,12 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 	}
 	opts := GetFTableOptions(types.Oid(state.foreigntableid))
 
+	// build columns
 	var columns []string
 	if state.target_list != nil {
 		columns = CListToGoArray(state.target_list)
 	}
+	// build quals in case they influence the rel size we return (at present they do not)
 	qualList := QualDefsToQuals(state.qual_list, state.cinfos)
 
 	log.Println("[TRACE] getRelSize: converting qual defs to quals")
@@ -152,6 +154,11 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 	}
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
+}
+
+//export goFdwGetForeignPlan
+func goFdwGetForeignPlan(res *C.ForeignScan) {
+	spew.Dump(res)
 }
 
 //export goFdwBeginForeignScan

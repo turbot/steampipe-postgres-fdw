@@ -13,7 +13,7 @@ endif
 # 	PG_LDFLAGS="-framework Foundation -framework AppKit -framework Security";
 # fi;
 
-PG_CFLAGS = -I./include/postgresql/server -I./include/postgresql/internal
+PG_CFLAGS = -I./include/postgresql/server -I./include/postgresql/internal -g
 
 EXTENSION = steampipe_postgres_fdw
 DATA = steampipe_postgres_fdw--1.0.sql
@@ -31,5 +31,6 @@ go: ../fdw.go
 
 inst:
 	cp steampipe_postgres_fdw.so ~/.steampipe/db/12.1.0/postgres/lib/postgresql/steampipe_postgres_fdw.so
+	cp steampipe_postgres_fdw.so ~/.steampipe/db/12.1.0/postgres/lib/steampipe_postgres_fdw.so
 	cp steampipe_postgres_fdw.control ~/.steampipe/db/12.1.0/postgres/share/postgresql/extension/steampipe_postgres_fdw.control
 	cp steampipe_postgres_fdw--1.0.sql ~/.steampipe/db/12.1.0/postgres/share/postgresql/extension/steampipe_postgres_fdw--1.0.sql

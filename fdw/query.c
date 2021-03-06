@@ -336,8 +336,7 @@ canonicalScalarArrayOpExpr(ScalarArrayOpExpr *opExpr,
  *
  */
 void
-extractRestrictions(PlannerInfo *root,
-                    Relids base_relids,
+extractRestrictions(Relids base_relids,
 					Expr *node,
 					List **quals)
 {
@@ -379,14 +378,14 @@ extractRestrictions(PlannerInfo *root,
                 elog(INFO, "arg: %s", nodeToString(e));
 //                extractRestrictions(base_relids, (Expr *)lfirst(cell), quals);
                 // Store only a Value node containing the string name of the column.
-                if (nodeTag(e) == T_Var){
-                    Value* v = colnameFromVar((Var*)e, root, NULL);
-                    char* colname = (((Value *)(v))->val.str);
-                    if (colname != NULL && strVal(colname) != NULL) {
-                    elog(INFO, "col: %s", colname);
+                // if (nodeTag(e) == T_Var){
+                //     Value* v = colnameFromVar((Var*)e, root, NULL);
+                //     char* colname = (((Value *)(v))->val.str);
+                //     if (colname != NULL && strVal(colname) != NULL) {
+                //     elog(INFO, "col: %s", colname);
 
-                }
-                }
+                // }
+                //}
             }
             elog(INFO, "END T_BooleanExpr");
             break;

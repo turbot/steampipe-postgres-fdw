@@ -6,6 +6,7 @@ package main
 #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 #include "fdw_helpers.h"
 #include "utils/rel.h"
+#include "nodes/pg_list.h"
 */
 import "C"
 
@@ -163,21 +164,48 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		}
 	}()
 
+	log.Printf("[WARN] goFdwBeginForeignScan - Retrieving exec state")
+
 	// retrieve exec state
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	var execState *C.FdwExecState = C.initializeExecState(unsafe.Pointer(plan.fdw_private))
+
+	log.Printf("[WARN] goFdwBeginForeignScan - Getting target list")
 
 	var columns []string
 	if execState.target_list != nil {
 		columns = CListToGoArray(execState.target_list)
 	}
 
+	log.Printf("[WARN] goFdwBeginForeignScan - Getting CInfos")
 	// get cinfos here, instead of saving in planning?
 	var tupdesc C.TupleDesc = node.ss.ss_currentRelation.rd_att
 	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
 
+	/* From Multicorn....
+	   ForeignScan *fscan = (ForeignScan *) node->ss.ps.plan;
+	   ...
+	   foreach(lc, fscan->fdw_exprs)
+	   	{
+	   		extractRestrictions(bms_make_singleton(fscan->scan.scanrelid),
+	   							((Expr *) lfirst(lc)),
+	   							&execstate->qual_list);
+	   	}
+	*/
+	log.Printf("[WARN] goFdwBeginForeignScan - Getting Quals")
+	if plan.fdw_exprs != nil {
+		for it := plan.fdw_exprs.head; it != nil; it = it.next {
+			val := C.cellGetExpr(it)
+			log.Printf("[WARN] goFdwBeginForeignScan - val: %+v", val)
+
+			C.extractRestrictions(C.bms_make_singleton(C.int(plan.scan.scanrelid)),
+				val,
+				(**C.List)(unsafe.Pointer(&execState.qual_list)))
+		}
+	}
 	qualList := QualDefsToQuals(execState.qual_list, execState.cinfos)
 
+	log.Printf("[WARN] goFdwBeginForeignScan - Getting Hub")
 	logging.LogTime("[gum] BeginForeignScan start")
 	// start the plugin manager
 	var err error
@@ -186,12 +214,13 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		FdwError(err)
 	}
 
+	log.Printf("[WARN] goFdwBeginForeignScan - Prepping scan")
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
 
+	log.Printf("[WARN] goFdwBeginForeignScan - Running scan")
 	iter, err := pluginHub.Scan(rel, columns, qualList, opts)
 	if err != nil {
-
 		FdwError(err)
 		return
 	}
@@ -202,6 +231,9 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		Iter:  iter,
 		State: execState,
 	}
+
+	log.Printf("[WARN] goFdwBeginForeignScan - Saving exec state %v\n", s)
+
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 

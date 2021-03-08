@@ -110,6 +110,18 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 		FdwError(err)
 	}
 
+	// js - hardcode for testing...
+	// github_repository = oid 17341
+	// github_repository_issue = oid 17323
+	if state.foreigntableid == 17323 {
+		pathKeys = []types.PathKey{
+			{
+				ColumnNames: []string{"repository_full_name"},
+				Rows:        1,
+			},
+		}
+	}
+
 	//spew.Dump(opts)
 
 	for _, pathKey := range pathKeys {

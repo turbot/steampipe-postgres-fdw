@@ -44,9 +44,7 @@ typedef struct FdwPlanState
 	Oid			foreigntableid;
 	AttrNumber	numattrs;
 	int fdw_instance;
-	//PyObject   *fdw_instance;
 	List	   *target_list;
-	List	   *qual_list;
 	int			startupCost;
 	ConversionInfo **cinfos;
 	List	   *pathkeys; /* list of FdwDeparsedSortGroup) */
@@ -63,12 +61,8 @@ typedef struct FdwPlanState
 
 typedef struct FdwExecState
 {
-	/* instance and iterator */
-	//PyObject   *fdw_instance;
-	//PyObject   *p_iterator;
 	/* Information carried from the plan phase. */
 	List	   *target_list;
-	List	   *qual_list;
 	Datum	   *values;
 	bool	   *nulls;
 	ConversionInfo **cinfos;

@@ -173,8 +173,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	var tupdesc C.TupleDesc = node.ss.ss_currentRelation.rd_att
 	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
 
-	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
-	qualList := RestrictionsToQuals(plan.fdw_exprs, relids, execState.cinfos)
+	qualList := RestrictionsToQuals(node, execState.cinfos)
 
 	log.Printf("[INFO] qualList from RestrictionsToQuals %+v\n", qualList)
 	// start the plugin hub

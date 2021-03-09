@@ -58,7 +58,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 
 	if canIterate, err := i.CanIterate(); !canIterate {
 		log.Printf("[WARN] scanIterator cannot iterate: %v \n", err)
-		return nil, fmt.Errorf("cannot iterate: %v", err)
+		return nil, nil //fmt.Errorf("cannot iterate: %v", err)
 	}
 	row := <-i.rows
 
@@ -72,7 +72,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
-		log.Printf("[DEBUG] row channel is closed - reset iterator\n")
+		log.Printf("[WARN] row channel is closed - reset iterator\n")
 		i.onComplete()
 		res = map[string]interface{}{}
 	} else {

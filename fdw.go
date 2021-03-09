@@ -108,8 +108,8 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 
 	// js - hardcode for testing...
 	// github_repository = oid 17341
-	// github_repository_issue = oid 17323
-	if state.foreigntableid == 17323 {
+	// github_repository_issue` = oid 17323
+	if opts["table"] == "github_repository_issue" {
 		pathKeys = []types.PathKey{
 			{
 				ColumnNames: []string{"repository_full_name"},
@@ -163,7 +163,6 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
-	log.Printf("[WARN] goFdwBeginForeignScan ***************************\n")
 	logging.LogTime("[fdw] BeginForeignScan start")
 
 	defer func() {
@@ -199,7 +198,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
 
-	spew.Dump(opts)
+	log.Printf("[WARN] goFdwBeginForeignScan %s *************************** \n", opts["table"])
 
 	iter, err := pluginHub.Scan(rel, columns, qualList, opts)
 	if err != nil {
@@ -214,7 +213,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		State: execState,
 	}
 
-	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
+	log.Printf("[WARN] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 
 	logging.LogTime("[fdw] BeginForeignScan end")
@@ -228,10 +227,10 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
-	log.Printf("[DEBUG] goFdwIterateForeignScan - Start")
 	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
+	log.Printf("[WARN] goFdwIterateForeignScan - Start %s", s.Opts["table"])
 
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
@@ -240,11 +239,13 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	row, err := s.Iter.Next()
 
 	if err != nil {
+		log.Printf("[WARN] Next() failed - %s, %+v", s.Opts["table"], s.Iter)
 		FdwError(err)
 		return slot
 	}
 
 	if len(row) == 0 {
+		log.Printf("[WARN] no row returned - iteration complete")
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms
 		//logging.DisplayProfileData(10*time.Millisecond, logger)
@@ -275,13 +276,18 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}
 
 	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
-	log.Printf("[DEBUG] goFdwIterateForeignScan End")
+	log.Printf("[WARN] goFdwIterateForeignScan - end %s", s.Opts["table"])
+
 	logging.LogTime("[fdw] IterateForeignScan end")
 	return slot
 }
 
 //export goFdwReScanForeignScan
 func goFdwReScanForeignScan(node *C.ForeignScanState) {
+	// HACK
+	goFdwBeginForeignScan(node, 0)
+	//log.Printf("[WARN] goFdwReScanForeignScan")
+
 	// not implemented for now
 	// Rescan table, possibly with new parameters
 	//s := GetExecState(node.fdw_state)

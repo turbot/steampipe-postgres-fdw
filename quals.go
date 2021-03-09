@@ -242,6 +242,7 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
 		econtext := node.ss.ps.ps_ExprContext
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
+
 		break
 	default:
 		return nil, fmt.Errorf("QualDefsToQuals: non-const qual value (type %v), skipping\n", C.fdw_nodeTag(valueExpression))
@@ -282,6 +283,8 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 
 	switch typeOid {
 	case C.TEXTOID, C.VARCHAROID:
+		log.Printf("[WARN] text dataum val: %s", C.GoString(C.datumString(datum, cinfo)))
+
 		result.Value = &proto.QualValue_StringValue{StringValue: C.GoString(C.datumString(datum, cinfo))}
 	case C.INETOID:
 

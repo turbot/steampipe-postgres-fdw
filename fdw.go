@@ -89,7 +89,7 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 //export goFdwGetPathKeys
 func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	//log.Println("[WARN] goFdwGetPathKeys")
-	//log.Printf("[WARN] getPathKeys ***************************\n")
+	log.Printf("[WARN] getPathKeys ***************************\n")
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
@@ -98,12 +98,25 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 
 	opts := GetFTableOptions(types.Oid(state.foreigntableid))
 
+	spew.Dump(opts)
+
 	// Run the go interface
 	pathKeys, err := pluginHub.GetPathKeys(opts)
 	if err != nil {
 		FdwError(err)
 	}
 
+	// js - hardcode for testing...
+	// github_repository = oid 17341
+	// github_repository_issue = oid 17323
+	if state.foreigntableid == 17323 {
+		pathKeys = []types.PathKey{
+			{
+				ColumnNames: []string{"repository_full_name"},
+				Rows:        1,
+			},
+		}
+	}
 	//spew.Dump(opts)
 
 	for _, pathKey := range pathKeys {
@@ -150,7 +163,7 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
-	log.Printf("[INFO] goFdwBeginForeignScan ***************************\n")
+	log.Printf("[WARN] goFdwBeginForeignScan ***************************\n")
 	logging.LogTime("[fdw] BeginForeignScan start")
 
 	defer func() {
@@ -185,6 +198,9 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
+
+	spew.Dump(opts)
+
 	iter, err := pluginHub.Scan(rel, columns, qualList, opts)
 	if err != nil {
 		FdwError(err)

@@ -18,17 +18,8 @@ static ForeignScan *fdwGetForeignPlan(
     Plan *outer_plan
 );
 
-static void
-fdwGetForeignJoinPaths(PlannerInfo *root,
-    RelOptInfo *joinrel,
-    RelOptInfo *outerrel,
-    RelOptInfo *innerrel,
-    JoinType jointype,
-    JoinPathExtraData *extra);
-
 void *serializePlanState(FdwPlanState *state);
 FdwExecState *initializeExecState(void *internalstate);
-//int dumpStruct(const char *fmt, ...);
 // Required by postgres, doing basic checks to ensure compatibility,
 // such as being compiled against the correct major version.
 PG_MODULE_MAGIC;
@@ -72,8 +63,6 @@ Datum fdw_handler(PG_FUNCTION_ARGS) {
   fdw_routine->ReScanForeignScan = goFdwReScanForeignScan;
   fdw_routine->EndForeignScan = goFdwEndForeignScan;
   fdw_routine->ImportForeignSchema = goFdwImportForeignSchema;
-  /* Support functions for join push-down */
-  fdw_routine->GetForeignJoinPaths = fdwGetForeignJoinPaths;
 
 PG_RETURN_POINTER(fdw_routine);
 }
@@ -91,6 +80,7 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
     // initialise logging`
     // to set the log level for fdw logging from C code, set log_min_messages in postgresql.conf
     goInit();
+
     elog(INFO, "fdwGetForeignRelSize");
 
     FdwPlanState *planstate = palloc0(sizeof(FdwPlanState));
@@ -100,9 +90,8 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 	bool needWholeRow = false;
 	TupleDesc	desc;
 
-  // Save plan state information
+    // Save plan state information
 	baserel->fdw_private = planstate;
-	//planstate->fdw_instance = getInstance(foreigntableid);
 	planstate->foreigntableid = foreigntableid;
 
 	// Initialize the conversion info array
@@ -112,8 +101,6 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 		desc = RelationGetDescr(rel);
 		attinmeta = TupleDescGetAttInMetadata(desc);
 		planstate->numattrs = RelationGetNumberOfAttributes(rel);
-		//planstate->cinfos = palloc0(sizeof(ConversionInfo *) * planstate->numattrs);
-		//initConversioninfo(planstate->cinfos, attinmeta);
 		needWholeRow = rel->trigdesc && rel->trigdesc->trig_insert_after_row;
 		RelationClose(rel);
 	}
@@ -140,28 +127,10 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 		}
 	}
 
-// 	// Extract the restrictions from the plan.
-//     elog(INFO, "**************** baserestrictinfo, %d restrictions", list_length(baserel->baserestrictinfo));
-// 	if (list_length(baserel->baserestrictinfo) > 0) {
-
-//         foreach(lc, baserel->baserestrictinfo) {
-// //            displayRestriction(root, baserel->relids, ((RestrictInfo *) lfirst(lc)));
-//             extractRestrictions(baserel->relids, ((RestrictInfo *) lfirst(lc))->clause, &planstate->qual_list);
-//         }
-// 	}
-
-    elog(INFO, "**************** joininfo, %d restrictions", list_length(baserel->joininfo));
-    if (list_length(baserel->joininfo) > 0) {
-        elog(INFO, "joininfo");
-        foreach(lc, baserel->joininfo) {
-            displayRestriction(root, baserel->relids, ((RestrictInfo *) lfirst(lc)));
-	}
-
 	// Inject the "rows" and "width" attribute into the baserel
 	goFdwGetRelSize(planstate, root, &baserel->rows, &baserel->reltarget->width, baserel);
+
 	planstate->width = baserel->reltarget->width;
-	elog(INFO, "fdwGetForeignRelSize finished");
-}
 }
 
 /*
@@ -211,12 +180,11 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
 	}
 
 
-    elog(INFO, "**************** joininfo, %d restrictions", list_length(baserel->joininfo));
     ppi_list = NIL;
 	foreach(lc, baserel->joininfo)
 	{
-        elog(INFO, "joinInfo");
-		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+        elog(INFO, " joininfo, %d restrictions", list_length(baserel->joininfo));
+    	RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
 		Relids		required_outer;
 		ParamPathInfo *param_info;
 
@@ -252,7 +220,6 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
 		 */
 		ppi_list = list_append_unique_ptr(ppi_list, param_info);
 	}
-//    elog(INFO, "after joinInfo");
 	/* Add each ForeignPath previously found */
 	foreach(lc, paths) {
 		ForeignPath *path = (ForeignPath *) lfirst(lc);
@@ -275,7 +242,6 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
 			add_path(baserel, (Path *) newpath);
 		}
 	}
-	// TODO - errorCheck();
 }
 
 /*
@@ -291,24 +257,12 @@ static ForeignScan *fdwGetForeignPlan(
 	List *scan_clauses,
 	Plan *outer_plan
 ) {
-    elog(INFO, "************** fdwGetForeignPlan");
-	Index scan_relid = baserel->relid;
+    Index scan_relid = baserel->relid;
 	FdwPlanState *planstate = (FdwPlanState *) baserel->fdw_private;
-	//ListCell *lc;
 	best_path->path.pathtarget->width = planstate->width;
-	elog(INFO, "**************** fdwGetForeignPlan %d scan_clauses", list_length(scan_clauses));
+	elog(INFO, "fdwGetForeignPlan %d scan_clauses", list_length(scan_clauses));
 	scan_clauses = extract_actual_clauses(scan_clauses, false);
-    	/* Extract the quals coming from a parameterized path, if any */
-	// if (best_path->path.param_info) {
-	// 	foreach(lc, scan_clauses) {
-	// 	    elog(INFO, "**************** fdwGetForeignPlan extractRestrictions");
-	// 		extractRestrictions(baserel->relids, (Expr *) lfirst(lc), &planstate->qual_list);
-	// 	}
-	// }
-	// elog(INFO, "**************** fdwGetForeignPlan %d planstate->qual_list", list_length(planstate->qual_list));
-//	foreach(lc, planstate->qual_list) {
-//        elog(INFO, "%s", nodeToString((Expr *) lfirst(lc)));
-//	}
+
 	planstate->pathkeys = (List *) best_path->fdw_private;
 	ForeignScan * s = make_foreignscan(
         tlist,
@@ -322,32 +276,8 @@ static ForeignScan *fdwGetForeignPlan(
     );
 	elog(INFO, "************** ret %d, %d, %d", list_length(s->fdw_exprs) , list_length(s->fdw_scan_tlist) , list_length(s->fdw_recheck_quals) );
 
-    if (list_length(s->fdw_exprs) > 0) {
-        elog(INFO, "**************** fdwGetForeignPlan fdw expr");
-
-        foreach(lc, s->fdw_exprs) {
-            elog(INFO, "**************** fdwGetForeignPlan fdw expr: %s", nodeToString( (Expr *) lfirst(lc)));
-        }
-    }
-    if (list_length(s->fdw_scan_tlist) > 0) {
-        elog(INFO, "**************** fdwGetForeignPlan fdw_scan_tlist");
-
-        foreach(lc, s->fdw_scan_tlist) {
-            elog(INFO, "**************** fdwGetForeignPlan fdw_scan_tlist: %s", nodeToString( (Expr *) lfirst(lc)));
-        }
-    }
-    if (list_length(s->fdw_recheck_quals) > 0) {
-        elog(INFO, "**************** fdwGetForeignPlan fdw_recheck_quals");
-
-        foreach(lc, s->fdw_recheck_quals) {
-            elog(INFO, "**************** fdwGetForeignPlan fdw_recheck_quals: %s", nodeToString( (Expr *) lfirst(lc)));
-        }
-    }
-
-    goFdwGetForeignPlan(s);
 	return s;
 }
-
 
 /*
  *	"Serialize" a FdwPlanState, so that it is safe to be carried
@@ -356,13 +286,11 @@ static ForeignScan *fdwGetForeignPlan(
  void *serializePlanState(FdwPlanState * state) {
  	List *result = NULL;
  	result = lappend(result, makeConst(INT4OID, -1, InvalidOid, 4, Int32GetDatum(state->numattrs), false, true));
-// 	result = lappend(result, makeConst(INT4OID, -1, InvalidOid, 4, Int32GetDatum(state->foreigntableid), false, true));
  	result = lappend(result, state->target_list);
  	result = lappend(result, serializeDeparsedSortGroup(state->pathkeys));
 
  	return result;
  }
-
 
 /*
  *	"Deserialize" an internal state and inject it in an
@@ -375,7 +303,6 @@ FdwExecState *initializeExecState(void *internalstate) {
 	//  numattrs, target_list, target_list, pathkeys
 	List	   *values = (List *) internalstate;
 	AttrNumber	numattrs = ((Const *) linitial(values))->constvalue;
-	//Oid			foreigntableid = ((Const *) lsecond(values))->constvalue;
 	List		*pathkeys;
 	/* Those list must be copied, because their memory context can become */
 	/* invalid during the execution (in particular with the cursor interface) */
@@ -383,177 +310,9 @@ FdwExecState *initializeExecState(void *internalstate) {
 	pathkeys = lthird(values);
 
 	execstate->pathkeys = deserializeDeparsedSortGroup(pathkeys);
-
-
-	// //execstate->fdw_instance = getInstance(foreigntableid);
 	execstate->buffer = makeStringInfo();
-
 	execstate->cinfos = palloc0(sizeof(ConversionInfo *) * numattrs);
-	
 	execstate->values = palloc(numattrs * sizeof(Datum));
 	execstate->nulls = palloc(numattrs * sizeof(bool));
 	return execstate;
 }
-
-/*
- * postgresGetForeignJoinPaths
- *		Add possible ForeignPath to joinrel, if join is safe to push down.
- */
-static void
-fdwGetForeignJoinPaths(PlannerInfo *root,
- 							RelOptInfo *joinrel,
- 							RelOptInfo *outerrel,
- 							RelOptInfo *innerrel,
- 							JoinType jointype,
- 							JoinPathExtraData *extra)
- {
-    elog(WARNING, "*****************fdwGetForeignJoinPaths");
-	return;
-
-    // return
-    // goFdwGetForeignJoinPaths(root, joinrel, outerrel,innerrel,jointype, extra );
-
-//	PgFdwRelationInfo *fpinfo;
-//	ForeignPath *joinpath;
-//	double		rows;
-//	int			width;
-//	Cost		startup_cost;
-//	Cost		total_cost;
-//	Path	   *epq_path;		/* Path to create plan to be executed when
-//								 * EvalPlanQual gets triggered. */
-
-	// /*
-	//  * Skip if this join combination has been considered already.
-	//  */
-	// if (joinrel->fdw_private)
-	// 	return;
-
-	// /*
-	//  * This code does not work for joins with lateral references, since those
-	//  * must have parameterized paths, which we don't generate yet.
-	//  */
-	// if (!bms_is_empty(joinrel->lateral_relids))
-	// 	return;
-//
-//	/*
-//	 * Create unfinished PgFdwRelationInfo entry which is used to indicate
-//	 * that the join relation is already considered, so that we won't waste
-//	 * time in judging safety of join pushdown and adding the same paths again
-//	 * if found safe. Once we know that this join can be pushed down, we fill
-//	 * the entry.
-//	 */
-//	fpinfo = (PgFdwRelationInfo *) palloc0(sizeof(PgFdwRelationInfo));
-//	fpinfo->pushdown_safe = false;
-//	joinrel->fdw_private = fpinfo;
-//	/* attrs_used is only for base relations. */
-//	fpinfo->attrs_used = NULL;
-//
-//	/*
-//	 * If there is a possibility that EvalPlanQual will be executed, we need
-//	 * to be able to reconstruct the row using scans of the base relations.
-//	 * GetExistingLocalJoinPath will find a suitable path for this purpose in
-//	 * the path list of the joinrel, if one exists.  We must be careful to
-//	 * call it before adding any ForeignPath, since the ForeignPath might
-//	 * dominate the only suitable local path available.  We also do it before
-//	 * calling foreign_join_ok(), since that function updates fpinfo and marks
-//	 * it as pushable if the join is found to be pushable.
-//	 */
-//	if (root->parse->commandType == CMD_DELETE ||
-//		root->parse->commandType == CMD_UPDATE ||
-//		root->rowMarks)
-//	{
-//		epq_path = GetExistingLocalJoinPath(joinrel);
-//		if (!epq_path)
-//		{
-//			elog(DEBUG3, "could not push down foreign join because a local path suitable for EPQ checks was not found");
-//			return;
-//		}
-//	}
-//	else
-//		epq_path = NULL;
-//
-//	if (!foreign_join_ok(root, joinrel, jointype, outerrel, innerrel, extra))
-//	{
-//		/* Free path required for EPQ if we copied one; we don't need it now */
-//		if (epq_path)
-//			pfree(epq_path);
-//		return;
-//	}
-//
-//	/*
-//	 * Compute the selectivity and cost of the local_conds, so we don't have
-//	 * to do it over again for each path. The best we can do for these
-//	 * conditions is to estimate selectivity on the basis of local statistics.
-//	 * The local conditions are applied after the join has been computed on
-//	 * the remote side like quals in WHERE clause, so pass jointype as
-//	 * JOIN_INNER.
-//	 */
-//	fpinfo->local_conds_sel = clauselist_selectivity(root,
-//													 fpinfo->local_conds,
-//													 0,
-//													 JOIN_INNER,
-//													 NULL);
-//	cost_qual_eval(&fpinfo->local_conds_cost, fpinfo->local_conds, root);
-//
-//	/*
-//	 * If we are going to estimate costs locally, estimate the join clause
-//	 * selectivity here while we have special join info.
-//	 */
-//	if (!fpinfo->use_remote_estimate)
-//		fpinfo->joinclause_sel = clauselist_selectivity(root, fpinfo->joinclauses,
-//														0, fpinfo->jointype,
-//														extra->sjinfo);
-//
-//	/* Estimate costs for bare join relation */
-//	estimate_path_cost_size(root, joinrel, NIL, NIL, NULL,
-//							&rows, &width, &startup_cost, &total_cost);
-//	/* Now update this information in the joinrel */
-//	joinrel->rows = rows;
-//	joinrel->reltarget->width = width;
-//	fpinfo->rows = rows;
-//	fpinfo->width = width;
-//	fpinfo->startup_cost = startup_cost;
-//	fpinfo->total_cost = total_cost;
-//
-//	/*
-//	 * Create a new join path and add it to the joinrel which represents a
-//	 * join between foreign tables.
-//	 */
-//	joinpath = create_foreign_join_path(root,
-//										joinrel,
-//										NULL,	/* default pathtarget */
-//										rows,
-//										startup_cost,
-//										total_cost,
-//										NIL,	/* no pathkeys */
-//										joinrel->lateral_relids,
-//										epq_path,
-//										NIL);	/* no fdw_private */
-//
-//	/* Add generated path into joinrel by add_path(). */
-//	add_path(joinrel, (Path *) joinpath);
-//
-//	/* Consider pathkeys for the join relation */
-//	add_paths_with_pathkeys_for_rel(root, joinrel, epq_path);
-
-	/* XXX Consider parameterized paths for the join relation */
-}
-
-
-//
-// int dumpStruct(const char *fmt, ...) {
-// elog(LOG, "DUMP");
-//    char str[800];
-//  	va_list ap;
-//    //int res = 0;
-//	//char myString;
-//	va_start(ap, fmt);
-//	//res = vsprintf(&myString, fmt, ap);
-//	//elog(LOG, fmt,  myString);
-//	vsprintf(str, fmt, ap);
-//	va_end(ap);
-//	elog(LOG, "%s", str);
-//	elog(LOG, "DUMP END");
-//    //return res;
-//	return true;
-//}

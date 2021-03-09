@@ -40,8 +40,8 @@ void extractClauseFromBooleanTest(Relids base_relids,
 								   BooleanTest *node,
 								   List **quals);
 
-//void extractClauseFromBooleanExpression(Relids base_relids,
-//								   BooleanExpression *node,
+//void extractClauseFromBoolExpr(Relids base_relids,
+//								   BoolExpr *node,
 //								   List **quals);
 
 char	   *getOperatorString(Oid opoid);
@@ -117,7 +117,7 @@ extractColumns(List *reltargetlist, List *restrictinfolist)
 }
 
 /*
- * Initialize the array of "ConversionInfo" elements, needed to convert python
+ * Initialize the array of "ConversionInfo" elements, needed to convert go
  * objects back to suitable postgresql data structures.
  */
 void
@@ -250,7 +250,7 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 	OpExpr	   *result = NULL;
 
     int length = (int)list_length(opExpr->args);
-    elog(WARNING, "canonicalOpExpr, arg length: %d", length);
+    elog(WARNING, "canonicalOpExpr, arg length: %d, base_relids %x", length, (int)base_relids);
 
 	/* Only treat binary operators for now. */
 	if (length == 2)
@@ -451,7 +451,7 @@ extractClauseFromOpExpr(Relids base_relids,
 		if (!(contain_volatile_functions((Node *) right) ||
 			  bms_is_subset(base_relids, pull_varnos((Node *) right))))
 		{
-		    elog(INFO, "adding qual for OpExpr");
+		    elog(INFO, "adding qual for OpExpr opno %d", op->opno);
 			*quals = lappend(*quals, makeQual(left->varattno,
 											  getOperatorString(op->opno),
 											  right, false, false));
@@ -493,14 +493,47 @@ void extractClauseFromBooleanTest(Relids base_relids,
 
 }
 //
-//void extractClauseFromBooleanExpression(Relids base_relids,
-//								   BooleanExpression *node,
+//void extractClauseFromBoolExpr(Relids base_relids,
+//								   BoolExpr *node,
 //								   List **quals){
+//
+//    FdwBoolExprQual* qual = palloc0(sizeof(FdwBoolExprQual));
+//    qual->typeoid = ((Const *) value)->T_BoolExpr;
+//
+//    qual->args = node.args
+//    quals->node.boolop
+//
+//      foreach(cell, args)
+//                   {
+//                       Expr *e = (Expr *)lfirst(cell);
+//                       elog(INFO, "arg: %s", nodeToString(e));
+//        //                extractRestrictions(base_relids, (Expr *)lfirst(cell), quals);
+//                       // Store only a Value node containing the string name of the column.
+//                       if (nodeTag(e) == T_Var){
+//                           Value* v = colnameFromVar((Var*)e, root, NULL);
+//                           char* colname = (((Value *)(v))->val.str);
+//                           if (colname != NULL && strVal(colname) != NULL) {
+//                           elog(INFO, "col: %s", colname);
+//
+//                       }
+//                       }
+//                   }
+//
+//    elog(INFO, "T_BooleanExpr %d", ((BoolExpr *)node)->boolop);
+//               ListCell *cell;
+//               List* args = ((BoolExpr *)node)->args;
+//               // if there is a single variable argument, extract a bool qual
+//               if (list_length(args) == 1){
+//                   elog(INFO, "bool expression with single arg");
+//               //
+//               }
+//
+//               elog(INFO, "END T_BooleanExpr");
 //    // IS_TRUE, IS_NOT_TRUE, IS_FALSE, IS_NOT_FALSE, IS_UNKNOWN, IS_NOT_UNKNOWN
 //    elog(INFO, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
 //
 //}
-
+//
 
 /*
  *	Convert a "NullTest" (IS NULL, or IS NOT NULL)
@@ -603,7 +636,7 @@ makeQual(AttrNumber varattno, char *opname, Expr *value, bool isarray, bool useO
 }
 
 /*
- *	Test wheter an attribute identified by its relid and attno
+ *	Test whether an attribute identified by its relid and attno
  *	is present in a list of restrictinfo
  */
 bool

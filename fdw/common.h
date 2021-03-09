@@ -108,6 +108,14 @@ typedef struct FdwParamQual
 	Expr	   *expr;
 }	FdwParamQual;
 
+typedef struct FdwBoolExprQual
+{
+	FdwBaseQual base;
+	BoolExprType boolop;
+	List	   *args; // list of child quals
+}	FdwBooleanExprQual;
+
+
 typedef struct FdwDeparsedSortGroup
 {
 	Name 			attname;
@@ -139,6 +147,6 @@ List  *findPaths(PlannerInfo *root, RelOptInfo *baserel, List *possiblePaths, in
 List  *deparse_sortgroup(PlannerInfo *root, Oid foreigntableid, RelOptInfo *rel);
 List  *serializeDeparsedSortGroup(List *pathkeys);
 List  *deserializeDeparsedSortGroup(List *items);
-
-
+OpExpr *canonicalOpExpr(OpExpr *opExpr, Relids base_relids);
+char  *getOperatorString(Oid opoid);
 #endif // FDW_COMMON_H

@@ -23,8 +23,8 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/types"
 )
 
-// convert a C list into a go array
-func CListToGoArray(values *C.List) []string {
+// convert a C string list into a go array
+func CStringListToGoArray(values *C.List) []string {
 	ensureUnique := map[string]bool{}
 	targets := []string{}
 	for it := values.head; it != nil; it = it.next {

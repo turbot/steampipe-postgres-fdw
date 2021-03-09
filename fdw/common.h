@@ -148,5 +148,6 @@ List  *deparse_sortgroup(PlannerInfo *root, Oid foreigntableid, RelOptInfo *rel)
 List  *serializeDeparsedSortGroup(List *pathkeys);
 List  *deserializeDeparsedSortGroup(List *items);
 OpExpr *canonicalOpExpr(OpExpr *opExpr, Relids base_relids);
+ScalarArrayOpExpr *canonicalScalarArrayOpExpr(ScalarArrayOpExpr *opExpr, Relids base_relids);
 char  *getOperatorString(Oid opoid);
 #endif // FDW_COMMON_H

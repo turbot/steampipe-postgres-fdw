@@ -112,6 +112,7 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 
 	for it := restrictions.head; it != nil; it = it.next {
 		restriction := C.cellGetExpr(it)
+		log.Printf("[INFO] restriction %s     ************", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
 
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
@@ -119,11 +120,13 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 				quals = append(quals, q)
 			}
 			break
+		case C.T_ScalarArrayOpExpr:
+			if q := qualFromScalarOpExpr((*C.ScalarArrayOpExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+				quals = append(quals, q)
+			}
+			break
 		case C.T_NullTest:
 			//extractClauseFromNullTest(base_relids,				(NullTest *) node, quals);
-			break
-		case C.T_ScalarArrayOpExpr:
-			//extractClauseFromScalarArrayOpExpr(base_relids,				(ScalarArrayOpExpr *) node,			quals);
 			break
 		case C.T_BooleanTest:
 			//extractClauseFromBooleanTest(base_relids,				(BooleanTest *) node,			quals);
@@ -164,9 +167,64 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 
 	arrayIndex := left.varattno - 1
 	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
+	qualValue, err := getQualValue(right, node, ci)
+	if err != nil {
+		log.Printf("[INFO] failed to convert qual value; %v", err)
+		return nil
+	}
+
 	column := C.GoString(ci.attrname)
 	operatorName := C.GoString(C.getOperatorString(restriction.opno))
+	qual := &proto.Qual{
+		FieldName: column,
+		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
+		Value:     qualValue,
+	}
 
+	return qual
+}
+
+func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
+	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
+
+	log.Printf("[INFO] qualFromOpExpr rel %+v is member %v, %s", relids, C.bms_is_member(1, relids), C.GoString(C.nodeToString(unsafe.Pointer(restriction))))
+	restriction = C.canonicalScalarArrayOpExpr(restriction, relids)
+
+	if restriction == nil {
+		log.Printf("[WARN] could not convert OpExpr to canonical form - NOT adding qual for OpExpr")
+		return nil
+	}
+
+	left := (*C.Var)(C.list_nth(restriction.args, 0))
+	right := C.list_nth(restriction.args, 1)
+
+	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
+	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
+		log.Printf("[WARN] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+		return nil
+	}
+
+	arrayIndex := left.varattno - 1
+	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
+	qualValue, err := getQualValue(right, node, ci)
+	if err != nil {
+		log.Printf("[INFO] failed to convert qual value; %v", err)
+		return nil
+	}
+
+	column := C.GoString(ci.attrname)
+	operatorName := C.GoString(C.getOperatorString(restriction.opno))
+	qual := &proto.Qual{
+		FieldName: column,
+		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
+		Value:     qualValue,
+	}
+
+	return qual
+}
+
+func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.ConversionInfo) (*proto.QualValue, error) {
 	var isNull C.bool
 	var typeOid C.Oid
 	var value C.Datum
@@ -186,8 +244,7 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
 		break
 	default:
-		log.Printf("[INFO] QualDefsToQuals: non-const qual value (type %v), skipping\n", C.fdw_nodeTag((*C.Expr)(right)))
-		return nil
+		return nil, fmt.Errorf("QualDefsToQuals: non-const qual value (type %v), skipping\n", C.fdw_nodeTag(valueExpression))
 	}
 
 	var qualValue *proto.QualValue
@@ -200,18 +257,10 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 		}
 		var err error
 		if qualValue, err = datumToQualValue(value, typeOid, ci); err != nil {
-			log.Printf("[WARN] failed to convert datum to qual value: %v", err)
-			return nil
+			return nil, err
 		}
 	}
-
-	qual := &proto.Qual{
-		FieldName: column,
-		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
-		Value:     qualValue,
-	}
-
-	return qual
+	return qualValue, nil
 }
 
 func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {
@@ -234,7 +283,6 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 	switch typeOid {
 	case C.TEXTOID, C.VARCHAROID:
 		result.Value = &proto.QualValue_StringValue{StringValue: C.GoString(C.datumString(datum, cinfo))}
-
 	case C.INETOID:
 
 		inet := C.datumInet(datum, cinfo)
@@ -265,7 +313,6 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 	case C.TIMESTAMPOID:
 		pgts := int64(C.datumTimestamp(datum, cinfo))
 		result.Value = &proto.QualValue_TimestampValue{TimestampValue: PgTimeToTimestamp(pgts)}
-
 	case C.INT2OID, C.INT4OID, C.INT8OID:
 		result.Value = &proto.QualValue_Int64Value{Int64Value: int64(C.datumInt64(datum, cinfo))}
 	case C.FLOAT4OID:

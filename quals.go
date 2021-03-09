@@ -101,7 +101,10 @@ import (
 //
 //}
 
-func RestrictionsToQuals(restrictions *C.List, relids C.Relids, cinfos **C.ConversionInfo) []*proto.Qual {
+func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []*proto.Qual {
+	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
+	restrictions := plan.fdw_exprs
+
 	var quals []*proto.Qual
 	if restrictions == nil {
 		return quals
@@ -112,7 +115,9 @@ func RestrictionsToQuals(restrictions *C.List, relids C.Relids, cinfos **C.Conve
 
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
-			quals = append(quals, qualFromOpExpr((*C.OpExpr)(unsafe.Pointer(restriction)), relids, cinfos))
+			if q := qualFromOpExpr((*C.OpExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+				quals = append(quals, q)
+			}
 			break
 		case C.T_NullTest:
 			//extractClauseFromNullTest(base_relids,				(NullTest *) node, quals);
@@ -136,7 +141,10 @@ func RestrictionsToQuals(restrictions *C.List, relids C.Relids, cinfos **C.Conve
 	return quals
 }
 
-func qualFromOpExpr(restriction *C.OpExpr, relids C.Relids, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
+	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
+
 	log.Printf("[INFO] qualFromOpExpr rel %+v is member %v, %s", relids, C.bms_is_member(1, relids), C.GoString(C.nodeToString(unsafe.Pointer(restriction))))
 	restriction = C.canonicalOpExpr(restriction, relids)
 
@@ -159,21 +167,32 @@ func qualFromOpExpr(restriction *C.OpExpr, relids C.Relids, cinfos **C.Conversio
 	column := C.GoString(ci.attrname)
 	operatorName := C.GoString(C.getOperatorString(restriction.opno))
 
-	if C.fdw_nodeTag((*C.Expr)(right)) != C.T_Const {
+	var isNull C.bool
+	var typeOid C.Oid
+	var value C.Datum
+	valueExpression := (*C.Expr)(right)
+	switch C.fdw_nodeTag(valueExpression) {
+	case C.T_Const:
+		constQual := (*C.Const)(right)
+		typeOid = constQual.consttype
+		value = constQual.constvalue
+		isNull = constQual.constisnull
+		break
+	case C.T_Param:
+		paramQual := (*C.Param)(right)
+		typeOid = paramQual.paramtype
+		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
+		econtext := node.ss.ps.ps_ExprContext
+		value = C.ExecEvalExpr(exprState, econtext, &isNull)
+		break
+	default:
 		log.Printf("[INFO] QualDefsToQuals: non-const qual value (type %v), skipping\n", C.fdw_nodeTag((*C.Expr)(right)))
 		return nil
-
 	}
-
-	constQual := (*C.Const)(right)
-
-	typeOid := constQual.consttype
-	var value C.Datum = constQual.constvalue
-	isNull := constQual.constisnull
 
 	var qualValue *proto.QualValue
 	if isNull {
-		log.Printf("[TRACE] qualDef.isnull=true - returning qual with nil value")
+		log.Printf("[DEBUG] qualDef.isnull=true - returning qual with nil value")
 		qualValue = nil
 	} else {
 		if typeOid == C.InvalidOid {
@@ -185,6 +204,7 @@ func qualFromOpExpr(restriction *C.OpExpr, relids C.Relids, cinfos **C.Conversio
 			return nil
 		}
 	}
+
 	qual := &proto.Qual{
 		FieldName: column,
 		Operator:  &proto.Qual_StringValue{StringValue: operatorName},

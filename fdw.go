@@ -68,20 +68,10 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 	// build columns
 	var columns []string
 	if state.target_list != nil {
-		columns = CListToGoArray(state.target_list)
-	}
-	// build quals in case they influence the rel size we return (at present they do not)
-	qualList := QualDefsToQuals(state.qual_list, state.cinfos)
-
-	log.Println("[TRACE] getRelSize: converting qual defs to quals")
-	for _, q := range qualList {
-		log.Printf("[WARN] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
+		columns = CStringListToGoArray(state.target_list)
 	}
 
-	// Run the go interface
-	log.Println("[WARN] pluginHub.GetRelSize")
-
-	result, err := pluginHub.GetRelSize(columns, qualList, opts)
+	result, err := pluginHub.GetRelSize(columns, nil, opts)
 	if err != nil {
 		log.Println("[ERROR] pluginHub.GetRelSize")
 		FdwError(err)
@@ -90,6 +80,8 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 	*rows = C.double(result.Rows)
 	*width = C.int(result.Width)
+
+	log.Println("[WARN] pluginHub.GetRelSize returning %d x %d", *rows, *width)
 
 	return
 }
@@ -156,14 +148,11 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 	node.fdw_state = nil
 }
 
-//export goFdwGetForeignPlan
-func goFdwGetForeignPlan(res *C.ForeignScan) {
-	spew.Dump(res)
-}
-
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	log.Printf("[INFO] goFdwBeginForeignScan ***************************\n")
+	logging.LogTime("[fdw] BeginForeignScan start")
+
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwBeginForeignScan failed with panic: %v", r)
@@ -171,61 +160,32 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		}
 	}()
 
-	log.Printf("[WARN] goFdwBeginForeignScan - Retrieving exec state")
-
 	// retrieve exec state
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	var execState *C.FdwExecState = C.initializeExecState(unsafe.Pointer(plan.fdw_private))
 
-	log.Printf("[WARN] goFdwBeginForeignScan - Getting target list")
-
 	var columns []string
 	if execState.target_list != nil {
-		columns = CListToGoArray(execState.target_list)
+		columns = CStringListToGoArray(execState.target_list)
 	}
 
-	log.Printf("[WARN] goFdwBeginForeignScan - Getting CInfos")
-	// get cinfos here, instead of saving in planning?
+	// get conversion info
 	var tupdesc C.TupleDesc = node.ss.ss_currentRelation.rd_att
 	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
 
-	/* From Multicorn....
-	   ForeignScan *fscan = (ForeignScan *) node->ss.ps.plan;
-	   ...
-	   foreach(lc, fscan->fdw_exprs)
-	   	{
-	   		extractRestrictions(bms_make_singleton(fscan->scan.scanrelid),
-	   							((Expr *) lfirst(lc)),
-	   							&execstate->qual_list);
-	   	}
-	*/
-	log.Printf("[WARN] goFdwBeginForeignScan - Getting Quals")
-	if plan.fdw_exprs != nil {
-		for it := plan.fdw_exprs.head; it != nil; it = it.next {
-			val := C.cellGetExpr(it)
-			log.Printf("[WARN] goFdwBeginForeignScan - val: %+v", val)
+	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
+	qualList := RestrictionsToQuals(plan.fdw_exprs, relids, execState.cinfos)
 
-			C.extractRestrictions(C.bms_make_singleton(C.int(plan.scan.scanrelid)),
-				val,
-				(**C.List)(unsafe.Pointer(&execState.qual_list)))
-		}
-	}
-	qualList := QualDefsToQuals(execState.qual_list, execState.cinfos)
-
-	log.Printf("[WARN] goFdwBeginForeignScan - Getting Hub")
-	logging.LogTime("[gum] BeginForeignScan start")
-	// start the plugin manager
+	log.Printf("[INFO] qualList from RestrictionsToQuals %+v\n", qualList)
+	// start the plugin hub
 	var err error
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
 	}
 
-	log.Printf("[WARN] goFdwBeginForeignScan - Prepping scan")
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
-
-	log.Printf("[WARN] goFdwBeginForeignScan - Running scan")
 	iter, err := pluginHub.Scan(rel, columns, qualList, opts)
 	if err != nil {
 		FdwError(err)
@@ -239,13 +199,10 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		State: execState,
 	}
 
-	log.Printf("[WARN] goFdwBeginForeignScan - Saving exec state %v\n", s)
-
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 
-	logging.LogTime("[gum] BeginForeignScan end")
-	//log.Println("[WARN] BeginForeignScan end")
+	logging.LogTime("[fdw] BeginForeignScan end")
 }
 
 //export goFdwIterateForeignScan
@@ -256,9 +213,8 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
-	//log.Println("[WARN] goFdwIterateForeignScan")
-	log.Printf("[INFO] goFdwIterateForeignScan - Start")
-	logging.LogTime("[gum] IterateForeignScan start")
+	log.Printf("[DEBUG] goFdwIterateForeignScan - Start")
+	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
 
@@ -274,7 +230,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}
 
 	if len(row) == 0 {
-		logging.LogTime("[gum] IterateForeignScan end")
+		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms
 		//logging.DisplayProfileData(10*time.Millisecond, logger)
 		return slot
@@ -304,10 +260,8 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}
 
 	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
-	log.Printf("[INFO] goFdwIterateForeignScan End")
-
-	logging.LogTime("[gum] IterateForeignScan end")
-	//1log.Println("[WARN] goFdwIterateForeignScan end")
+	log.Printf("[DEBUG] goFdwIterateForeignScan End")
+	logging.LogTime("[fdw] IterateForeignScan end")
 	return slot
 }
 

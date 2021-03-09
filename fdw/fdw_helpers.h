@@ -36,6 +36,10 @@ static inline Datum fdw_objectIdGetDatum(Oid id){ return ObjectIdGetDatum(id); }
 static inline bool fdw_heapTupleIsValid(HeapTuple tuple){ return HeapTupleIsValid(tuple); }
 static inline void *fdw_getStruct(HeapTuple tuple) { return GETSTRUCT(tuple); }
 
+static inline NodeTag fdw_nodeTag(Expr *node) { return nodeTag(node); }
+
+
+
 static inline Datum fdw_boolGetDatum(bool b) { PG_RETURN_BOOL(b); }
 static inline Datum fdw_cStringGetDatum(const char *str) { PG_RETURN_TEXT_P(CStringGetTextDatum(str)); }
 static inline Datum fdw_jsonbGetDatum(const char *str)   { PG_RETURN_JSONB_P(DirectFunctionCall1(jsonb_in, CStringGetDatum(str))); }

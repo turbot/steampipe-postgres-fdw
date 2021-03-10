@@ -18,89 +18,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-//func QualDefsToQuals(qualDefs *C.List, cinfos **C.ConversionInfo) []*proto.Qual {
-//	var quals []*proto.Qual
-//	if qualDefs == nil {
-//		return quals
-//	}
-//	for it := qualDefs.head; it != nil; it = it.next {
-//		var qualDef *C.FdwBaseQual
-//		qualDef = C.cellGetBaseQual(it)
-//		if qualDef.right_type == C.T_Const {
-//			constDef := C.cellGetConstQual(it)
-//			if qual, err := qualDefToQual(constDef, cinfos); err != nil {
-//				log.Printf("[ERROR] failed to convert qual def to qual: %v", err)
-//			} else {
-//				quals = append(quals, qual)
-//			}
-//		} else {
-//			log.Printf("[TRACE] QualDefsToQuals: non-const qual value (type %v), skipping\n", qualDef.right_type)
-//		}
-//
-//	}
-//	log.Printf("[TRACE] QualDefsToQuals: converted quals from postgres datums to protobuf quals")
-//	for _, q := range quals {
-//		log.Printf("[DEBUG] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
-//	}
-//	return quals
-//}
-
-//func qualDefToQual(qualDef *C.FdwConstQual, cinfos **C.ConversionInfo) (*proto.Qual, error) {
-//	arrayIndex := qualDef.base.varattno - 1
-//	operatorName := qualDef.base.opname
-//	isArray := qualDef.base.isArray
-//	useOr := qualDef.base.useOr
-//	typeOid := qualDef.base.typeoid
-//	value := qualDef.value
-//	isNull := qualDef.isnull
-//
-//	log.Printf(`[TRACE] qualDefToQual: convert postgres qual to protobuf qual
-//  arrayIndex: %d
-//  operatorName: %s
-//  isArray: %v
-//  useOr: %v
-//  typeOid: %v
-//  isNull: %v
-//  value %v`, arrayIndex, C.GoString(operatorName), isArray, useOr, typeOid, isNull, value)
-//
-//	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
-//
-//	column := C.GoString(ci.attrname)
-//	var result *proto.QualValue
-//	var err error
-//	if isNull {
-//		log.Printf("[TRACE] qualDef.isnull=true - returning qual with nil value")
-//		result = nil
-//	} else {
-//		if typeOid == C.InvalidOid {
-//			typeOid = ci.atttypoid
-//		}
-//		if result, err = datumToQualValue(value, typeOid, ci); err != nil {
-//			return nil, err
-//		}
-//	}
-//
-//	if typeOid <= 0 {
-//		typeOid = ci.atttypoid
-//	}
-//
-//	log.Printf(`[TRACE] QUAL
-//  fieldName: %s
-//  operatorName: %s
-//  value: %v
-//`, C.GoString(ci.attrname), C.GoString(operatorName), result)
-//
-//	qual := &proto.Qual{
-//		FieldName: column,
-//		Operator:  &proto.Qual_StringValue{StringValue: C.GoString(operatorName)},
-//		Value:     result,
-//	}
-//
-//	//spew.Dump(qual)
-//	return qual, nil
-//
-//}
-
 func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []*proto.Qual {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
@@ -143,6 +60,18 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 	}
 	return quals
 }
+
+// TODO UPDATE COMMENT
+/*
+ *	Build an intermediate value representation for an OpExpr,
+ *	and append it to the corresponding list (quals, or params).
+ *
+ *	The quals list consist of list of the form:
+ *
+ *	- Const key: the column index in the cinfo array
+ *	- Const operator: the operator representation
+ *	- Var or Const value: the value.
+ */
 
 func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
@@ -379,3 +308,90 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 
 	return result, nil
 }
+
+//
+//
+//void extractClauseFromBooleanTest(Relids base_relids,
+//BooleanTest *node,
+//List **quals){
+//// IS_TRUE, IS_NOT_TRUE, IS_FALSE, IS_NOT_FALSE, IS_UNKNOWN, IS_NOT_UNKNOWN
+//elog(INFO, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
+//
+//}
+
+//
+//void extractClauseFromBoolExpr(Relids base_relids,
+//								   BoolExpr *node,
+//								   List **quals){
+//
+//    FdwBoolExprQual* qual = palloc0(sizeof(FdwBoolExprQual));
+//    qual->typeoid = ((Const *) value)->T_BoolExpr;
+//
+//    qual->args = node.args
+//    quals->node.boolop
+//
+//      foreach(cell, args)
+//                   {
+//                       Expr *e = (Expr *)lfirst(cell);
+//                       elog(INFO, "arg: %s", nodeToString(e));
+//        //                extractRestrictions(base_relids, (Expr *)lfirst(cell), quals);
+//                       // Store only a Value node containing the string name of the column.
+//                       if (nodeTag(e) == T_Var){
+//                           Value* v = colnameFromVar((Var*)e, root, NULL);
+//                           char* colname = (((Value *)(v))->val.str);
+//                           if (colname != NULL && strVal(colname) != NULL) {
+//                           elog(INFO, "col: %s", colname);
+//
+//                       }
+//                       }
+//                   }
+//
+//    elog(INFO, "T_BooleanExpr %d", ((BoolExpr *)node)->boolop);
+//               ListCell *cell;
+//               List* args = ((BoolExpr *)node)->args;
+//               // if there is a single variable argument, extract a bool qual
+//               if (list_length(args) == 1){
+//                   elog(INFO, "bool expression with single arg");
+//               //
+//               }
+//
+//               elog(INFO, "END T_BooleanExpr");
+//    // IS_TRUE, IS_NOT_TRUE, IS_FALSE, IS_NOT_FALSE, IS_UNKNOWN, IS_NOT_UNKNOWN
+//    elog(INFO, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
+//
+//}
+//
+
+/*	Convert a "NullTest" (IS NULL, or IS NOT NULL)
+ *	to a suitable intermediate representation.
+ */
+//void
+//extractClauseFromNullTest(Relids base_relids,
+//NullTest *node,
+//List **quals)
+//{
+//if (IsA(node->arg, Var))
+//{
+//Var		   *var = (Var *) node->arg;
+//FdwBaseQual *result;
+//char	   *opname = NULL;
+//
+//if (var->varattno < 1)
+//{
+//return;
+//}
+//if (node->nulltesttype == IS_NULL)
+//{
+//opname = "=";
+//}
+//else
+//{
+//opname = "<>";
+//}
+//result = makeQual(var->varattno, opname,
+//(Expr *) makeNullConst(INT4OID, -1, InvalidOid),
+//false,
+//false);
+//*quals = lappend(*quals, result);
+//}
+//}

@@ -73,42 +73,6 @@ typedef struct FdwExecState
 	List	   *pathkeys; /* list of FdwDeparsedSortGroup) */
 }	FdwExecState;
 
-typedef struct FdwBaseQual
-{
-	AttrNumber	varattno;
-	NodeTag		right_type;
-	Oid			typeoid;
-	char	   *opname;
-	bool		isArray;
-	bool		useOr;
-}	FdwBaseQual;
-
-typedef struct FdwConstQual
-{
-	FdwBaseQual base;
-	Datum		value;
-	bool		isnull;
-}	FdwConstQual;
-
-typedef struct FdwVarQual
-{
-	FdwBaseQual base;
-	AttrNumber	rightvarattno;
-}	FdwVarQual;
-
-typedef struct FdwParamQual
-{
-	FdwBaseQual base;
-	Expr	   *expr;
-}	FdwParamQual;
-
-typedef struct FdwBoolExprQual
-{
-	FdwBaseQual base;
-	BoolExprType boolop;
-	List	   *args; // list of child quals
-}	FdwBooleanExprQual;
-
 
 typedef struct FdwDeparsedSortGroup
 {

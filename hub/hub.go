@@ -157,14 +157,12 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 }
 
 // Scan :: Start a table scan. Returns an iterator
-func (h *Hub) Scan(rel *types.Relation, columns []string, quals []*proto.Qual, opts types.Options) (Iterator, error) {
+func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
 
 	qualMap, err := h.buildQualMap(quals)
-	// get table from opts
+	connectionName := opts["connection"]
 	table := opts["table"]
-	// get the connection name - this is the namespace (i.e. the local schema)
-	connectionName := rel.Namespace
 
 	// do we have a cached query result
 	if h.cachingEnabled {
@@ -240,14 +238,30 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //            For example, the return value corresponding to the previous scenario would be::
 //                [(('id',), 1)]
 func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
-	return make([]types.PathKey, 0), nil
-	// return single path for key column
-	//return []types.PathKey{
-	//	{
-	//		ColumnNames: []string{"domain"},
-	//		Rows:        1,
-	//	},
-	//}, nil
+	connectionName := opts["connection"]
+	table := opts["table"]
+
+	log.Printf("[INFO] hub getPathKeys %s %s\n", connectionName, table)
+
+	// get the schema for this connection
+	connectionPlugin, err := h.connections.getConnectionPluginForTable(table, connectionName)
+	if err != nil {
+		return nil, err
+	}
+	schema := connectionPlugin.Schema.Schema[table]
+
+	var getCallPathKeys []types.PathKey
+	var listCallPathKeys []types.PathKey
+	if getKeyColumns := schema.GetCallKeyColumns; getKeyColumns != nil {
+		getCallPathKeys = types.KeyColumnsToPathKeys(getKeyColumns)
+	}
+	if listKeyColumns := schema.ListCallKeyColumns; listKeyColumns != nil {
+		listCallPathKeys = types.KeyColumnsToPathKeys(listKeyColumns)
+	}
+	pathKeys := types.MergePathKeys(getCallPathKeys, listCallPathKeys)
+
+	log.Printf("[INFO] GetPathKeys returning %v", pathKeys)
+	return pathKeys, nil
 }
 
 // Explain ::  hook called on explain.
@@ -267,10 +281,6 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[st
 	log.Printf("[INFO] StartScan\n  table: %s\n  columns: %v\n", table, columns)
 	// get ConnectionPlugin which serves this table
 	c, err := h.connections.getConnectionPluginForTable(table, connectionName)
-	if err != nil {
-		return err
-	}
-
 	if err != nil {
 		return err
 	}
@@ -326,5 +336,4 @@ func (h *Hub) LoadConnectionConfig() (bool, error) {
 	configChanged := h.connectionConfig == connectionConfig
 	h.connectionConfig = connectionConfig
 	return configChanged, nil
-
 }

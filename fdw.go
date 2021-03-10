@@ -16,8 +16,6 @@ import (
 	"log"
 	"unsafe"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
@@ -55,7 +53,6 @@ func init() {
 
 //export goFdwGetRelSize
 func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, width *C.int, baserel *C.RelOptInfo) {
-	log.Printf("[WARN] getRelSize\n")
 	logging.ClearProfileData()
 
 	pluginHub, err := hub.GetHub()
@@ -81,24 +78,23 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 	*rows = C.double(result.Rows)
 	*width = C.int(result.Width)
 
-	log.Println("[WARN] pluginHub.GetRelSize returning %d x %d", *rows, *width)
-
 	return
 }
 
 //export goFdwGetPathKeys
 func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
-	//log.Println("[WARN] goFdwGetPathKeys")
-	//log.Printf("[WARN] getPathKeys ***************************\n")
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
 	}
 	var result *C.List
-
 	opts := GetFTableOptions(types.Oid(state.foreigntableid))
+	ftable := C.GetForeignTable(state.foreigntableid)
+	rel := BuildRelation(C.RelationIdGetRelation(ftable.relid))
+	// get the connection name - this is the namespace (i.e. the local schema)
+	opts["connection"] = rel.Namespace
 
-	// Run the go interface
+	// ask the hub for path keys - it will use the table schema to create path keys for all key columns
 	pathKeys, err := pluginHub.GetPathKeys(opts)
 	if err != nil {
 		FdwError(err)
@@ -135,7 +131,6 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 
 //export goFdwExplainForeignScan
 func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
-	log.Printf("[WARN] fdwExplainForeignScan***************************\n")
 	s := GetExecState(node.fdw_state)
 	if s == nil {
 		return
@@ -266,10 +261,8 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 //export goFdwReScanForeignScan
 func goFdwReScanForeignScan(node *C.ForeignScanState) {
-	// not implemented for now
-	// Rescan table, possibly with new parameters
-	//s := GetExecState(node.fdw_state)
-	//s.Iter.Reset(nil, nil, nil)
+	// restart the scan
+	goFdwBeginForeignScan(node, 0)
 }
 
 //export goFdwEndForeignScan
@@ -308,7 +301,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	// if the connection config has changed locally, send it to the plugin
 	// NOTE: this is redundant the first time a schema is imported as the hub will probably be freshly created
 	// so connection config will be up to date
-	// However if steampiep detects a connection config change and calls RefreshConnections later, the hub will alreayd exist
+	// However if steampipe detects a connection config change and calls RefreshConnections later, the hub will alreayd exist
 	// TODO add a mechanism to prevent reloading the first time - we just need to know if the hub was created  in call to GetHub
 
 	if connectionConfigChanged {
@@ -326,22 +319,6 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		return nil
 	}
 	return SchemaToSql(schema.Schema, stmt, serverOid)
-}
-
-//export goFdwGetForeignJoinPaths
-func goFdwGetForeignJoinPaths(root *C.PlannerInfo,
-	joinrel *C.RelOptInfo,
-	outerrel *C.RelOptInfo,
-	innerrel *C.RelOptInfo,
-	jointype C.JoinType,
-	extra *C.JoinPathExtraData) {
-
-	//spew.Dump(joinrel)
-	//spew.Dump(outerrel)
-	//spew.Dump(innerrel)
-	spew.Dump(jointype)
-	//spew.Dump(extra)
-
 }
 
 //export goFdwShutdown

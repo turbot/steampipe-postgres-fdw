@@ -36,8 +36,3 @@ type RelSize struct {
 	Width  int
 	Tuples int
 }
-
-type PathKey struct {
-	ColumnNames []string
-	Rows        Cost
-}

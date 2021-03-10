@@ -180,7 +180,9 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
-	iter, err := pluginHub.Scan(rel, columns, qualList, opts)
+	// get the connection name - this is the namespace (i.e. the local schema)
+	opts["connection"] = rel.Namespace
+	iter, err := pluginHub.Scan(columns, qualList, opts)
 	if err != nil {
 		FdwError(err)
 		return
@@ -207,7 +209,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
-	log.Printf("[DEBUG] goFdwIterateForeignScan - Start")
 	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
@@ -254,7 +255,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}
 
 	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
-	log.Printf("[DEBUG] goFdwIterateForeignScan End")
 	logging.LogTime("[fdw] IterateForeignScan end")
 	return slot
 }

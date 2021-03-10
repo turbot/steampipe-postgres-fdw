@@ -75,8 +75,6 @@ static inline Node* cellGetNode(ListCell *n) { return (Node*)n->data.ptr_value; 
 static inline Value* cellGetValue(ListCell *n) { return (Value*)n->data.ptr_value; }
 static inline Var* cellGetVar(ListCell *n) { return (Var*)n->data.ptr_value; }
 static inline RestrictInfo* cellGetRestrictInfo(ListCell *n) { return (RestrictInfo*)n->data.ptr_value; }
-static inline FdwBaseQual* cellGetBaseQual(ListCell *n) { return (FdwBaseQual*)n->data.ptr_value; }
-static inline FdwConstQual* cellGetConstQual(ListCell *n) { return (FdwConstQual*)n->data.ptr_value; }
 
 // logging
 char* tagTypeToString(NodeTag type);

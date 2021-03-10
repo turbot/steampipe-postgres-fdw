@@ -101,6 +101,8 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 		desc = RelationGetDescr(rel);
 		attinmeta = TupleDescGetAttInMetadata(desc);
 		planstate->numattrs = RelationGetNumberOfAttributes(rel);
+		planstate->cinfos = palloc0(sizeof(ConversionInfo *) * planstate->numattrs);
+		initConversioninfo(planstate->cinfos, attinmeta);
 		needWholeRow = rel->trigdesc && rel->trigdesc->trig_insert_after_row;
 		RelationClose(rel);
 	}

@@ -24,31 +24,8 @@
 #define get_attname(x, y) get_attname(x, y, true)
 #endif
 
-void extractClauseFromOpExpr(Relids base_relids,
-						OpExpr *node,
-						List **quals);
-
-void extractClauseFromNullTest(Relids base_relids,
-						  NullTest *node,
-						  List **quals);
-
-void extractClauseFromScalarArrayOpExpr(Relids base_relids,
-								   ScalarArrayOpExpr *node,
-								   List **quals);
-
-void extractClauseFromBooleanTest(Relids base_relids,
-								   BooleanTest *node,
-								   List **quals);
-
-//void extractClauseFromBoolExpr(Relids base_relids,
-//								   BoolExpr *node,
-//								   List **quals);
 
 char	   *getOperatorString(Oid opoid);
-
-FdwBaseQual *makeQual(AttrNumber varattno, char *opname, Expr *value,
-		 bool isarray,
-		 bool useOr);
 
 
 Node	   *unnestClause(Node *node);
@@ -250,7 +227,7 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 	OpExpr	   *result = NULL;
 
     int length = (int)list_length(opExpr->args);
-    elog(WARNING, "canonicalOpExpr, arg length: %d, base_relids %x", length, (int)base_relids);
+    elog(LOG, "canonicalOpExpr, arg length: %d, base_relids %x", length, (int)base_relids);
 
 	/* Only treat binary operators for now. */
 	if (length == 2)
@@ -258,8 +235,8 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 		l = unnestClause(list_nth(opExpr->args, 0));
 		r = unnestClause(list_nth(opExpr->args, 1));
 
-		elog(WARNING, "l arg: %s", nodeToString(l));
-		elog(WARNING, "r arg: %s", nodeToString(r));
+		elog(LOG, "l arg: %s", nodeToString(l));
+		elog(LOG, "r arg: %s", nodeToString(r));
 
 		swapOperandsAsNeeded(&l, &r, &operatorid, base_relids);
 
@@ -277,10 +254,10 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 											  opExpr->opcollid,
 											  opExpr->inputcollid);
 
-          elog(WARNING, "canonicalOpExpr returning result");
+          elog(INFO, "canonicalOpExpr returning result");
 		}
 	} else {
-	  elog(WARNING, "canonicalOpExpr - arg length %d, ignoring", length);
+	  elog(INFO, "canonicalOpExpr - arg length %d, ignoring", length);
     }
 
 	return result;
@@ -332,247 +309,6 @@ canonicalScalarArrayOpExpr(ScalarArrayOpExpr *opExpr,
 
 
 /*
- * Extract conditions that can be pushed down, as well as the parameters.
- *
- */
-void
-extractRestrictions(Relids base_relids,
-					Expr *node,
-					List **quals)
-{
-    // see laurenz/oracle_fdw/oracle_fdw.c #4548
-
-    elog(WARNING, "extractRestrictions, restriction type: %s",  tagTypeToString(nodeTag(node)));
-	switch (nodeTag(node))
-	{
-		case T_OpExpr:
-			extractClauseFromOpExpr(base_relids,
-									(OpExpr *) node, quals);
-			break;
-		case T_NullTest:
-			extractClauseFromNullTest(base_relids,
-									  (NullTest *) node, quals);
-			break;
-		case T_ScalarArrayOpExpr:
-			extractClauseFromScalarArrayOpExpr(base_relids,
-											   (ScalarArrayOpExpr *) node,
-											   quals);
-			break;
-        case T_BooleanTest:
-			extractClauseFromBooleanTest(base_relids,
-											   (BooleanTest *) node,
-											   quals);
-			break;
-        case T_BoolExpr:
-            elog(INFO, "T_BooleanExpr %d", ((BoolExpr *)node)->boolop);
-            ListCell *cell;
-            List* args = ((BoolExpr *)node)->args;
-            // if there is a single variable argument, extract a bool qual
-            if (list_length(args) == 1){
-                elog(INFO, "bool expression with single arg");
-            //
-            }
-	        foreach(cell, args)
-            {
-                Expr *e = (Expr *)lfirst(cell);
-                elog(INFO, "arg: %s", nodeToString(e));
-//                extractRestrictions(base_relids, (Expr *)lfirst(cell), quals);
-                // Store only a Value node containing the string name of the column.
-                // if (nodeTag(e) == T_Var){
-                //     Value* v = colnameFromVar((Var*)e, root, NULL);
-                //     char* colname = (((Value *)(v))->val.str);
-                //     if (colname != NULL && strVal(colname) != NULL) {
-                //     elog(INFO, "col: %s", colname);
-
-                // }
-                //}
-            }
-            elog(INFO, "END T_BooleanExpr");
-            break;
-        case T_Var:
-            elog(INFO, "T_Var: %s", nodeToString(node));
-            break;
-		default:
-
-//				ereport(WARNING,
-//						(errmsg("unsupported expression for "
-//								"extractClauseFrom"),
-//						 errdetail("%s", nodeToString(node))));
-
-            elog(WARNING, "unsupported expression for extractClauseFrom: %s", nodeToString(node));
-
-			break;
-	}
-	elog(INFO, "RETURN");
-}
-
-void displayRestriction(PlannerInfo *root, Relids base_relids, RestrictInfo * r){
-    elog(INFO, "displayRestrictions");
-    Expr *node = r->clause;
-    elog(INFO, "restriction type: %s",  tagTypeToString(nodeTag(node)));
-    elog(INFO, "node: %s", nodeToString(node));
-
-//    __builtin_dump_struct(r, &dumpStruct.clause);
-
-}
-
-/*
- *	Build an intermediate value representation for an OpExpr,
- *	and append it to the corresponding list (quals, or params).
- *
- *	The quals list consist of list of the form:
- *
- *	- Const key: the column index in the cinfo array
- *	- Const operator: the operator representation
- *	- Var or Const value: the value.
- */
-void
-extractClauseFromOpExpr(Relids base_relids,
-						OpExpr *op,
-						List **quals)
-{
-	Var		   *left;
-	Expr	   *right;
-    ListCell   *lc;
-    foreach(lc, op->args){
-
-    }
-	/* Use a "canonical" version of the op expression, to ensure that the */
-	/* left operand is a Var on our relation. */
-	op = canonicalOpExpr(op, base_relids);
-	if (op)
-	{
-	    elog(INFO, "got op from canonicalOpExpr");
-
-		left = list_nth(op->args, 0);
-		right = list_nth(op->args, 1);
-		/* Do not add it if it either contains a mutable function, or makes */
-		/* self references in the right hand side. */
-		if (!(contain_volatile_functions((Node *) right) ||
-			  bms_is_subset(base_relids, pull_varnos((Node *) right))))
-		{
-		    elog(INFO, "adding qual for OpExpr opno %d", op->opno);
-			*quals = lappend(*quals, makeQual(left->varattno,
-											  getOperatorString(op->opno),
-											  right, false, false));
-		} else {
-		    elog(INFO, "NOT adding qual for OpExpr");
-		}
-	}
-}
-
-void
-extractClauseFromScalarArrayOpExpr(Relids base_relids,
-								   ScalarArrayOpExpr *op,
-								   List **quals)
-{
-	Var		   *left;
-	Expr	   *right;
-
-	op = canonicalScalarArrayOpExpr(op, base_relids);
-	if (op)
-	{
-		left = list_nth(op->args, 0);
-		right = list_nth(op->args, 1);
-		if (!(contain_volatile_functions((Node *) right) ||
-			  bms_is_subset(base_relids, pull_varnos((Node *) right))))
-		{
-			*quals = lappend(*quals, makeQual(left->varattno,
-											  getOperatorString(op->opno),
-											  right, true,
-											  op->useOr));
-		}
-	}
-}
-
-void extractClauseFromBooleanTest(Relids base_relids,
-								   BooleanTest *node,
-								   List **quals){
-    // IS_TRUE, IS_NOT_TRUE, IS_FALSE, IS_NOT_FALSE, IS_UNKNOWN, IS_NOT_UNKNOWN
-    elog(INFO, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
-
-}
-//
-//void extractClauseFromBoolExpr(Relids base_relids,
-//								   BoolExpr *node,
-//								   List **quals){
-//
-//    FdwBoolExprQual* qual = palloc0(sizeof(FdwBoolExprQual));
-//    qual->typeoid = ((Const *) value)->T_BoolExpr;
-//
-//    qual->args = node.args
-//    quals->node.boolop
-//
-//      foreach(cell, args)
-//                   {
-//                       Expr *e = (Expr *)lfirst(cell);
-//                       elog(INFO, "arg: %s", nodeToString(e));
-//        //                extractRestrictions(base_relids, (Expr *)lfirst(cell), quals);
-//                       // Store only a Value node containing the string name of the column.
-//                       if (nodeTag(e) == T_Var){
-//                           Value* v = colnameFromVar((Var*)e, root, NULL);
-//                           char* colname = (((Value *)(v))->val.str);
-//                           if (colname != NULL && strVal(colname) != NULL) {
-//                           elog(INFO, "col: %s", colname);
-//
-//                       }
-//                       }
-//                   }
-//
-//    elog(INFO, "T_BooleanExpr %d", ((BoolExpr *)node)->boolop);
-//               ListCell *cell;
-//               List* args = ((BoolExpr *)node)->args;
-//               // if there is a single variable argument, extract a bool qual
-//               if (list_length(args) == 1){
-//                   elog(INFO, "bool expression with single arg");
-//               //
-//               }
-//
-//               elog(INFO, "END T_BooleanExpr");
-//    // IS_TRUE, IS_NOT_TRUE, IS_FALSE, IS_NOT_FALSE, IS_UNKNOWN, IS_NOT_UNKNOWN
-//    elog(INFO, "extractClauseFromBooleanTest, xpr %s, arg %s, booltesttype %u, location %d", nodeToString(&(node->xpr)),  nodeToString(node->arg), node->booltesttype, node->location);
-//
-//}
-//
-
-/*
- *	Convert a "NullTest" (IS NULL, or IS NOT NULL)
- *	to a suitable intermediate representation.
- */
-void
-extractClauseFromNullTest(Relids base_relids,
-						  NullTest *node,
-						  List **quals)
-{
-	if (IsA(node->arg, Var))
-	{
-		Var		   *var = (Var *) node->arg;
-		FdwBaseQual *result;
-		char	   *opname = NULL;
-
-		if (var->varattno < 1)
-		{
-			return;
-		}
-		if (node->nulltesttype == IS_NULL)
-		{
-			opname = "=";
-		}
-		else
-		{
-			opname = "<>";
-		}
-		result = makeQual(var->varattno, opname,
-						  (Expr *) makeNullConst(INT4OID, -1, InvalidOid),
-						  false,
-						  false);
-		*quals = lappend(*quals, result);
-	}
-}
-
-
-
-/*
  *	Returns a "Value" node containing the string name of the column from a var.
  */
 Value *
@@ -593,47 +329,6 @@ colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState * planstate)
 	}
 }
 
-/*
- *	Build an opaque "qual" object.
- */
-FdwBaseQual *
-makeQual(AttrNumber varattno, char *opname, Expr *value, bool isarray, bool useOr)
-{
-	FdwBaseQual *qual;
-
-    elog(INFO, "makeQual varattno: %d, opname: %s, value: %s, isarray: %d", varattno, opname, nodeToString(value), isarray);
-    elog(INFO, "qual value type: %s",  tagTypeToString(nodeTag(value)));
-
-	switch (value->type)
-	{
-		case T_Const:
-		    qual = palloc0(sizeof(FdwConstQual));
-			qual->right_type = T_Const;
-			qual->typeoid = ((Const *) value)->consttype;
-			((FdwConstQual *) qual)->value = ((Const *) value)->constvalue;
-			((FdwConstQual *) qual)->isnull = ((Const *) value)->constisnull;
-			break;
-		case T_Var:
-			elog(INFO, "T_Var");
-            qual = palloc0(sizeof(FdwVarQual));
-			qual->right_type = T_Var;
-			((FdwVarQual *) qual)->rightvarattno = ((Var *) value)->varattno;
-			break;
-		default:
-		    elog(INFO, "other value type %s", nodeToString(value));
-			qual = palloc0(sizeof(FdwParamQual));
-			qual->right_type = T_Param;
-			((FdwParamQual *) qual)->expr = value;
-			qual->typeoid = InvalidOid;
-			break;
-	}
-	qual->varattno = varattno;
-	qual->opname = opname;
-	qual->isArray = isarray;
-	qual->useOr = useOr;
-
-	return qual;
-}
 
 /*
  *	Test whether an attribute identified by its relid and attno

@@ -29,12 +29,14 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 
 	for it := restrictions.head; it != nil; it = it.next {
 		restriction := C.cellGetExpr(it)
-		log.Printf("[INFO] restriction %s     ************", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
+		log.Printf("[INFO] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
 
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
 			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
-				qualsList.append(q)
+				if q.Value.GetStringValue() != "?" {
+					qualsList.append(q)
+				}
 			}
 			break
 		case C.T_ScalarArrayOpExpr:
@@ -43,14 +45,19 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 			}
 			break
 		case C.T_NullTest:
-			//extractClauseFromNullTest(base_relids,				(NullTest *) node, quals);
+			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
+			qualsList.append(q)
+			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
 			break
-		case C.T_BooleanTest:
-			//extractClauseFromBooleanTest(base_relids,				(BooleanTest *) node,			quals);
-			break
-		case C.T_BoolExpr:
-			//extractClauseFromBooleanTest(base_relids,				(BooleanTest *) node,			quals);
-			break
+			//case C.T_BooleanTest:
+			//	q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos)
+			//	qualsList = append(qualsList, q)
+			//	break
+			//case C.T_BoolExpr:
+			//	if q := qualFromBooleanExpr((*C.BoolExprExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+			//		qualsList = append(qualsList, q)
+			//	}
+			//	break
 		}
 
 	}
@@ -152,6 +159,45 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 	return qual
 }
 
+func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+
+	if C.fdw_nodeTag(restriction.arg) != C.T_Var {
+		return nil
+	}
+
+	arg := (*C.Var)(unsafe.Pointer(restriction.arg))
+	if arg.varattno < 1 {
+		return nil
+	}
+
+	operatorName := ""
+	if restriction.nulltesttype == C.IS_NULL {
+		operatorName = "="
+	} else {
+		operatorName = "<>"
+	}
+
+	arrayIndex := arg.varattno - 1
+	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
+	column := C.GoString(ci.attrname)
+
+	qual := &proto.Qual{
+		FieldName: column,
+		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
+		Value:     nil,
+	}
+	return qual
+}
+
+func qualFromBoolTest(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+
+	return nil
+}
+func qualFromBoolExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+
+	return nil
+}
+
 func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.ConversionInfo) (*proto.QualValue, error) {
 	var isNull C.bool
 	var typeOid C.Oid
@@ -205,7 +251,7 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 	so we must handle quals of all these type
 
 	*/
-	log.Printf("[WARN] datumToQualValue: convert postgres datum to protobuf qual value datum: %v, typeOid: %v\n", datum, typeOid)
+	log.Printf("[INFO] datumToQualValue: convert postgres datum to protobuf qual value datum: %v, typeOid: %v\n", datum, typeOid)
 	var result = &proto.QualValue{}
 
 	switch typeOid {

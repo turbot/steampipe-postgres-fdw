@@ -145,7 +145,6 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
-	log.Printf("[INFO] goFdwBeginForeignScan ***************************\n")
 	logging.LogTime("[fdw] BeginForeignScan start")
 
 	defer func() {
@@ -181,6 +180,9 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	opts := GetFTableOptions(rel.ID)
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = rel.Namespace
+
+	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
+
 	iter, err := pluginHub.Scan(columns, qualList, opts)
 	if err != nil {
 		FdwError(err)

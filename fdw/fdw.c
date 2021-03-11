@@ -81,8 +81,6 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
     // to set the log level for fdw logging from C code, set log_min_messages in postgresql.conf
     goInit();
 
-    elog(INFO, "fdwGetForeignRelSize");
-
     FdwPlanState *planstate = palloc0(sizeof(FdwPlanState));
 	ForeignTable *ftable = GetForeignTable(foreigntableid);
 
@@ -156,7 +154,6 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
 
 	/* Try to find parameterized paths */
 	paths = findPaths(root, baserel, possiblePaths, planstate->startupCost, planstate, apply_pathkeys, deparsed_pathkeys);
-
 
 	/* Add a simple default path */
 	paths = lappend(paths, create_foreignscan_path(
@@ -262,7 +259,6 @@ static ForeignScan *fdwGetForeignPlan(
     Index scan_relid = baserel->relid;
 	FdwPlanState *planstate = (FdwPlanState *) baserel->fdw_private;
 	best_path->path.pathtarget->width = planstate->width;
-	elog(INFO, "fdwGetForeignPlan %d scan_clauses", list_length(scan_clauses));
 	scan_clauses = extract_actual_clauses(scan_clauses, false);
 
 	planstate->pathkeys = (List *) best_path->fdw_private;

@@ -1,7 +1,6 @@
 package types
 
 import (
-	"log"
 	"sort"
 	"strings"
 
@@ -40,7 +39,6 @@ func PathExistsInKeys(pathKeys []PathKey, other PathKey) bool {
 }
 
 func KeyColumnsToPathKeys(k *proto.KeyColumnsSet) []PathKey {
-	log.Printf("[WARN] keyColumnsToPathKeys %v\n", k)
 	var res []PathKey
 	// if a single key column is specified add it
 	if k.Single != "" {

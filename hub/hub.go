@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
@@ -164,6 +165,12 @@ func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (I
 	connectionName := opts["connection"]
 	table := opts["table"]
 
+	if len(qualMap) > 0 {
+		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap))
+	} else {
+		log.Println("[INFO] no quals")
+	}
+
 	// do we have a cached query result
 	if h.cachingEnabled {
 		cachedResult := h.queryCache.Get(connectionName, table, qualMap, columns)
@@ -241,8 +248,6 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	connectionName := opts["connection"]
 	table := opts["table"]
 
-	log.Printf("[INFO] hub getPathKeys %s %s\n", connectionName, table)
-
 	// get the schema for this connection
 	connectionPlugin, err := h.connections.getConnectionPluginForTable(table, connectionName)
 	if err != nil {
@@ -260,7 +265,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	}
 	pathKeys := types.MergePathKeys(getCallPathKeys, listCallPathKeys)
 
-	log.Printf("[INFO] GetPathKeys returning %v", pathKeys)
+	log.Printf("[INFO] GetPathKeys for connection '%s`, table `%s` returning %v", connectionName, table, pathKeys)
 	return pathKeys, nil
 }
 

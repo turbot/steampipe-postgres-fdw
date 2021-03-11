@@ -22,9 +22,9 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
 
-	var quals []*proto.Qual
+	var qualsList qualList
 	if restrictions == nil {
-		return quals
+		return qualsList.quals
 	}
 
 	for it := restrictions.head; it != nil; it = it.next {
@@ -33,13 +33,13 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
-			if q := qualFromOpExpr((*C.OpExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
-				quals = append(quals, q)
+			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
+				qualsList.append(q)
 			}
 			break
 		case C.T_ScalarArrayOpExpr:
-			if q := qualFromScalarOpExpr((*C.ScalarArrayOpExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
-				quals = append(quals, q)
+			if q := qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos); q != nil {
+				qualsList.append(q)
 			}
 			break
 		case C.T_NullTest:
@@ -54,11 +54,11 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 		}
 
 	}
-	log.Printf("[TRACE] QualDefsToQuals: converted quals from postgres datums to protobuff quals")
-	for _, q := range quals {
-		log.Printf("[WARN] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
-	}
-	return quals
+	log.Printf("[INFO] RestrictionsToQuals: converted postgres restrictions protobuf quals")
+	//for _, q := range qualsList.quals {
+	//	log.Printf("[INFO] %s", grpc.QualToString(q))
+	//}
+	return qualsList.quals
 }
 
 // TODO UPDATE COMMENT
@@ -77,7 +77,6 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
 
-	log.Printf("[INFO] qualFromOpExpr rel %+v is member %v, %s", relids, C.bms_is_member(1, relids), C.GoString(C.nodeToString(unsafe.Pointer(restriction))))
 	restriction = C.canonicalOpExpr(restriction, relids)
 
 	if restriction == nil {
@@ -395,3 +394,47 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 //*quals = lappend(*quals, result);
 //}
 //}
+
+/* qualsList is a wrapper for a listy of grpc quals performs duplicate checking before adding to the list
+   this was needed as we found for some qeuries we get duplicate quals, for example:
+
+ select
+  u.name as username,
+  s.decision,
+  jsonb_pretty(s.matched_statements)
+from
+  morales.aws_iam_user as u,
+  morales.aws_iam_policy_simulator as s
+where
+  s.action = 's3:DeleteBucket'
+  and s.resource_arn = '*'
+  and s.principal_arn = u.arn;
+
+
+field 'action' operator '&{=}' value 'string_value:"s3:DeleteBucket"'
+field 'resource_arn' operator '&{=}' value 'string_value:"*"'
+field 'principal_arn' operator '&{=}' value 'string_value:"?"'
+field 'action' operator '&{=}' value 'string_value:"s3:DeleteBucket"'
+field 'resource_arn' operator '&{=}' value 'string_value:"*"'
+fieldName:"action"  string_value:"="
+
+*/
+type qualList struct {
+	quals []*proto.Qual
+}
+
+// append the qual to our list, checking for duplicates
+func (q *qualList) append(qual *proto.Qual) {
+	if !q.contains(qual) {
+		q.quals = append(q.quals, qual)
+	}
+}
+
+func (q *qualList) contains(other *proto.Qual) bool {
+	for _, qual := range q.quals {
+		if grpc.QualEquals(qual, other) {
+			return true
+		}
+	}
+	return false
+}

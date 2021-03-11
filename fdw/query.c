@@ -227,7 +227,7 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 	OpExpr	   *result = NULL;
 
     int length = (int)list_length(opExpr->args);
-    elog(LOG, "canonicalOpExpr, arg length: %d, base_relids %x", length, (int)base_relids);
+    elog(DEBUG5, "canonicalOpExpr, arg length: %d, base_relids %x", length, (int)base_relids);
 
 	/* Only treat binary operators for now. */
 	if (length == 2)
@@ -235,8 +235,8 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 		l = unnestClause(list_nth(opExpr->args, 0));
 		r = unnestClause(list_nth(opExpr->args, 1));
 
-		elog(LOG, "l arg: %s", nodeToString(l));
-		elog(LOG, "r arg: %s", nodeToString(r));
+		elog(DEBUG5, "l arg: %s", nodeToString(l));
+		elog(DEBUG5, "r arg: %s", nodeToString(r));
 
 		swapOperandsAsNeeded(&l, &r, &operatorid, base_relids);
 

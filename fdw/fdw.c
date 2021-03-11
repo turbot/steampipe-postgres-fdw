@@ -276,8 +276,6 @@ static ForeignScan *fdwGetForeignPlan(
         NULL, /* All quals are meant to be rechecked */
         NULL
     );
-	elog(INFO, "************** ret %d, %d, %d", list_length(s->fdw_exprs) , list_length(s->fdw_scan_tlist) , list_length(s->fdw_recheck_quals) );
-
 	return s;
 }
 

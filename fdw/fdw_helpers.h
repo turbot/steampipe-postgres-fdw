@@ -74,6 +74,12 @@ static inline Expr* cellGetExpr(ListCell *n) { return (Expr*)n->data.ptr_value; 
 static inline Node* cellGetNode(ListCell *n) { return (Node*)n->data.ptr_value; }
 static inline Value* cellGetValue(ListCell *n) { return (Value*)n->data.ptr_value; }
 static inline Var* cellGetVar(ListCell *n) { return (Var*)n->data.ptr_value; }
+static inline OpExpr* cellGetOpExpr(ListCell *n) { return (OpExpr*)n->data.ptr_value; }
+static inline ScalarArrayOpExpr* cellGetScalarArrayOpExpr(ListCell *n) { return (ScalarArrayOpExpr*)n->data.ptr_value; }
+static inline NullTest* cellGetNullTest(ListCell *n) { return (NullTest*)n->data.ptr_value; }
+static inline BooleanTest* cellGetBooleanTest(ListCell *n) { return (BooleanTest*)n->data.ptr_value; }
+static inline BoolExpr* cellGetBoolExpr(ListCell *n) { return (BoolExpr*)n->data.ptr_value; }
+
 static inline RestrictInfo* cellGetRestrictInfo(ListCell *n) { return (RestrictInfo*)n->data.ptr_value; }
 
 // logging

@@ -170,7 +170,6 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	qualList := RestrictionsToQuals(node, execState.cinfos)
 
-	log.Printf("[INFO] qualList from RestrictionsToQuals %+v\n", qualList)
 	// start the plugin hub
 	var err error
 	pluginHub, err := hub.GetHub()

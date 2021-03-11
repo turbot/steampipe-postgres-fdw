@@ -34,9 +34,7 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
 			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
-				if q.Value.GetStringValue() != "?" {
-					qualsList.append(q)
-				}
+				qualsList.append(q)
 			}
 			break
 		case C.T_ScalarArrayOpExpr:

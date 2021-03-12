@@ -297,10 +297,10 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[st
 }
 
 // load the given plugin connection into the connection map and return the schema
-func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, fdwOptions *connection_config.FdwOptions, pluginOptions *connection_config.PluginOptions, connectionConfig string) (*connection_config.ConnectionPlugin, error) {
+func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, fdwOptions *connection_config.ConnectionOptions, pluginOptions *connection_config.PluginOptions, connectionConfig string) (*connection_config.ConnectionPlugin, error) {
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", pluginFQN, connectionName, connectionConfig)
 
-	opts := &connection_config.ConnectionPluginInput{PluginName: pluginFQN, ConnectionName: connectionName, ConnectionConfig: connectionConfig, FdwOptions: fdwOptions, PluginOptions: pluginOptions}
+	opts := &connection_config.ConnectionPluginInput{PluginName: pluginFQN, ConnectionName: connectionName, ConnectionConfig: connectionConfig}
 	c, err := connection_config.CreateConnectionPlugin(opts)
 	if err != nil {
 		return nil, err
@@ -327,8 +327,8 @@ func (h *Hub) LoadConnectionConfig() (bool, error) {
 
 // if steampipe config contains cache args, set from there. Otherwise fall back to env vars
 func (h *Hub) configureCache() error {
-	h.defaultCacheEnabled = cache.CacheEnabled(h.steampipeConfig.FdwOptions)
-	h.defaultCacheTTL = cache.CacheTTL(h.steampipeConfig.FdwOptions)
+	h.defaultCacheEnabled = cache.CacheEnabled(h.steampipeConfig.ConnectionOptions)
+	h.defaultCacheTTL = cache.CacheTTL(h.steampipeConfig.ConnectionOptions)
 	log.Printf("[INFO] defaultCacheEnabled %v, defaultCacheTTL %d", h.defaultCacheEnabled, h.defaultCacheTTL)
 	queryCache, err := cache.NewQueryCache()
 	if err != nil {

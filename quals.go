@@ -235,7 +235,7 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 	return qualValue, nil
 }
 
-func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {
+func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (result *proto.QualValue, err error) {
 	/* we support these postgres column types (see sqlTypeForColumnType):
 	 bool
 	 bigint
@@ -250,12 +250,16 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 
 	*/
 	log.Printf("[INFO] datumToQualValue: convert postgres datum to protobuf qual value datum: %v, typeOid: %v\n", datum, typeOid)
-	var result = &proto.QualValue{}
 
 	switch typeOid {
 	case C.TEXTOID, C.VARCHAROID:
 		result.Value = &proto.QualValue_StringValue{StringValue: C.GoString(C.datumString(datum, cinfo))}
 	case C.INETOID:
+		// handle zero value
+		if datum == 0 {
+			// return nil
+			break
+		}
 
 		inet := C.datumInet(datum, cinfo)
 		ipAddrBytes := C.GoBytes(unsafe.Pointer(C.ipAddr(inet)), 16)
@@ -292,25 +296,26 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 	case C.BOOLOID:
 		result.Value = &proto.QualValue_BoolValue{BoolValue: bool(C.datumBool(datum, cinfo))}
 	default:
+		result, err = convertUnknown(datum, typeOid, cinfo)
+	}
+	return
 
-		tuple := C.fdw_searchSysCache1(C.TYPEOID, C.fdw_objectIdGetDatum(typeOid))
-		if !C.fdw_heapTupleIsValid(tuple) {
-			return nil, fmt.Errorf("lookup failed for type %v", typeOid)
-		}
-		typeStruct := (C.Form_pg_type)(unsafe.Pointer(C.fdw_getStruct(tuple)))
-		C.ReleaseSysCache(tuple)
+}
 
-		if (typeStruct.typelem != 0) && (typeStruct.typlen == -1) {
-			log.Printf("[TRACE] datum is an array")
-			return datumArrayToQualValue(datum, typeOid, cinfo)
-		}
-		log.Printf("[ERROR] unknown qual value: %s")
+func convertUnknown(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {
+	tuple := C.fdw_searchSysCache1(C.TYPEOID, C.fdw_objectIdGetDatum(typeOid))
+	if !C.fdw_heapTupleIsValid(tuple) {
+		return nil, fmt.Errorf("lookup failed for type %v", typeOid)
+	}
+	typeStruct := (C.Form_pg_type)(unsafe.Pointer(C.fdw_getStruct(tuple)))
+	C.ReleaseSysCache(tuple)
 
-		return nil, fmt.Errorf("Unknown qual type %v", typeOid)
+	if (typeStruct.typelem != 0) && (typeStruct.typlen == -1) {
+		log.Printf("[TRACE] datum is an array")
+		return datumArrayToQualValue(datum, typeOid, cinfo)
 	}
 
-	return result, nil
-
+	return nil, fmt.Errorf("Unknown qual type %v", typeOid)
 }
 
 func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {

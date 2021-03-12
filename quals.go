@@ -246,18 +246,16 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (re
 	 jsonb
 	 timestamp
 
-	so we must handle quals of all these type
+	so we must handle quals of all these types
 
 	*/
-	log.Printf("[INFO] datumToQualValue: convert postgres datum to protobuf qual value datum: %v, typeOid: %v\n", datum, typeOid)
-
+	result = &proto.QualValue{}
 	switch typeOid {
 	case C.TEXTOID, C.VARCHAROID:
 		result.Value = &proto.QualValue_StringValue{StringValue: C.GoString(C.datumString(datum, cinfo))}
 	case C.INETOID:
-		// handle zero value
+		// handle zero value - return nil
 		if datum == 0 {
-			// return nil
 			break
 		}
 
@@ -299,7 +297,6 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (re
 		result, err = convertUnknown(datum, typeOid, cinfo)
 	}
 	return
-
 }
 
 func convertUnknown(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {

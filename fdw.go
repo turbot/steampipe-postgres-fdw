@@ -90,9 +90,10 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	var result *C.List
 	opts := GetFTableOptions(types.Oid(state.foreigntableid))
 	ftable := C.GetForeignTable(state.foreigntableid)
-	rel := BuildRelation(C.RelationIdGetRelation(ftable.relid))
+	rel := C.RelationIdGetRelation(ftable.relid)
+	defer C.RelationClose(rel)
 	// get the connection name - this is the namespace (i.e. the local schema)
-	opts["connection"] = rel.Namespace
+	opts["connection"] = getNamespace(rel)
 
 	// ask the hub for path keys - it will use the table schema to create path keys for all key columns
 	pathKeys, err := pluginHub.GetPathKeys(opts)
@@ -168,6 +169,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
 
 	qualList := RestrictionsToQuals(node, execState.cinfos)
+
+	log.Printf("[INFO] goFdwBeginForeignScan got qual list")
 
 	// start the plugin hub
 	var err error

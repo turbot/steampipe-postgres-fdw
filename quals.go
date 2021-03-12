@@ -36,26 +36,25 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
 				qualsList.append(q)
 			}
-			break
+		case C.T_Var:
+			q := qualFromVar(C.cellGetVar(it), node, cinfos)
+			qualsList.append(q)
+
 		case C.T_ScalarArrayOpExpr:
 			if q := qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos); q != nil {
 				qualsList.append(q)
 			}
-			break
 		case C.T_NullTest:
 			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
 			qualsList.append(q)
 			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
-			break
-			//case C.T_BooleanTest:
-			//	q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos)
-			//	qualsList = append(qualsList, q)
-			//	break
+		case C.T_BooleanTest:
+			q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos)
+			qualsList.append(q)
 			//case C.T_BoolExpr:
-			//	if q := qualFromBooleanExpr((*C.BoolExprExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
-			//		qualsList = append(qualsList, q)
+			//	if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+			//		qualsList.append(q)
 			//	}
-			//	break
 		}
 
 	}
@@ -66,18 +65,7 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 	return qualsList.quals
 }
 
-// TODO UPDATE COMMENT
-/*
- *	Build an intermediate value representation for an OpExpr,
- *	and append it to the corresponding list (quals, or params).
- *
- *	The quals list consist of list of the form:
- *
- *	- Const key: the column index in the cinfo array
- *	- Const operator: the operator representation
- *	- Var or Const value: the value.
- */
-
+// build a protobuf qual from an OpExpr
 func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
@@ -115,6 +103,15 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 	}
 
 	return qual
+}
+
+// build a protobuf qual from a Var - this converts to a simple boolean qual where column=true
+func qualFromVar(arg *C.Var, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	return &proto.Qual{
+		FieldName: columnFromVar(arg, cinfos),
+		Operator:  &proto.Qual_StringValue{StringValue: "="},
+		Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+	}
 }
 
 func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
@@ -157,6 +154,7 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 	return qual
 }
 
+// build a protobuf qual from a NullTest
 func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
 
 	if C.fdw_nodeTag(restriction.arg) != C.T_Var {
@@ -175,9 +173,7 @@ func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos 
 		operatorName = "<>"
 	}
 
-	arrayIndex := arg.varattno - 1
-	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
-	column := C.GoString(ci.attrname)
+	column := columnFromVar(arg, cinfos)
 
 	qual := &proto.Qual{
 		FieldName: column,
@@ -187,11 +183,44 @@ func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos 
 	return qual
 }
 
-func qualFromBoolTest(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+// build a protobuf qual from a BoolTest
+func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	arg := restriction.arg
+	if C.fdw_nodeTag(arg) != C.T_Var {
+		return nil
+	}
 
-	return nil
+	variable := (*C.Var)(unsafe.Pointer(arg))
+	column := columnFromVar(variable, cinfos)
+	operatorName := ""
+
+	switch restriction.booltesttype {
+	case C.IS_TRUE:
+		operatorName = "="
+
+	case C.IS_NOT_TRUE, C.IS_FALSE:
+		operatorName = "<>"
+	default:
+		return nil
+	}
+
+	qual := &proto.Qual{
+		FieldName: column,
+		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
+		Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+	}
+
+	return qual
 }
-func qualFromBoolExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+
+func columnFromVar(variable *C.Var, cinfos **C.ConversionInfo) string {
+	arrayIndex := variable.varattno - 1
+	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
+	column := C.GoString(ci.attrname)
+	return column
+}
+
+func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
 
 	return nil
 }
@@ -207,14 +236,12 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		typeOid = constQual.consttype
 		value = constQual.constvalue
 		isNull = constQual.constisnull
-		break
 	case C.T_Param:
 		paramQual := (*C.Param)(right)
 		typeOid = paramQual.paramtype
 		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
 		econtext := node.ss.ps.ps_ExprContext
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
-		break
 	default:
 		return nil, fmt.Errorf("QualDefsToQuals: non-const qual value (type %v), skipping\n", C.fdw_nodeTag(valueExpression))
 	}

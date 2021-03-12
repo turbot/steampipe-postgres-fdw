@@ -295,15 +295,21 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	}
 	schema := connectionPlugin.Schema.Schema[table]
 
-	var getCallPathKeys []types.PathKey
-	var listCallPathKeys []types.PathKey
-	if getKeyColumns := schema.GetCallKeyColumns; getKeyColumns != nil {
-		getCallPathKeys = types.KeyColumnsToPathKeys(getKeyColumns)
-	}
+	// generate path keys if there are required list key columns
+	// this increases the chances that Postgres will generate a plan which provides the quals when querying the table
+	var pathKeys []types.PathKey
 	if listKeyColumns := schema.ListCallKeyColumns; listKeyColumns != nil {
-		listCallPathKeys = types.KeyColumnsToPathKeys(listKeyColumns)
+		pathKeys = types.KeyColumnsToPathKeys(listKeyColumns)
 	}
-	pathKeys := types.MergePathKeys(getCallPathKeys, listCallPathKeys)
+	// NOTE: in the future we msy (optionally) add in path keys for Get call key caolumns.
+	// We do not do this by default as it is likely to actually reduce join performance in the general case,
+	// particularly when caching is taken into account
+
+	//var getCallPathKeys []types.PathKey
+	//if getKeyColumns := schema.GetCallKeyColumns; getKeyColumns != nil {
+	//	getCallPathKeys = types.KeyColumnsToPathKeys(getKeyColumns)
+	//}
+	//pathKeys := types.MergePathKeys(getCallPathKeys, listCallPathKeys)
 
 	log.Printf("[INFO] GetPathKeys for connection '%s`, table `%s` returning %v", connectionName, table, pathKeys)
 	return pathKeys, nil

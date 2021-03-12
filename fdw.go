@@ -101,13 +101,9 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 		FdwError(err)
 	}
 
-	//spew.Dump(opts)
-
 	for _, pathKey := range pathKeys {
 		var item *C.List
 		var attnums *C.List
-
-		//spew.Dump(pathKey)
 		for _, key := range pathKey.ColumnNames {
 			// Lookup the attribute number by its key.
 			for k := 0; k < int(state.numattrs); k++ {
@@ -216,13 +212,12 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
-
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
 
+	// call the iterator
 	// row is a map of column name to value (as an interface)
 	row, err := s.Iter.Next()
-
 	if err != nil {
 		FdwError(err)
 		return slot
@@ -237,7 +232,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	isNull := make([]C.bool, len(s.Rel.Attr.Attrs))
 	data := make([]C.Datum, len(s.Rel.Attr.Attrs))
-
 	for i, attr := range s.Rel.Attr.Attrs {
 		column := attr.Name
 
@@ -332,7 +326,6 @@ func goFdwShutdown() {
 		FdwError(err)
 	}
 	pluginHub.Close()
-
 }
 
 //export goFdwValidate

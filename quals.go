@@ -118,7 +118,6 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
 
-	log.Printf("[INFO] qualFromOpExpr rel %+v is member %v, %s", relids, C.bms_is_member(1, relids), C.GoString(C.nodeToString(unsafe.Pointer(restriction))))
 	restriction = C.canonicalScalarArrayOpExpr(restriction, relids)
 
 	if restriction == nil {

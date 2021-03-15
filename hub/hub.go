@@ -360,7 +360,7 @@ func (h *Hub) cacheEnabled(connectionName string) bool {
 	// first see whether the connection config specifies cache config
 	if connectionConfig := h.steampipeConfig.Connections[connectionName]; connectionConfig != nil {
 		log.Printf("[DEBUG] cacheEnabled found config for connection %s\n", connectionName)
-		if connectionCacheEnabled := connectionConfig.Options.cache; connectionCacheEnabled != nil {
+		if connectionCacheEnabled := connectionConfig.Options.Cache(); connectionCacheEnabled != nil {
 			log.Printf("[DEBUG] cacheEnabled found connectionCacheEnabled setting for connection %s: %v\n", connectionName, *connectionCacheEnabled)
 			return *connectionCacheEnabled
 		}
@@ -376,7 +376,7 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 	if connectionConfig := h.steampipeConfig.Connections[connectionName]; connectionConfig != nil {
 		log.Printf("[DEBUG] cacheTTL found config for connection %s\n", connectionName)
 
-		if connectionCacheTTL := connectionConfig.Options.cacheTTL; connectionCacheTTL != nil {
+		if connectionCacheTTL := connectionConfig.Options.CacheTTL; connectionCacheTTL != nil {
 			log.Printf("[DEBUG] cacheEnabled found cacheTTL setting for connection %s: %v\n", connectionName, *connectionCacheTTL)
 			return time.Duration(*connectionCacheTTL) * time.Second
 		}

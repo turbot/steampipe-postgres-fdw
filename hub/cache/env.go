@@ -1,23 +1,28 @@
 package cache
 
 import (
+	"log"
 	"os"
 	"strings"
 
 	"github.com/turbot/go-kit/types"
-	"github.com/turbot/steampipe/connection_config"
+	"github.com/turbot/steampipe/steampipeconfig/options"
 )
 
 const CacheEnabledEnvVar = "STEAMPIPE_CACHE"
 const CacheTTLEnvVar = "STEAMPIPE_CACHE_TTL"
 const defaultTTL = 300
 
-func CacheEnabled(settings *connection_config.ConnectionOptions) (enabled bool) {
-	if settings.Cache() != nil {
-		enabled = *settings.Cache()
+func CacheEnabled(settings *options.Connection) (enabled bool) {
+	log.Printf("[WARN] CacheEnabled %+v", settings)
+	if settings != nil && settings.Cache != nil {
+		log.Printf("[WARN] settings.Cache %+v", settings.Cache)
+		enabled = *settings.Cache
 	} else if envStr, ok := os.LookupEnv(CacheEnabledEnvVar); ok {
+		log.Printf("[WARN] READING ENV")
 		enabled = strings.ToUpper(envStr) == "TRUE"
 	} else {
+		log.Printf("[WARN] DEF TO TRUE")
 		// default to enabled
 		enabled = true
 	}
@@ -25,9 +30,9 @@ func CacheEnabled(settings *connection_config.ConnectionOptions) (enabled bool) 
 	return
 }
 
-func CacheTTL(settings *connection_config.ConnectionOptions) int {
+func CacheTTL(settings *options.Connection) int {
 	var ttlSecs int
-	if settings.CacheTTL != nil {
+	if settings != nil && settings.CacheTTL != nil {
 		ttlSecs = *settings.CacheTTL
 	} else {
 		if ttlString, ok := os.LookupEnv(CacheTTLEnvVar); ok {

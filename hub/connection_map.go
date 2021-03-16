@@ -6,20 +6,20 @@ import (
 	"strings"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbot/steampipe/connection_config"
+	"github.com/turbot/steampipe/steampipeconfig"
 )
 
 const keySeparator = `\\`
 
 type connectionMap struct {
-	connectionPlugins  map[string]*connection_config.ConnectionPlugin
+	connectionPlugins  map[string]*steampipeconfig.ConnectionPlugin
 	tableConnectionMap map[string]string
 	tableColumnMap     map[string][]*proto.ColumnDefinition
 }
 
 func newConnectionMap() *connectionMap {
 	return &connectionMap{
-		connectionPlugins:  make(map[string]*connection_config.ConnectionPlugin),
+		connectionPlugins:  make(map[string]*steampipeconfig.ConnectionPlugin),
 		tableConnectionMap: make(map[string]string),
 		tableColumnMap:     make(map[string][]*proto.ColumnDefinition),
 	}
@@ -40,18 +40,18 @@ func (p *connectionMap) getTableKey(table, connectionName string) string {
 	return fmt.Sprintf("%s%s%s", table, keySeparator, connectionName)
 }
 
-func (p *connectionMap) get(pluginFQN, connectionName string) *connection_config.ConnectionPlugin {
+func (p *connectionMap) get(pluginFQN, connectionName string) *steampipeconfig.ConnectionPlugin {
 	return p.connectionPlugins[p.getPluginKey(pluginFQN, connectionName)]
 }
 
-func (p *connectionMap) add(connection *connection_config.ConnectionPlugin) error {
+func (p *connectionMap) add(connection *steampipeconfig.ConnectionPlugin) error {
 	key := p.getPluginKey(connection.PluginName, connection.ConnectionName)
 	p.connectionPlugins[key] = connection
 	return p.updateTableMap(connection)
 }
 
 // add the tables provided by this plugin to the tableConnectionMap
-func (p *connectionMap) updateTableMap(connection *connection_config.ConnectionPlugin) error {
+func (p *connectionMap) updateTableMap(connection *steampipeconfig.ConnectionPlugin) error {
 	pluginKey := p.getPluginKey(connection.PluginName, connection.ConnectionName)
 	log.Printf("[TRACE] connectionMap:  updateTableMap for %s\n", pluginKey)
 
@@ -71,7 +71,7 @@ func (p *connectionMap) updateTableMap(connection *connection_config.ConnectionP
 
 // get the plugin which serves the given table
 // note: table name will include schema, i.e. the schema name
-func (p *connectionMap) getConnectionPluginForTable(table, connectionName string) (*connection_config.ConnectionPlugin, error) {
+func (p *connectionMap) getConnectionPluginForTable(table, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
 	tableKey := p.getTableKey(table, connectionName)
 	connectionKey := p.tableConnectionMap[tableKey]
 

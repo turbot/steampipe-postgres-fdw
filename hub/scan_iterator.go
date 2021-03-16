@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 
@@ -34,11 +35,16 @@ type scanIterator struct {
 	qualMap        map[string]*proto.Quals
 	hub            *Hub
 	cachedRows     *cache.QueryResult
+	cacheEnabled   bool
+	cacheTTL       time.Duration
 	table          string
 	connectionName string
 }
 
 func newScanIterator(hub *Hub, connectionName, table string, qualMap map[string]*proto.Quals, columns []string) *scanIterator {
+	cacheEnabled := hub.cacheEnabled(connectionName)
+	cacheTTL := hub.cacheTTL(connectionName)
+
 	return &scanIterator{
 		status:         querystatusNone,
 		rows:           make(chan *proto.Row, rowBufferSize),
@@ -46,6 +52,8 @@ func newScanIterator(hub *Hub, connectionName, table string, qualMap map[string]
 		columns:        columns,
 		qualMap:        qualMap,
 		cachedRows:     &cache.QueryResult{},
+		cacheEnabled:   cacheEnabled,
+		cacheTTL:       cacheTTL,
 		table:          table,
 		connectionName: connectionName,
 	}
@@ -109,7 +117,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	}
 
 	// add row to cache
-	if i.hub.cachingEnabled {
+	if i.cacheEnabled {
 		i.cachedRows.Append(res)
 	}
 
@@ -173,14 +181,13 @@ func (i *scanIterator) failed() bool {
 
 // called when all the data has been read from the stream - complete status to querystatusNone, and clear stream and error
 func (i *scanIterator) onComplete() {
-
 	i.status = querystatusNone
 	i.stream = nil
 	i.err = nil
 	// write the data to the cache
-	if i.hub.cachingEnabled {
+	if i.cacheEnabled {
 		log.Printf("[INFO] Scan complete - adding %d rows to cache", len(i.cachedRows.Rows))
-		i.hub.queryCache.Set(i.connectionName, i.table, i.qualMap, i.columns, i.cachedRows)
+		i.hub.queryCache.Set(i.connectionName, i.table, i.qualMap, i.columns, i.cachedRows, i.cacheTTL)
 	}
 
 }

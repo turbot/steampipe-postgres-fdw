@@ -3,11 +3,8 @@ package cache
 import (
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
-
-	"github.com/turbot/go-kit/types"
 
 	"github.com/dgraph-io/ristretto"
 
@@ -17,19 +14,10 @@ import (
 
 type QueryCache struct {
 	cache *ristretto.Cache
-	ttl   time.Duration
 }
 
 func NewQueryCache() (*QueryCache, error) {
-	cache := &QueryCache{ttl: defaultTTL}
-
-	// see if ttl env var is set
-	if ttlString, ok := os.LookupEnv(CacheTTLEnvVar); ok {
-		if ttlSecs, err := types.ToInt64(ttlString); err == nil {
-			// weird duration syntax
-			cache.ttl = time.Duration(ttlSecs) * time.Second
-		}
-	}
+	cache := &QueryCache{}
 
 	config := &ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
@@ -40,14 +28,14 @@ func NewQueryCache() (*QueryCache, error) {
 	if cache.cache, err = ristretto.NewCache(config); err != nil {
 		return nil, err
 	}
-	log.Printf("[INFO] query cache created with ttl %s", cache.ttl.String())
+	log.Printf("[INFO] query cache created")
 	return cache, nil
 }
 
-func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult) {
+func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult, ttl time.Duration) {
 	// write to the result cache
 	resultKey := c.BuildResultKey(connectionName, table, qualMap, columns)
-	c.cache.SetWithTTL(resultKey, result, 1, c.ttl)
+	c.cache.SetWithTTL(resultKey, result, 1, ttl)
 
 	// now update the index
 	// get the index bucket for this table and quals
@@ -60,13 +48,13 @@ func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.
 		// create new index bucket
 		indexBucket = newIndexBucket(columns, resultKey)
 	}
-	c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, c.ttl)
+	c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl)
 }
 
 func (c QueryCache) Get(connectionName, table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
 
 	// get the index bucket for this table and quals
-	//- this contains cache keys for all cache entries for specified table and quals
+	// - this contains cache keys for all cache entries for specified table and quals
 
 	// get the index bucket for this table and quals
 	indexBucketKey := c.BuildIndexKey(connectionName, table, qualMap)

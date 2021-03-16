@@ -77,7 +77,7 @@ jobs:
 
     - run: |-
         sudo env ACCEPT_EULA=Y apt-get update
-        sudo apt-get upgrade
+        sudo env ACCEPT_EULA=Y apt-get upgrade
         sudo apt-get -y install postgresql-server-dev-12
 
     - name: Hook private repo

@@ -18,8 +18,7 @@ import (
 )
 
 const (
-	rowBufferSize    = 100
-	defaultPluginDir = `~/.steampipe/providers`
+	rowBufferSize = 100
 )
 
 // Hub :: structure representing plugin hub
@@ -59,21 +58,18 @@ func GetHub() (*Hub, error) {
 }
 
 func newHub() (*Hub, error) {
-	log.Println("[DEBUG] newHub")
-
 	hub := &Hub{
 		connections: newConnectionMap(),
 	}
 
-	// TODO TIDY
-	// set the install folder - derive from our working folder
-	// we need to do this as we are sharing steampipe code to read the config
-	// and steampipe may set the install folder from a cmd line arg, so it cannot be hard coded
-	wd, err := os.Getwd()
+	// NOTE: steampipe determine it's install directory from the input arguments (with a default)
+	// as we are using shared steampipe code we must set the install directory.
+	// we can derive it from the working directory (which is underneath the install directectory)
+	steampipeDir, err := getInstallDirectory()
 	if err != nil {
 		return nil, err
 	}
-	constants.SteampipeDir = path.Join(wd, "../../..")
+	constants.SteampipeDir = steampipeDir
 
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
@@ -96,6 +92,18 @@ func newHub() (*Hub, error) {
 	}
 
 	return hub, nil
+}
+
+func getInstallDirectory() (string, error) {
+	// set the install folder - derive from our working folder
+	// we need to do this as we are sharing steampipe code to read the config
+	// and steampipe may set the install folder from a cmd line arg, so it cannot be hard coded
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return path.Join(wd, "../../.."), nil
+
 }
 
 // shutdown all plugin clients

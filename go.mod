@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/turbot/go-kit v0.1.2
 	github.com/turbot/steampipe v0.0.0-20210119164829-e85f286e46e0
-	github.com/turbot/steampipe-plugin-sdk v0.2.2
+	github.com/turbot/steampipe-plugin-sdk v0.2.4-rc.4
 	google.golang.org/protobuf v1.25.0
 )
 
@@ -16,6 +16,3 @@ replace github.com/c-bata/go-prompt => github.com/binaek89/go-prompt v0.2.7-mult
 
 // main
 replace github.com/turbot/steampipe => github.com/turbot/steampipe v0.2.2-0.20210316180034-c7245ba2e0d9
-
-// quals branch
-replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk v0.2.4-rc.3.0.20210316161405-9b017872617a

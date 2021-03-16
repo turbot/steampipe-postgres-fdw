@@ -366,24 +366,24 @@ func (h *Hub) createCache() error {
 }
 
 func (h *Hub) cacheEnabled(connectionName string) bool {
-	// we expect the connection config options to have been set by the config parsing code, populating defaults
-	connectionConfig := h.steampipeConfig.Connections[connectionName]
+	// ask the steampipe config for resolved plugin options - this will use default values where needed
+	connectionOptions := h.steampipeConfig.GetConnectionOptions(connectionName)
 
 	// the config loading code shouls ALWAYS populate the connection options, using defaults if needed
-	if connectionConfig == nil || connectionConfig.Options == nil || connectionConfig.Options.Cache == nil {
+	if connectionOptions.Cache == nil {
 		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
 	}
-	return *connectionConfig.Options.Cache
+	return *connectionOptions.Cache
 }
 
 func (h *Hub) cacheTTL(connectionName string) time.Duration {
-	// we expect the connection config options to have been set by the config parsing code, populating defaults
-	connectionConfig := h.steampipeConfig.Connections[connectionName]
+	// ask the steampipe config for resolved plugin options - this will use default values where needed
+	connectionOptions := h.steampipeConfig.GetConnectionOptions(connectionName)
 
 	// the config loading code shouls ALWAYS populate the connection options, using defaults if needed
-	if connectionConfig == nil || connectionConfig.Options == nil || connectionConfig.Options.CacheTTL == nil {
+	if connectionOptions.CacheTTL == nil {
 		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
 	}
 
-	return time.Duration(*connectionConfig.Options.CacheTTL) * time.Second
+	return time.Duration(*connectionOptions.CacheTTL) * time.Second
 }

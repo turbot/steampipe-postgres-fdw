@@ -459,6 +459,8 @@ github.com/turbot/steampipe v0.2.2-0.20210316180034-c7245ba2e0d9/go.mod h1:evO8P
 github.com/turbot/steampipe-plugin-sdk v0.2.2/go.mod h1:3R868UGCRVR5ptSpYY+zGetiq2ZqjVDP8wlrapVh6rc=
 github.com/turbot/steampipe-plugin-sdk v0.2.4-rc.4 h1:IJw/AmF+C2RbWBKJ19JWFeCqudfXwvGDZCvPEJXoRoA=
 github.com/turbot/steampipe-plugin-sdk v0.2.4-rc.4/go.mod h1:3R868UGCRVR5ptSpYY+zGetiq2ZqjVDP8wlrapVh6rc=
+github.com/turbot/steampipe-plugin-sdk v0.2.4-rc.5 h1:fm4zUdtqLZvtHxnAO8Dbb7h8rPOZ9IcteNiG2sN83i0=
+github.com/turbot/steampipe-plugin-sdk v0.2.4-rc.5/go.mod h1:3R868UGCRVR5ptSpYY+zGetiq2ZqjVDP8wlrapVh6rc=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/ulikunitz/xz v0.5.8 h1:ERv8V6GKqVi23rgu5cj9pVfVzJbOqAY2Ntl88O6c2nQ=

@@ -8,13 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe/constants"
-
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe/constants"
 	"github.com/turbot/steampipe/steampipeconfig"
 )
 
@@ -301,7 +300,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	if listKeyColumns := schema.ListCallKeyColumns; listKeyColumns != nil {
 		pathKeys = types.KeyColumnsToPathKeys(listKeyColumns)
 	}
-	// NOTE: in the future we msy (optionally) add in path keys for Get call key caolumns.
+	// NOTE: in the future we may (optionally) add in path keys for Get call key caolumns.
 	// We do not do this by default as it is likely to actually reduce join performance in the general case,
 	// particularly when caching is taken into account
 

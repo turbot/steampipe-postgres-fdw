@@ -43,8 +43,6 @@ List *clausesInvolvingAttr(Index relid, AttrNumber attnum,
 
 Expr *fdw_get_em_expr(EquivalenceClass *ec, RelOptInfo *rel);
 
-//void displayRestriction(Relids base_relids,RestrictInfo * r);
-
 
 /*
  * The list of needed columns (represented by their respective vars)
@@ -254,10 +252,10 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 											  opExpr->opcollid,
 											  opExpr->inputcollid);
 
-          elog(INFO, "canonicalOpExpr returning result");
+          elog(DEBUG5, "canonicalOpExpr returning result");
 		}
 	} else {
-	  elog(INFO, "canonicalOpExpr - arg length %d, ignoring", length);
+	  elog(DEBUG5, "canonicalOpExpr - arg length %d, ignoring", length);
     }
 
 	return result;

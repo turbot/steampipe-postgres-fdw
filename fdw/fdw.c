@@ -144,8 +144,7 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
 	List *paths; /* List of ForeignPath */
 	FdwPlanState *planstate = baserel->fdw_private;
 	ListCell *lc;
-    List* ppi_list;
-	/* These lists are used to handle sort pushdown */
+    /* These lists are used to handle sort pushdown */
 	List *apply_pathkeys = NULL;
 	List *deparsed_pathkeys = NULL;
 
@@ -178,47 +177,6 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
 		}
 	}
 
-
-    ppi_list = NIL;
-	foreach(lc, baserel->joininfo)
-	{
-        elog(INFO, " joininfo, %d restrictions", list_length(baserel->joininfo));
-    	RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
-		Relids		required_outer;
-		ParamPathInfo *param_info;
-
-		/* Check if clause can be moved to this rel */
-		if (!join_clause_is_movable_to(rinfo, baserel))
-			continue;
-
-//		/* See if it is safe to send to remote */
-//		if (!is_foreign_expr(root, baserel, rinfo->clause))
-//			continue;
-
-		/* Calculate required outer rels for the resulting path */
-		required_outer = bms_union(rinfo->clause_relids,
-								   baserel->lateral_relids);
-		/* We do not want the foreign rel itself listed in required_outer */
-		required_outer = bms_del_member(required_outer, baserel->relid);
-
-		/*
-		 * required_outer probably can't be empty here, but if it were, we
-		 * couldn't make a parameterized path.
-		 */
-		if (bms_is_empty(required_outer))
-			continue;
-
-		/* Get the ParamPathInfo */
-		param_info = get_baserel_parampathinfo(root, baserel,
-											   required_outer);
-		Assert(param_info != NULL);
-
-		/*
-		 * Add it to list unless we already have it.  Testing pointer equality
-		 * is OK since get_baserel_parampathinfo won't make duplicates.
-		 */
-		ppi_list = list_append_unique_ptr(ppi_list, param_info);
-	}
 	/* Add each ForeignPath previously found */
 	foreach(lc, paths) {
 		ForeignPath *path = (ForeignPath *) lfirst(lc);

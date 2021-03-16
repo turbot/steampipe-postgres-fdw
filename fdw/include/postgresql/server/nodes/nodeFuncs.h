@@ -121,6 +121,7 @@ static inline Expr *
 get_notclausearg(const void *notclause)
 {
 	return (Expr *) linitial(((const BoolExpr *) notclause)->args);
+}
 
 extern bool check_functions_in_node(Node *node, check_function_callback checker,
 									void *context);

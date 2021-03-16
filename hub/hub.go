@@ -24,11 +24,9 @@ const (
 
 // Hub :: structure representing plugin hub
 type Hub struct {
-	connections         *connectionMap
-	steampipeConfig     *steampipeconfig.SteampipeConfig
-	queryCache          *cache.QueryCache
-	defaultCacheEnabled bool
-	defaultCacheTTL     int
+	connections     *connectionMap
+	steampipeConfig *steampipeconfig.SteampipeConfig
+	queryCache      *cache.QueryCache
 }
 
 // global hub instance
@@ -80,7 +78,7 @@ func newHub() (*Hub, error) {
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
-	if err := hub.configureCache(); err != nil {
+	if err := hub.createCache(); err != nil {
 		return nil, err
 	}
 
@@ -356,11 +354,8 @@ func (h *Hub) LoadConnectionConfig() (bool, error) {
 	return configChanged, nil
 }
 
-// if steampipe config contains cache args, set from there. Otherwise fall back to env vars
-func (h *Hub) configureCache() error {
-	h.defaultCacheEnabled = cache.CacheEnabled(h.steampipeConfig.DefaultConnectionOptions)
-	h.defaultCacheTTL = cache.CacheTTL(h.steampipeConfig.DefaultConnectionOptions)
-	log.Printf("[INFO] defaultCacheEnabled %v, defaultCacheTTL %d", h.defaultCacheEnabled, h.defaultCacheTTL)
+// create the query cache
+func (h *Hub) createCache() error {
 	queryCache, err := cache.NewQueryCache()
 	if err != nil {
 		return err
@@ -371,33 +366,24 @@ func (h *Hub) configureCache() error {
 }
 
 func (h *Hub) cacheEnabled(connectionName string) bool {
-	// TODO populate empty options structs to avoid null checks or add access functions
-	// first see whether the connection config specifies cache config
-	if connectionConfig := h.steampipeConfig.Connections[connectionName]; connectionConfig != nil && connectionConfig.Options != nil {
-		log.Printf("[WARN] cacheEnabled found config for connection %s\n", connectionName)
+	// we expect the connection config options to have been set by the config parsing code, populating defaults
+	connectionConfig := h.steampipeConfig.Connections[connectionName]
 
-		if connectionCacheEnabled := connectionConfig.Options.Cache; connectionCacheEnabled != nil {
-			log.Printf("[WARN] cacheEnabled found connectionCacheEnabled setting for connection %s: %v\n", connectionName, *connectionCacheEnabled)
-			return *connectionCacheEnabled
-		}
+	// the config loading code shouls ALWAYS populate the connection options, using defaults if needed
+	if connectionConfig == nil || connectionConfig.Options == nil || connectionConfig.Options.Cache == nil {
+		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
 	}
-
-	// no connection specific setting - use default
-	log.Printf("[WARN] cacheEnabled no connection specific setting - use default %v\n", h.defaultCacheEnabled)
-	return h.defaultCacheEnabled
+	return *connectionConfig.Options.Cache
 }
 
 func (h *Hub) cacheTTL(connectionName string) time.Duration {
-	// first see whether the connection config specifies cache config
-	if connectionConfig := h.steampipeConfig.Connections[connectionName]; connectionConfig != nil && connectionConfig.Options != nil {
-		log.Printf("[DEBUG] cacheTTL found config for connection %s\n", connectionName)
+	// we expect the connection config options to have been set by the config parsing code, populating defaults
+	connectionConfig := h.steampipeConfig.Connections[connectionName]
 
-		if connectionCacheTTL := connectionConfig.Options.CacheTTL; connectionCacheTTL != nil {
-			log.Printf("[DEBUG] cacheEnabled found cacheTTL setting for connection %s: %v\n", connectionName, *connectionCacheTTL)
-			return time.Duration(*connectionCacheTTL) * time.Second
-		}
+	// the config loading code shouls ALWAYS populate the connection options, using defaults if needed
+	if connectionConfig == nil || connectionConfig.Options == nil || connectionConfig.Options.CacheTTL == nil {
+		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
 	}
-	// no connection specific setting - use default
-	log.Printf("[DEBUG] cacheEnabled no connection specific setting - use default\n")
-	return time.Duration(h.defaultCacheTTL) * time.Second
+
+	return time.Duration(*connectionConfig.Options.CacheTTL) * time.Second
 }

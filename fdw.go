@@ -5,6 +5,8 @@ package main
 #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
 #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 #include "fdw_helpers.h"
+#include "utils/rel.h"
+#include "nodes/pg_list.h"
 */
 import "C"
 
@@ -22,8 +24,14 @@ import (
 
 var logger hclog.Logger
 
-func init() {
+// force loading of this module
+//export goInit
+func goInit() {}
 
+func init() {
+	if logger != nil {
+		return
+	}
 	log.Printf("[INFO] \n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
 
 	// HACK: env vars do not all get copied into the Go env vars so explicitly copy them
@@ -43,8 +51,8 @@ func init() {
 
 }
 
-//export getRelSize
-func getRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, width *C.int, baserel *C.RelOptInfo) {
+//export goFdwGetRelSize
+func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, width *C.int, baserel *C.RelOptInfo) {
 	logging.ClearProfileData()
 
 	pluginHub, err := hub.GetHub()
@@ -54,20 +62,15 @@ func getRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, widt
 	}
 	opts := GetFTableOptions(types.Oid(state.foreigntableid))
 
+	// build columns
 	var columns []string
 	if state.target_list != nil {
-		columns = CListToGoArray(state.target_list)
-	}
-	qualList := QualDefsToQuals(state.qual_list, state.cinfos)
-
-	log.Println("[TRACE] getRelSize: converting qual defs to quals")
-	for _, q := range qualList {
-		log.Printf("[TRACE] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
+		columns = CStringListToGoArray(state.target_list)
 	}
 
-	// Run the go interface
-	result, err := pluginHub.GetRelSize(columns, qualList, opts)
+	result, err := pluginHub.GetRelSize(columns, nil, opts)
 	if err != nil {
+		log.Println("[ERROR] pluginHub.GetRelSize")
 		FdwError(err)
 		return
 	}
@@ -78,17 +81,21 @@ func getRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, widt
 	return
 }
 
-//export getPathKeys
-func getPathKeys(state *C.FdwPlanState) *C.List {
+//export goFdwGetPathKeys
+func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
 	}
 	var result *C.List
-
 	opts := GetFTableOptions(types.Oid(state.foreigntableid))
+	ftable := C.GetForeignTable(state.foreigntableid)
+	rel := C.RelationIdGetRelation(ftable.relid)
+	defer C.RelationClose(rel)
+	// get the connection name - this is the namespace (i.e. the local schema)
+	opts["connection"] = getNamespace(rel)
 
-	// Run the go interface
+	// ask the hub for path keys - it will use the table schema to create path keys for all key columns
 	pathKeys, err := pluginHub.GetPathKeys(opts)
 	if err != nil {
 		FdwError(err)
@@ -97,7 +104,6 @@ func getPathKeys(state *C.FdwPlanState) *C.List {
 	for _, pathKey := range pathKeys {
 		var item *C.List
 		var attnums *C.List
-
 		for _, key := range pathKey.ColumnNames {
 			// Lookup the attribute number by its key.
 			for k := 0; k < int(state.numattrs); k++ {
@@ -120,8 +126,8 @@ func getPathKeys(state *C.FdwPlanState) *C.List {
 	return result
 }
 
-//export fdwExplainForeignScan
-func fdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
+//export goFdwExplainForeignScan
+func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 	s := GetExecState(node.fdw_state)
 	if s == nil {
 		return
@@ -136,6 +142,8 @@ func fdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
+	logging.LogTime("[fdw] BeginForeignScan start")
+
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwBeginForeignScan failed with panic: %v", r)
@@ -149,12 +157,18 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	var columns []string
 	if execState.target_list != nil {
-		columns = CListToGoArray(execState.target_list)
+		columns = CStringListToGoArray(execState.target_list)
 	}
-	qualList := QualDefsToQuals(execState.qual_list, execState.cinfos)
 
-	logging.LogTime("[gum] BeginForeignScan start")
-	// start the plugin manager
+	// get conversion info
+	var tupdesc C.TupleDesc = node.ss.ss_currentRelation.rd_att
+	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
+
+	qualList := RestrictionsToQuals(node, execState.cinfos)
+
+	log.Printf("[INFO] goFdwBeginForeignScan got qual list")
+
+	// start the plugin hub
 	var err error
 	pluginHub, err := hub.GetHub()
 	if err != nil {
@@ -163,10 +177,13 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
+	// get the connection name - this is the namespace (i.e. the local schema)
+	opts["connection"] = rel.Namespace
 
-	iter, err := pluginHub.Scan(rel, columns, qualList, opts)
+	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
+
+	iter, err := pluginHub.Scan(columns, qualList, opts)
 	if err != nil {
-
 		FdwError(err)
 		return
 	}
@@ -177,10 +194,11 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		Iter:  iter,
 		State: execState,
 	}
+
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 
-	logging.LogTime("[gum] BeginForeignScan end")
+	logging.LogTime("[fdw] BeginForeignScan end")
 }
 
 //export goFdwIterateForeignScan
@@ -191,23 +209,22 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
-	logging.LogTime("[gum] IterateForeignScan start")
+	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
-
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
 
+	// call the iterator
 	// row is a map of column name to value (as an interface)
 	row, err := s.Iter.Next()
-
 	if err != nil {
 		FdwError(err)
 		return slot
 	}
 
 	if len(row) == 0 {
-		logging.LogTime("[gum] IterateForeignScan end")
+		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms
 		//logging.DisplayProfileData(10*time.Millisecond, logger)
 		return slot
@@ -215,7 +232,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	isNull := make([]C.bool, len(s.Rel.Attr.Attrs))
 	data := make([]C.Datum, len(s.Rel.Attr.Attrs))
-
 	for i, attr := range s.Rel.Attr.Attrs {
 		column := attr.Name
 
@@ -226,7 +242,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		}
 		// get the conversion info for this column
 		ci := C.getConversionInfo(s.State.cinfos, C.int(i))
-
 		// convert value into a datum
 		if datum, err := ValToDatum(val, ci, s.State.buffer); err != nil {
 			FdwError(err)
@@ -236,22 +251,20 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 			data[i] = datum
 		}
 	}
-	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
 
-	logging.LogTime("[gum] IterateForeignScan end")
+	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
+	logging.LogTime("[fdw] IterateForeignScan end")
 	return slot
 }
 
-//export fdwReScanForeignScan
-func fdwReScanForeignScan(node *C.ForeignScanState) {
-	// not implemented for now
-	// Rescan table, possibly with new parameters
-	//s := GetExecState(node.fdw_state)
-	//s.Iter.Reset(nil, nil, nil)
+//export goFdwReScanForeignScan
+func goFdwReScanForeignScan(node *C.ForeignScanState) {
+	// restart the scan
+	goFdwBeginForeignScan(node, 0)
 }
 
-//export fdwEndForeignScan
-func fdwEndForeignScan(node *C.ForeignScanState) {
+//export goFdwEndForeignScan
+func goFdwEndForeignScan(node *C.ForeignScanState) {
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
 }
@@ -286,7 +299,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	// if the connection config has changed locally, send it to the plugin
 	// NOTE: this is redundant the first time a schema is imported as the hub will probably be freshly created
 	// so connection config will be up to date
-	// However if steampiep detects a connection config change and calls RefreshConnections later, the hub will alreayd exist
+	// However if steampipe detects a connection config change and calls RefreshConnections later, the hub will alreayd exist
 	// TODO add a mechanism to prevent reloading the first time - we just need to know if the hub was created  in call to GetHub
 
 	if connectionConfigChanged {
@@ -313,11 +326,10 @@ func goFdwShutdown() {
 		FdwError(err)
 	}
 	pluginHub.Close()
-
 }
 
-//export fdwValidate
-func fdwValidate(coid C.Oid, opts *C.List) {
+//export goFdwValidate
+func goFdwValidate(coid C.Oid, opts *C.List) {
 	// Validate the generic options given to a FOREIGN DATA WRAPPER, SERVER,
 	// USER MAPPING or FOREIGN TABLE that uses fdw.
 	// Raise an ERROR if the option or its value are considered invalid

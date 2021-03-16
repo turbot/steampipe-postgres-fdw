@@ -12,6 +12,9 @@ char *datumString(Datum datum, ConversionInfo *cinfo) {
 }
 
 inet *datumInet(Datum datum, ConversionInfo *cinfo) {
+    if (datum == 0) {
+        return (inet *)0;
+    }
     return DatumGetInetPP(datum);
 }
 

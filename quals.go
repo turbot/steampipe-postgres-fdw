@@ -18,90 +18,250 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-func QualDefsToQuals(qualDefs *C.List, cinfos **C.ConversionInfo) []*proto.Qual {
-	var quals []*proto.Qual
-	if qualDefs == nil {
-		return quals
+func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []*proto.Qual {
+	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
+	restrictions := plan.fdw_exprs
+
+	var qualsList qualList
+	if restrictions == nil {
+		return qualsList.quals
 	}
-	for it := qualDefs.head; it != nil; it = it.next {
-		var qualDef *C.FdwBaseQual
-		qualDef = C.cellGetBaseQual(it)
-		if qualDef.right_type == C.T_Const {
-			constDef := C.cellGetConstQual(it)
-			if qual, err := qualDefToQual(constDef, cinfos); err != nil {
-				log.Printf("[ERROR] failed to convert qual def to qual: %v", err)
-			} else {
-				quals = append(quals, qual)
+
+	for it := restrictions.head; it != nil; it = it.next {
+		restriction := C.cellGetExpr(it)
+		log.Printf("[INFO] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
+
+		switch C.fdw_nodeTag(restriction) {
+		case C.T_OpExpr:
+			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
+				qualsList.append(q)
 			}
-		} else {
-			log.Printf("[TRACE] QualDefsToQuals: non-const qual value (type %v), skipping\n", qualDef.right_type)
+		case C.T_Var:
+			q := qualFromVar(C.cellGetVar(it), node, cinfos)
+			qualsList.append(q)
+
+		case C.T_ScalarArrayOpExpr:
+			if q := qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos); q != nil {
+				qualsList.append(q)
+			}
+		case C.T_NullTest:
+			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
+			qualsList.append(q)
+			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
+		case C.T_BooleanTest:
+			q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos)
+			qualsList.append(q)
+			//case C.T_BoolExpr:
+			//	if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+			//		qualsList.append(q)
+			//	}
 		}
 
 	}
-	log.Printf("[TRACE] QualDefsToQuals: converted quals from postgres datums to protobuff quals")
-	for _, q := range quals {
-		log.Printf("[TRACE] field '%s' operator '%s' value '%v'\n", q.FieldName, q.Operator, q.Value)
-	}
-	return quals
+	log.Printf("[INFO] RestrictionsToQuals: converted postgres restrictions protobuf quals")
+	//for _, q := range qualsList.quals {
+	//	log.Printf("[INFO] %s", grpc.QualToString(q))
+	//}
+	return qualsList.quals
 }
 
-func qualDefToQual(qualDef *C.FdwConstQual, cinfos **C.ConversionInfo) (*proto.Qual, error) {
-	arrayIndex := qualDef.base.varattno - 1
-	operatorName := qualDef.base.opname
-	isArray := qualDef.base.isArray
-	useOr := qualDef.base.useOr
-	typeOid := qualDef.base.typeoid
-	value := qualDef.value
-	isNull := qualDef.isnull
+// build a protobuf qual from an OpExpr
+func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
+	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
 
-	log.Printf(`[TRACE] qualDefToQual: convert postgres qual to protobuf qual
-  arrayIndex: %d 
-  operatorName: %s
-  isArray: %v 
-  useOr: %v
-  typeOid: %v
-  isNull: %v
-  value %v`, arrayIndex, C.GoString(operatorName), isArray, useOr, typeOid, isNull, value)
+	restriction = C.canonicalOpExpr(restriction, relids)
 
+	if restriction == nil {
+		log.Printf("[WARN] could not convert OpExpr to canonical form - NOT adding qual for OpExpr")
+		return nil
+	}
+
+	left := (*C.Var)(C.list_nth(restriction.args, 0))
+	right := C.list_nth(restriction.args, 1)
+
+	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
+	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
+		log.Printf("[WARN] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+		return nil
+	}
+
+	arrayIndex := left.varattno - 1
 	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
+	qualValue, err := getQualValue(right, node, ci)
+	if err != nil {
+		log.Printf("[INFO] failed to convert qual value; %v", err)
+		return nil
+	}
 
 	column := C.GoString(ci.attrname)
-	var result *proto.QualValue
-	var err error
+	operatorName := C.GoString(C.getOperatorString(restriction.opno))
+	qual := &proto.Qual{
+		FieldName: column,
+		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
+		Value:     qualValue,
+	}
+
+	return qual
+}
+
+// build a protobuf qual from a Var - this converts to a simple boolean qual where column=true
+func qualFromVar(arg *C.Var, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	return &proto.Qual{
+		FieldName: columnFromVar(arg, cinfos),
+		Operator:  &proto.Qual_StringValue{StringValue: "="},
+		Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+	}
+}
+
+func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
+	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
+
+	restriction = C.canonicalScalarArrayOpExpr(restriction, relids)
+
+	if restriction == nil {
+		log.Printf("[WARN] could not convert OpExpr to canonical form - NOT adding qual for OpExpr")
+		return nil
+	}
+
+	left := (*C.Var)(C.list_nth(restriction.args, 0))
+	right := C.list_nth(restriction.args, 1)
+
+	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
+	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
+		log.Printf("[WARN] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+		return nil
+	}
+
+	arrayIndex := left.varattno - 1
+	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
+	qualValue, err := getQualValue(right, node, ci)
+	if err != nil {
+		log.Printf("[INFO] failed to convert qual value; %v", err)
+		return nil
+	}
+
+	column := C.GoString(ci.attrname)
+	operatorName := C.GoString(C.getOperatorString(restriction.opno))
+	qual := &proto.Qual{
+		FieldName: column,
+		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
+		Value:     qualValue,
+	}
+
+	return qual
+}
+
+// build a protobuf qual from a NullTest
+func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+
+	if C.fdw_nodeTag(restriction.arg) != C.T_Var {
+		return nil
+	}
+
+	arg := (*C.Var)(unsafe.Pointer(restriction.arg))
+	if arg.varattno < 1 {
+		return nil
+	}
+
+	operatorName := ""
+	if restriction.nulltesttype == C.IS_NULL {
+		operatorName = "="
+	} else {
+		operatorName = "<>"
+	}
+
+	column := columnFromVar(arg, cinfos)
+
+	qual := &proto.Qual{
+		FieldName: column,
+		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
+		Value:     nil,
+	}
+	return qual
+}
+
+// build a protobuf qual from a BoolTest
+func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	arg := restriction.arg
+	if C.fdw_nodeTag(arg) != C.T_Var {
+		return nil
+	}
+
+	variable := (*C.Var)(unsafe.Pointer(arg))
+	column := columnFromVar(variable, cinfos)
+	operatorName := ""
+
+	switch restriction.booltesttype {
+	case C.IS_TRUE:
+		operatorName = "="
+
+	case C.IS_NOT_TRUE, C.IS_FALSE:
+		operatorName = "<>"
+	default:
+		return nil
+	}
+
+	qual := &proto.Qual{
+		FieldName: column,
+		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
+		Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+	}
+
+	return qual
+}
+
+func columnFromVar(variable *C.Var, cinfos **C.ConversionInfo) string {
+	arrayIndex := variable.varattno - 1
+	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
+	column := C.GoString(ci.attrname)
+	return column
+}
+
+func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+
+	return nil
+}
+
+func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.ConversionInfo) (*proto.QualValue, error) {
+	var isNull C.bool
+	var typeOid C.Oid
+	var value C.Datum
+	valueExpression := (*C.Expr)(right)
+	switch C.fdw_nodeTag(valueExpression) {
+	case C.T_Const:
+		constQual := (*C.Const)(right)
+		typeOid = constQual.consttype
+		value = constQual.constvalue
+		isNull = constQual.constisnull
+	case C.T_Param:
+		paramQual := (*C.Param)(right)
+		typeOid = paramQual.paramtype
+		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
+		econtext := node.ss.ps.ps_ExprContext
+		value = C.ExecEvalExpr(exprState, econtext, &isNull)
+	default:
+		return nil, fmt.Errorf("QualDefsToQuals: non-const qual value (type %v), skipping\n", C.fdw_nodeTag(valueExpression))
+	}
+
+	var qualValue *proto.QualValue
 	if isNull {
-		log.Printf("[TRACE] qualDef.isnull=true - returning qual with nil value")
-		result = nil
+		log.Printf("[DEBUG] qualDef.isnull=true - returning qual with nil value")
+		qualValue = nil
 	} else {
 		if typeOid == C.InvalidOid {
 			typeOid = ci.atttypoid
 		}
-		if result, err = datumToQualValue(value, typeOid, ci); err != nil {
+		var err error
+		if qualValue, err = datumToQualValue(value, typeOid, ci); err != nil {
 			return nil, err
 		}
 	}
-
-	if typeOid <= 0 {
-		typeOid = ci.atttypoid
-	}
-
-	log.Printf(`[TRACE] QUAL
-  fieldName: %s
-  operatorName: %s
-  value: %v
-`, C.GoString(ci.attrname), C.GoString(operatorName), result)
-
-	qual := &proto.Qual{
-		FieldName: column,
-		Operator:  &proto.Qual_StringValue{StringValue: C.GoString(operatorName)},
-		Value:     result,
-	}
-
-	//spew.Dump(qual)
-	return qual, nil
-
+	return qualValue, nil
 }
 
-func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {
+func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (result *proto.QualValue, err error) {
 	/* we support these postgres column types (see sqlTypeForColumnType):
 	 bool
 	 bigint
@@ -112,17 +272,18 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 	 jsonb
 	 timestamp
 
-	so we must handle quals of all these type
+	so we must handle quals of all these types
 
 	*/
-	log.Printf("[WARN] datumToQualValue: convert postgres datum to protobuf qual value datum: %v, typeOid: %v\n", datum, typeOid)
-	var result = &proto.QualValue{}
-
+	result = &proto.QualValue{}
 	switch typeOid {
 	case C.TEXTOID, C.VARCHAROID:
 		result.Value = &proto.QualValue_StringValue{StringValue: C.GoString(C.datumString(datum, cinfo))}
-
 	case C.INETOID:
+		// handle zero value - return nil
+		if datum == 0 {
+			break
+		}
 
 		inet := C.datumInet(datum, cinfo)
 		ipAddrBytes := C.GoBytes(unsafe.Pointer(C.ipAddr(inet)), 16)
@@ -146,15 +307,12 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 				ProtocolVersion: protocolVersion,
 			},
 		}
-	//case C.JSONBOID:
-	//	result.Value = &proto.QualValue_JsonbValue{JsonbValue: C.GoString(C.datumJSONB(datum, cinfo))}
 	case C.DATEOID:
 		pgts := int64(C.datumDate(datum, cinfo))
 		result.Value = &proto.QualValue_TimestampValue{TimestampValue: PgTimeToTimestamp(pgts)}
 	case C.TIMESTAMPOID:
 		pgts := int64(C.datumTimestamp(datum, cinfo))
 		result.Value = &proto.QualValue_TimestampValue{TimestampValue: PgTimeToTimestamp(pgts)}
-
 	case C.INT2OID, C.INT4OID, C.INT8OID:
 		result.Value = &proto.QualValue_Int64Value{Int64Value: int64(C.datumInt64(datum, cinfo))}
 	case C.FLOAT4OID:
@@ -162,25 +320,25 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*p
 	case C.BOOLOID:
 		result.Value = &proto.QualValue_BoolValue{BoolValue: bool(C.datumBool(datum, cinfo))}
 	default:
+		result, err = convertUnknown(datum, typeOid, cinfo)
+	}
+	return
+}
 
-		tuple := C.fdw_searchSysCache1(C.TYPEOID, C.fdw_objectIdGetDatum(typeOid))
-		if !C.fdw_heapTupleIsValid(tuple) {
-			return nil, fmt.Errorf("lookup failed for type %v", typeOid)
-		}
-		typeStruct := (C.Form_pg_type)(unsafe.Pointer(C.fdw_getStruct(tuple)))
-		C.ReleaseSysCache(tuple)
+func convertUnknown(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {
+	tuple := C.fdw_searchSysCache1(C.TYPEOID, C.fdw_objectIdGetDatum(typeOid))
+	if !C.fdw_heapTupleIsValid(tuple) {
+		return nil, fmt.Errorf("lookup failed for type %v", typeOid)
+	}
+	typeStruct := (C.Form_pg_type)(unsafe.Pointer(C.fdw_getStruct(tuple)))
+	C.ReleaseSysCache(tuple)
 
-		if (typeStruct.typelem != 0) && (typeStruct.typlen == -1) {
-			log.Printf("[TRACE] datum is an array")
-			return datumArrayToQualValue(datum, typeOid, cinfo)
-		}
-		log.Printf("[ERROR] unknown qual value: %s")
-
-		return nil, fmt.Errorf("Unknown qual type %v", typeOid)
+	if (typeStruct.typelem != 0) && (typeStruct.typlen == -1) {
+		log.Printf("[TRACE] datum is an array")
+		return datumArrayToQualValue(datum, typeOid, cinfo)
 	}
 
-	return result, nil
-
+	return nil, fmt.Errorf("Unknown qual type %v", typeOid)
 }
 
 func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {
@@ -220,4 +378,24 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 	log.Printf("[TRACE] datumArrayToQualValue complete, returning array of %d quals values \n", len(qualValues))
 
 	return result, nil
+}
+
+type qualList struct {
+	quals []*proto.Qual
+}
+
+// append the qual to our list, checking for duplicates
+func (q *qualList) append(qual *proto.Qual) {
+	if !q.contains(qual) {
+		q.quals = append(q.quals, qual)
+	}
+}
+
+func (q *qualList) contains(other *proto.Qual) bool {
+	for _, qual := range q.quals {
+		if grpc.QualEquals(qual, other) {
+			return true
+		}
+	}
+	return false
 }

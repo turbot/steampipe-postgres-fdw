@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -22,8 +23,8 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/types"
 )
 
-// convert a C list into a go array
-func CListToGoArray(values *C.List) []string {
+// convert a C string list into a go array
+func CStringListToGoArray(values *C.List) []string {
 	ensureUnique := map[string]bool{}
 	targets := []string{}
 	for it := values.head; it != nil; it = it.next {
@@ -188,6 +189,7 @@ func TimeToPgTime(t time.Time) int64 {
 }
 
 func PgTimeToTimestamp(t int64) *timestamp.Timestamp {
+	log.Printf("[WARN] PgTimeToTimestamp %d", t)
 	// Postgres stores dates as microseconds since Jan 1, 2000
 	// https://www.postgresql.org/docs/9.1/datatype-datetime.html
 	return &timestamp.Timestamp{Seconds: t * 1000, Nanos: 0}

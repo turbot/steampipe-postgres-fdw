@@ -44,9 +44,7 @@ typedef struct FdwPlanState
 	Oid			foreigntableid;
 	AttrNumber	numattrs;
 	int fdw_instance;
-	//PyObject   *fdw_instance;
 	List	   *target_list;
-	List	   *qual_list;
 	int			startupCost;
 	ConversionInfo **cinfos;
 	List	   *pathkeys; /* list of FdwDeparsedSortGroup) */
@@ -63,12 +61,8 @@ typedef struct FdwPlanState
 
 typedef struct FdwExecState
 {
-	/* instance and iterator */
-	//PyObject   *fdw_instance;
-	//PyObject   *p_iterator;
 	/* Information carried from the plan phase. */
 	List	   *target_list;
-	List	   *qual_list;
 	Datum	   *values;
 	bool	   *nulls;
 	ConversionInfo **cinfos;
@@ -79,34 +73,6 @@ typedef struct FdwExecState
 	List	   *pathkeys; /* list of FdwDeparsedSortGroup) */
 }	FdwExecState;
 
-typedef struct FdwBaseQual
-{
-	AttrNumber	varattno;
-	NodeTag		right_type;
-	Oid			typeoid;
-	char	   *opname;
-	bool		isArray;
-	bool		useOr;
-}	FdwBaseQual;
-
-typedef struct FdwConstQual
-{
-	FdwBaseQual base;
-	Datum		value;
-	bool		isnull;
-}	FdwConstQual;
-
-typedef struct FdwVarQual
-{
-	FdwBaseQual base;
-	AttrNumber	rightvarattno;
-}	FdwVarQual;
-
-typedef struct FdwParamQual
-{
-	FdwBaseQual base;
-	Expr	   *expr;
-}	FdwParamQual;
 
 typedef struct FdwDeparsedSortGroup
 {
@@ -130,6 +96,7 @@ Timestamp datumTimestamp(Datum datum, ConversionInfo *cinfo);
 
 // query.c
 void   extractRestrictions(Relids base_relids, Expr *node, List **quals);
+void displayRestriction(PlannerInfo *root, Relids base_relids,RestrictInfo * r);
 List  *extractColumns(List *reltargetlist, List *restrictinfolist);
 void   initConversioninfo(ConversionInfo ** cinfo, AttInMetadata *attinmeta);
 Value *colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState * state);
@@ -138,6 +105,7 @@ List  *findPaths(PlannerInfo *root, RelOptInfo *baserel, List *possiblePaths, in
 List  *deparse_sortgroup(PlannerInfo *root, Oid foreigntableid, RelOptInfo *rel);
 List  *serializeDeparsedSortGroup(List *pathkeys);
 List  *deserializeDeparsedSortGroup(List *items);
-
-
+OpExpr *canonicalOpExpr(OpExpr *opExpr, Relids base_relids);
+ScalarArrayOpExpr *canonicalScalarArrayOpExpr(ScalarArrayOpExpr *opExpr, Relids base_relids);
+char  *getOperatorString(Oid opoid);
 #endif // FDW_COMMON_H

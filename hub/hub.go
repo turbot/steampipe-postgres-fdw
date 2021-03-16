@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe/constants"
-
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe/constants"
 	"github.com/turbot/steampipe/steampipeconfig"
 )
 
@@ -189,14 +189,12 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 }
 
 // Scan :: Start a table scan. Returns an iterator
-func (h *Hub) Scan(rel *types.Relation, columns []string, quals []*proto.Qual, opts types.Options) (Iterator, error) {
+func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
 
 	qualMap, err := h.buildQualMap(quals)
-	// get table from opts
+	connectionName := opts["connection"]
 	table := opts["table"]
-	// get the connection name - this is the namespace (i.e. the local schema)
-	connectionName := rel.Namespace
 
 	cacheEnabled := h.cacheEnabled(connectionName)
 	cacheTTL := h.cacheTTL(connectionName)
@@ -205,6 +203,12 @@ func (h *Hub) Scan(rel *types.Relation, columns []string, quals []*proto.Qual, o
 		cacheString = fmt.Sprintf("caching ENABLED with TTL %d seconds", int(cacheTTL.Seconds()))
 	}
 	log.Printf("[INFO] executing query for connection %s, %s", connectionName, cacheString)
+
+	if len(qualMap) > 0 {
+		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap))
+	} else {
+		log.Println("[INFO] no quals")
+	}
 
 	// do we have a cached query result
 	if cacheEnabled {
@@ -280,7 +284,34 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //            For example, the return value corresponding to the previous scenario would be::
 //                [(('id',), 1)]
 func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
-	return make([]types.PathKey, 0), nil
+	connectionName := opts["connection"]
+	table := opts["table"]
+
+	// get the schema for this connection
+	connectionPlugin, err := h.connections.getConnectionPluginForTable(table, connectionName)
+	if err != nil {
+		return nil, err
+	}
+	schema := connectionPlugin.Schema.Schema[table]
+
+	// generate path keys if there are required list key columns
+	// this increases the chances that Postgres will generate a plan which provides the quals when querying the table
+	var pathKeys []types.PathKey
+	if listKeyColumns := schema.ListCallKeyColumns; listKeyColumns != nil {
+		pathKeys = types.KeyColumnsToPathKeys(listKeyColumns)
+	}
+	// NOTE: in the future we may (optionally) add in path keys for Get call key caolumns.
+	// We do not do this by default as it is likely to actually reduce join performance in the general case,
+	// particularly when caching is taken into account
+
+	//var getCallPathKeys []types.PathKey
+	//if getKeyColumns := schema.GetCallKeyColumns; getKeyColumns != nil {
+	//	getCallPathKeys = types.KeyColumnsToPathKeys(getKeyColumns)
+	//}
+	//pathKeys := types.MergePathKeys(getCallPathKeys, listCallPathKeys)
+
+	log.Printf("[INFO] GetPathKeys for connection '%s`, table `%s` returning %v", connectionName, table, pathKeys)
+	return pathKeys, nil
 }
 
 // Explain ::  hook called on explain.
@@ -300,10 +331,6 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[st
 	log.Printf("[INFO] StartScan\n  table: %s\n  columns: %v\n", table, columns)
 	// get ConnectionPlugin which serves this table
 	c, err := h.connections.getConnectionPluginForTable(table, connectionName)
-	if err != nil {
-		return err
-	}
-
 	if err != nil {
 		return err
 	}

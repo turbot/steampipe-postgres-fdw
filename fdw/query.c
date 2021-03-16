@@ -16,6 +16,7 @@
 #include "utils/lsyscache.h"
 #include "miscadmin.h"
 #include "parser/parsetree.h"
+#include "nodes/value.h"
 #include "pg_config.h"
 
 /* Third argument to get_attname was introduced in [8237f27] (release 11) */
@@ -23,23 +24,8 @@
 #define get_attname(x, y) get_attname(x, y, true)
 #endif
 
-void extractClauseFromOpExpr(Relids base_relids,
-						OpExpr *node,
-						List **quals);
-
-void extractClauseFromNullTest(Relids base_relids,
-						  NullTest *node,
-						  List **quals);
-
-void extractClauseFromScalarArrayOpExpr(Relids base_relids,
-								   ScalarArrayOpExpr *node,
-								   List **quals);
 
 char	   *getOperatorString(Oid opoid);
-
-FdwBaseQual *makeQual(AttrNumber varattno, char *opname, Expr *value,
-		 bool isarray,
-		 bool useOr);
 
 
 Node	   *unnestClause(Node *node);
@@ -56,6 +42,7 @@ List *clausesInvolvingAttr(Index relid, AttrNumber attnum,
 					 EquivalenceClass *eq_class);
 
 Expr *fdw_get_em_expr(EquivalenceClass *ec, RelOptInfo *rel);
+
 
 /*
  * The list of needed columns (represented by their respective vars)
@@ -105,7 +92,7 @@ extractColumns(List *reltargetlist, List *restrictinfolist)
 }
 
 /*
- * Initialize the array of "ConversionInfo" elements, needed to convert python
+ * Initialize the array of "ConversionInfo" elements, needed to convert go
  * objects back to suitable postgresql data structures.
  */
 void
@@ -237,14 +224,26 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 			   *r;
 	OpExpr	   *result = NULL;
 
+    int length = (int)list_length(opExpr->args);
+    elog(DEBUG5, "canonicalOpExpr, arg length: %d, base_relids %x", length, (int)base_relids);
+
 	/* Only treat binary operators for now. */
-	if (list_length(opExpr->args) == 2)
+	if (length == 2)
 	{
 		l = unnestClause(list_nth(opExpr->args, 0));
 		r = unnestClause(list_nth(opExpr->args, 1));
+
+		elog(DEBUG5, "l arg: %s", nodeToString(l));
+		elog(DEBUG5, "r arg: %s", nodeToString(r));
+
 		swapOperandsAsNeeded(&l, &r, &operatorid, base_relids);
-		if (IsA(l, Var) &&bms_is_member(((Var *) l)->varno, base_relids)
-			&& ((Var *) l)->varattno >= 1)
+
+		/* varno:	    index of this var's relation in the range table, or INNER_VAR/OUTER_VAR/INDEX_VAR
+		   varattno:	attribute number of this var, or zero for all attrs ("whole-row Var") */
+
+		if (IsA(l, Var)
+		    && bms_is_member(((Var *) l)->varno, base_relids)
+		 	&& ((Var *) l)->varattno >= 1)
 		{
 			result = (OpExpr *) make_opclause(operatorid,
 											  opExpr->opresulttype,
@@ -252,8 +251,13 @@ canonicalOpExpr(OpExpr *opExpr, Relids base_relids)
 											  (Expr *) l, (Expr *) r,
 											  opExpr->opcollid,
 											  opExpr->inputcollid);
+
+          elog(DEBUG5, "canonicalOpExpr returning result");
 		}
-	}
+	} else {
+	  elog(DEBUG5, "canonicalOpExpr - arg length %d, ignoring", length);
+    }
+
 	return result;
 }
 
@@ -303,155 +307,14 @@ canonicalScalarArrayOpExpr(ScalarArrayOpExpr *opExpr,
 
 
 /*
- * Extract conditions that can be pushed down, as well as the parameters.
- *
- */
-void
-extractRestrictions(Relids base_relids,
-					Expr *node,
-					List **quals)
-{
-	switch (nodeTag(node))
-	{
-		case T_OpExpr:
-			extractClauseFromOpExpr(base_relids,
-									(OpExpr *) node, quals);
-			break;
-		case T_NullTest:
-			extractClauseFromNullTest(base_relids,
-									  (NullTest *) node, quals);
-			break;
-		case T_ScalarArrayOpExpr:
-			extractClauseFromScalarArrayOpExpr(base_relids,
-											   (ScalarArrayOpExpr *) node,
-											   quals);
-			break;
-		case T_Var:
-		case T_BooleanTest:
-			{
-				ereport(WARNING,
-						(errmsg("TODO - bool expression for "
-								"extractClauseFrom"),
-						 errdetail("%s", nodeToString(node))));
-			}
-			break;
-		default:
-			{
-				ereport(WARNING,
-						(errmsg("unsupported expression for "
-								"extractClauseFrom"),
-						 errdetail("%s", nodeToString(node))));
-			}
-			break;
-	}
-}
-
-/*
- *	Build an intermediate value representation for an OpExpr,
- *	and append it to the corresponding list (quals, or params).
- *
- *	The quals list consist of list of the form:
- *
- *	- Const key: the column index in the cinfo array
- *	- Const operator: the operator representation
- *	- Var or Const value: the value.
- */
-void
-extractClauseFromOpExpr(Relids base_relids,
-						OpExpr *op,
-						List **quals)
-{
-	Var		   *left;
-	Expr	   *right;
-
-	/* Use a "canonical" version of the op expression, to ensure that the */
-	/* left operand is a Var on our relation. */
-	op = canonicalOpExpr(op, base_relids);
-	if (op)
-	{
-		left = list_nth(op->args, 0);
-		right = list_nth(op->args, 1);
-		/* Do not add it if it either contains a mutable function, or makes */
-		/* self references in the right hand side. */
-		if (!(contain_volatile_functions((Node *) right) ||
-			  bms_is_subset(base_relids, pull_varnos((Node *) right))))
-		{
-			*quals = lappend(*quals, makeQual(left->varattno,
-											  getOperatorString(op->opno),
-											  right, false, false));
-		}
-	}
-}
-
-void
-extractClauseFromScalarArrayOpExpr(Relids base_relids,
-								   ScalarArrayOpExpr *op,
-								   List **quals)
-{
-	Var		   *left;
-	Expr	   *right;
-
-	op = canonicalScalarArrayOpExpr(op, base_relids);
-	if (op)
-	{
-		left = list_nth(op->args, 0);
-		right = list_nth(op->args, 1);
-		if (!(contain_volatile_functions((Node *) right) ||
-			  bms_is_subset(base_relids, pull_varnos((Node *) right))))
-		{
-			*quals = lappend(*quals, makeQual(left->varattno,
-											  getOperatorString(op->opno),
-											  right, true,
-											  op->useOr));
-		}
-	}
-}
-
-
-/*
- *	Convert a "NullTest" (IS NULL, or IS NOT NULL)
- *	to a suitable intermediate representation.
- */
-void
-extractClauseFromNullTest(Relids base_relids,
-						  NullTest *node,
-						  List **quals)
-{
-	if (IsA(node->arg, Var))
-	{
-		Var		   *var = (Var *) node->arg;
-		FdwBaseQual *result;
-		char	   *opname = NULL;
-
-		if (var->varattno < 1)
-		{
-			return;
-		}
-		if (node->nulltesttype == IS_NULL)
-		{
-			opname = "=";
-		}
-		else
-		{
-			opname = "<>";
-		}
-		result = makeQual(var->varattno, opname,
-						  (Expr *) makeNullConst(INT4OID, -1, InvalidOid),
-						  false,
-						  false);
-		*quals = lappend(*quals, result);
-	}
-}
-
-
-
-/*
  *	Returns a "Value" node containing the string name of the column from a var.
  */
 Value *
 colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState * planstate)
 {
 	RangeTblEntry *rte = rte = planner_rt_fetch(var->varno, root);
+
+//    elog(INFO, "colnameFromVar relid %d, varattno %d", rte->relid, var->varattno);
 	char	   *attname = get_attname(rte->relid, var->varattno);
 
 	if (attname == NULL)
@@ -464,45 +327,9 @@ colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState * planstate)
 	}
 }
 
-/*
- *	Build an opaque "qual" object.
- */
-FdwBaseQual *
-makeQual(AttrNumber varattno, char *opname, Expr *value, bool isarray,
-		 bool useOr)
-{
-	FdwBaseQual *qual;
-
-	switch (value->type)
-	{
-		case T_Const:
-			qual = palloc0(sizeof(FdwConstQual));
-			qual->right_type = T_Const;
-			qual->typeoid = ((Const *) value)->consttype;
-			((FdwConstQual *) qual)->value = ((Const *) value)->constvalue;
-			((FdwConstQual *) qual)->isnull = ((Const *) value)->constisnull;
-			break;
-		case T_Var:
-			qual = palloc0(sizeof(FdwVarQual));
-			qual->right_type = T_Var;
-			((FdwVarQual *) qual)->rightvarattno = ((Var *) value)->varattno;
-			break;
-		default:
-			qual = palloc0(sizeof(FdwParamQual));
-			qual->right_type = T_Param;
-			((FdwParamQual *) qual)->expr = value;
-			qual->typeoid = InvalidOid;
-			break;
-	}
-	qual->varattno = varattno;
-	qual->opname = opname;
-	qual->isArray = isarray;
-	qual->useOr = useOr;
-	return qual;
-}
 
 /*
- *	Test wheter an attribute identified by its relid and attno
+ *	Test whether an attribute identified by its relid and attno
  *	is present in a list of restrictinfo
  */
 bool
@@ -877,3 +704,7 @@ deserializeDeparsedSortGroup(List *items)
 
 	return result;
 }
+
+
+
+

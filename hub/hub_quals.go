@@ -1,9 +1,6 @@
 package hub
 
 import (
-	"log"
-
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
@@ -19,13 +16,6 @@ func (h *Hub) buildQualMap(quals []*proto.Qual) (map[string]*proto.Quals, error)
 			columnQuals = &proto.Quals{Quals: []*proto.Qual{qual}}
 		}
 		qualMap[qual.FieldName] = columnQuals
-	}
-
-	if len(qualMap) > 0 {
-
-		log.Printf("[INFO] Quals %s", grpc.QualMapToString(qualMap))
-	} else {
-		log.Println("[INFO] no quals")
 	}
 	return qualMap, nil
 }

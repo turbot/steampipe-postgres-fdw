@@ -36,6 +36,8 @@ static inline Datum fdw_objectIdGetDatum(Oid id){ return ObjectIdGetDatum(id); }
 static inline bool fdw_heapTupleIsValid(HeapTuple tuple){ return HeapTupleIsValid(tuple); }
 static inline void *fdw_getStruct(HeapTuple tuple) { return GETSTRUCT(tuple); }
 
+static inline NodeTag fdw_nodeTag(Expr *node) { return nodeTag(node); }
+
 static inline Datum fdw_boolGetDatum(bool b) { PG_RETURN_BOOL(b); }
 static inline Datum fdw_cStringGetDatum(const char *str) { PG_RETURN_TEXT_P(CStringGetTextDatum(str)); }
 static inline Datum fdw_jsonbGetDatum(const char *str)   { PG_RETURN_JSONB_P(DirectFunctionCall1(jsonb_in, CStringGetDatum(str))); }
@@ -70,7 +72,13 @@ static inline Expr* cellGetExpr(ListCell *n) { return (Expr*)n->data.ptr_value; 
 static inline Node* cellGetNode(ListCell *n) { return (Node*)n->data.ptr_value; }
 static inline Value* cellGetValue(ListCell *n) { return (Value*)n->data.ptr_value; }
 static inline Var* cellGetVar(ListCell *n) { return (Var*)n->data.ptr_value; }
-static inline RestrictInfo* cellGetRestrictInfo(ListCell *n) { return (RestrictInfo*)n->data.ptr_value; }
-static inline FdwBaseQual* cellGetBaseQual(ListCell *n) { return (FdwBaseQual*)n->data.ptr_value; }
-static inline FdwConstQual* cellGetConstQual(ListCell *n) { return (FdwConstQual*)n->data.ptr_value; }
+static inline OpExpr* cellGetOpExpr(ListCell *n) { return (OpExpr*)n->data.ptr_value; }
+static inline ScalarArrayOpExpr* cellGetScalarArrayOpExpr(ListCell *n) { return (ScalarArrayOpExpr*)n->data.ptr_value; }
+static inline NullTest* cellGetNullTest(ListCell *n) { return (NullTest*)n->data.ptr_value; }
+static inline BooleanTest* cellGetBooleanTest(ListCell *n) { return (BooleanTest*)n->data.ptr_value; }
+static inline BoolExpr* cellGetBoolExpr(ListCell *n) { return (BoolExpr*)n->data.ptr_value; }
 
+static inline RestrictInfo* cellGetRestrictInfo(ListCell *n) { return (RestrictInfo*)n->data.ptr_value; }
+
+// logging
+char* tagTypeToString(NodeTag type);

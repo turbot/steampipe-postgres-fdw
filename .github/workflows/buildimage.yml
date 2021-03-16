@@ -76,7 +76,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - run: |-
-        sudo apt-get update
+        sudo env ACCEPT_EULA=Y apt-get update
         sudo apt-get upgrade
         sudo apt-get -y install postgresql-server-dev-12
 

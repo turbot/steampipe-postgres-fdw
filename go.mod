@@ -15,4 +15,4 @@ require (
 replace github.com/c-bata/go-prompt => github.com/binaek89/go-prompt v0.2.7-multiline-clearscreen
 
 // main
-replace github.com/turbot/steampipe => github.com/turbot/steampipe v0.2.2-0.20210318134254-bcf7c1d28fd0
+replace github.com/turbot/steampipe => github.com/turbot/steampipe v0.2.2-0.20210318172806-9a099efe550e

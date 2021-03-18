@@ -14,6 +14,7 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
@@ -242,7 +243,7 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		econtext := node.ss.ps.ps_ExprContext
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
 	default:
-		return nil, fmt.Errorf("QualDefsToQuals: non-const qual value (type %v), skipping\n", C.fdw_nodeTag(valueExpression))
+		return nil, fmt.Errorf("QualDefsToQuals: non-const qual value (type %s), skipping\n", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))))
 	}
 
 	var qualValue *proto.QualValue
@@ -309,10 +310,20 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (re
 		}
 	case C.DATEOID:
 		pgts := int64(C.datumDate(datum, cinfo))
-		result.Value = &proto.QualValue_TimestampValue{TimestampValue: PgTimeToTimestamp(pgts)}
+		var timestamp *timestamp.Timestamp
+		timestamp, err := PgTimeToTimestamp(pgts)
+		if err != nil {
+			break
+		}
+		result.Value = &proto.QualValue_TimestampValue{TimestampValue: timestamp}
 	case C.TIMESTAMPOID:
 		pgts := int64(C.datumTimestamp(datum, cinfo))
-		result.Value = &proto.QualValue_TimestampValue{TimestampValue: PgTimeToTimestamp(pgts)}
+		var timestamp *timestamp.Timestamp
+		timestamp, err := PgTimeToTimestamp(pgts)
+		if err != nil {
+			break
+		}
+		result.Value = &proto.QualValue_TimestampValue{TimestampValue: timestamp}
 	case C.INT2OID, C.INT4OID, C.INT8OID:
 		result.Value = &proto.QualValue_Int64Value{Int64Value: int64(C.datumInt64(datum, cinfo))}
 	case C.FLOAT4OID:

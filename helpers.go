@@ -18,6 +18,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	typeHelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-postgres-fdw/types"
@@ -188,9 +189,15 @@ func TimeToPgTime(t time.Time) int64 {
 	return int64(its)
 }
 
-func PgTimeToTimestamp(t int64) *timestamp.Timestamp {
-	log.Printf("[WARN] PgTimeToTimestamp %d", t)
+func PgTimeToTimestamp(t int64) (*timestamp.Timestamp, error) {
 	// Postgres stores dates as microseconds since Jan 1, 2000
 	// https://www.postgresql.org/docs/9.1/datatype-datetime.html
-	return &timestamp.Timestamp{Seconds: t * 1000, Nanos: 0}
+	// convert to go time
+	epoch := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+	time := epoch.Add(time.Duration(t*1000) * time.Nanosecond)
+	log.Printf("[WARN] PgTimeToTimestamp %d, %s", t, time.String())
+
+	// now convert to protoibuf timestamp
+	return ptypes.TimestampProto(time)
+
 }

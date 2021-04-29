@@ -20,6 +20,7 @@ static inline void freeState(GoFdwExecutionState * s){ if (s) free(s); }
 import "C"
 
 import (
+	"log"
 	"sync"
 	"unsafe"
 
@@ -42,6 +43,7 @@ var (
 
 func SaveExecState(s *ExecState) unsafe.Pointer {
 	mu.Lock()
+	log.Println("[WARN] SaveExecState")
 	si++
 	i := si
 	sess[i] = s
@@ -52,6 +54,7 @@ func SaveExecState(s *ExecState) unsafe.Pointer {
 }
 
 func ClearExecState(p unsafe.Pointer) {
+	log.Println("[WARN] ClearExecState")
 	if p == nil {
 		return
 	}
@@ -64,6 +67,7 @@ func ClearExecState(p unsafe.Pointer) {
 }
 
 func GetExecState(p unsafe.Pointer) *ExecState {
+	log.Println("[WARN] GetExecState")
 	if p == nil {
 		return nil
 	}

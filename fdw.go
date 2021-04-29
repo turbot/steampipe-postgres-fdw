@@ -273,6 +273,13 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	node.fdw_state = nil
 }
 
+//export goFdwShutdownForeignScan
+func goFdwShutdownForeignScan(node *C.ForeignScanState) {
+	log.Println("[WARN] goFdwShutdownForeignScan start")
+	ClearExecState(node.fdw_state)
+	node.fdw_state = nil
+}
+
 //export goFdwImportForeignSchema
 func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) *C.List {
 	defer func() {

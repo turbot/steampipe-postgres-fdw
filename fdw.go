@@ -143,6 +143,7 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	logging.LogTime("[fdw] BeginForeignScan start")
+	log.Println("[WARN] goFdwBeginForeignScan start")
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -210,6 +211,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		}
 	}()
 	logging.LogTime("[fdw] IterateForeignScan start")
+	log.Println("[WARN] goFdwIterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
 	slot := node.ss.ss_ScanTupleSlot
@@ -259,12 +261,14 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 //export goFdwReScanForeignScan
 func goFdwReScanForeignScan(node *C.ForeignScanState) {
+	log.Println("[WARN] goFdwReScanForeignScan start")
 	// restart the scan
 	goFdwBeginForeignScan(node, 0)
 }
 
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
+	log.Println("[WARN] goFdwEndForeignScan start")
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
 }

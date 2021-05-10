@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
 	"github.com/turbot/steampipe/steampipeconfig"
+	"github.com/turbot/steampipe/utils"
 )
 
 const (
@@ -26,6 +28,8 @@ type Hub struct {
 	connections     *connectionMap
 	steampipeConfig *steampipeconfig.SteampipeConfig
 	queryCache      *cache.QueryCache
+	//
+	connectionLock sync.Mutex
 }
 
 // global hub instance
@@ -41,7 +45,8 @@ var hubMux sync.Mutex
 // if a hub exists, but a different pluginDir is specified, reinitialise the hub with the new dir
 func GetHub() (*Hub, error) {
 	logging.LogTime("GetHub start")
-
+	log.Println("[WARN] GetHub start")
+	defer log.Println("[WARN] GetHub end")
 	// lock access to singleton
 	hubMux.Lock()
 	defer hubMux.Unlock()
@@ -58,9 +63,13 @@ func GetHub() (*Hub, error) {
 }
 
 func newHub() (*Hub, error) {
-	hub := &Hub{
-		connections: newConnectionMap(),
-	}
+	log.Println("[WARN] newHub start")
+	defer log.Println("[WARN] newHub end")
+	hub := &Hub{}
+	hub.connectionLock.Lock()
+	defer func() {
+		hub.connectionLock.Unlock()
+	}()
 
 	// NOTE: steampipe determine it's install directory from the input arguments (with a default)
 	// as we are using shared steampipe code we must set the install directory.
@@ -77,21 +86,59 @@ func newHub() (*Hub, error) {
 	if err := hub.createCache(); err != nil {
 		return nil, err
 	}
+	if err := hub.createConnections(); err != nil {
+		return nil, err
+	}
 
-	for connectionName, connectionConfig := range hub.steampipeConfig.Connections {
-		log.Printf("[DEBUG] create connection %s, plugin %s", connectionName, connectionConfig.Plugin)
+	return hub, nil
+}
+
+// Restarts all plugin clients
+func (h *Hub) Reset(iterators []Iterator) error {
+	h.ensureInitialized()
+	log.Println("[WARN] Resetting")
+	h.connectionLock.Lock()
+	defer func() {
+		h.connectionLock.Unlock()
+		log.Println("[WARN] Reset Done")
+	}()
+	for _, it := range iterators {
+		if err := it.Close(); err != nil {
+			log.Println("[ERROR] Could not close iterator")
+		}
+	}
+	h.Close()
+	h.createConnections()
+	return nil
+}
+
+func (h *Hub) createConnections() (returnError error) {
+	returnError = nil
+	h.connections = newConnectionMap()
+
+	for connectionName, connectionConfig := range h.steampipeConfig.Connections {
+		log.Printf("[WARN] create connection %s, plugin %s", connectionName, connectionConfig.Plugin)
 		input := &steampipeconfig.ConnectionPluginInput{
 			PluginName:        steampipeconfig.PluginFQNToSchemaName(connectionConfig.Plugin),
 			ConnectionName:    connectionName,
 			ConnectionConfig:  connectionConfig.Config,
 			ConnectionOptions: connectionConfig.Options}
 
-		if _, err := hub.createConnectionPlugin(input); err != nil {
-			return nil, err
+		if _, err := h.createConnectionPlugin(input); err != nil {
+			log.Println("[ERROR] ", err)
+			returnError = err
 		}
+		log.Printf("[WARN] created connection %s, plugin %s", connectionName, connectionConfig.Plugin)
 	}
+	utils.DebugDumpJSON("[WARN] Connection Map:", func() string {
+		keys := []string{}
+		for key, _ := range h.connections.connectionPlugins {
+			keys = append(keys, key)
+		}
+		return strings.Join(keys, ",")
+	}())
 
-	return hub, nil
+	return nil
 }
 
 func getInstallDirectory() (string, error) {
@@ -110,6 +157,7 @@ func getInstallDirectory() (string, error) {
 func (h *Hub) Close() {
 	log.Println("[TRACE] hub: close")
 	for _, connection := range h.connections.connectionPlugins {
+		log.Println("[WARN] kill connection", connection.ConnectionName)
 		connection.Plugin.Client.Kill()
 	}
 }
@@ -188,11 +236,44 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 	return steampipeconfig.HandleGrpcError(err, connectionName, "GetSchema")
 }
 
+func (h *Hub) ensureInitialized() error {
+	log.Println("[WARN] Ensuring Plugins initialized")
+	defer log.Println("[WARN] Ensured Plugins initialized")
+
+	isInitialized := false
+	started := time.Now()
+	for {
+		h.connectionLock.Lock()
+		log.Println("[WARN] Connection Length", len(h.connections.connectionPlugins))
+		isInitialized = len(h.connections.connectionPlugins) > 0
+		h.connectionLock.Unlock()
+		if isInitialized {
+			utils.DebugDumpJSON("Connection Map:", func() string {
+				keys := []string{}
+				for key, _ := range h.connections.connectionPlugins {
+					keys = append(keys, key)
+				}
+				return strings.Join(keys, ",")
+			}())
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
+		if time.Since(started) > 2*time.Second {
+			return fmt.Errorf("initialization timed out")
+		}
+	}
+}
+
 // Scan :: Start a table scan. Returns an iterator
 func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
+	log.Println("[WARN] SCAN start")
 
-	qualMap, err := h.buildQualMap(quals)
+	if err := h.ensureInitialized(); err != nil {
+		return nil, err
+	}
+
+	qualMap, _ := h.buildQualMap(quals)
 	connectionName := opts["connection"]
 	table := opts["table"]
 
@@ -220,7 +301,7 @@ func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (I
 	}
 
 	iterator := newScanIterator(h, connectionName, table, qualMap, columns)
-	err = h.startScan(iterator, columns, qualMap)
+	err := h.startScan(iterator, columns, qualMap)
 	logging.LogTime("Scan end")
 	return iterator, err
 }

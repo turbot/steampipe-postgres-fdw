@@ -49,6 +49,8 @@ func init() {
 	log.SetPrefix("")
 	log.SetFlags(0)
 
+	hub.GetHub()
+
 }
 
 //export goFdwGetRelSize
@@ -128,6 +130,7 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 
 //export goFdwExplainForeignScan
 func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
+	log.Println("[WARN] goFdwExplainForeignScan start")
 	s := GetExecState(node.fdw_state)
 	if s == nil {
 		return
@@ -278,6 +281,22 @@ func goFdwShutdownForeignScan(node *C.ForeignScanState) {
 	log.Println("[WARN] goFdwShutdownForeignScan start")
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
+}
+
+//export goFdwAbortCallback
+func goFdwAbortCallback() {
+	log.Println("[WARN] goFdwAbortCallback")
+	iterators := []hub.Iterator{}
+
+	states := GetAllExecStates()
+	for _, state := range states {
+		iterators = append(iterators, state.Iter)
+	}
+	if len(iterators) > 0 {
+		ClearAllStates()
+		pluginHub, _ := hub.GetHub()
+		pluginHub.Reset(iterators)
+	}
 }
 
 //export goFdwImportForeignSchema

@@ -48,7 +48,10 @@ _PG_init(void)
 static void
 pgfdw_xact_callback(XactEvent event, void *arg)
 {
-    elog(WARNING, "pgfdw_xact_callback");
+	if (event == XACT_EVENT_ABORT) {
+    	elog(WARNING, "pg abort event");
+		goFdwAbortCallback();
+	}
 }
 
 /*
@@ -76,7 +79,7 @@ Datum fdw_handler(PG_FUNCTION_ARGS) {
   fdw_routine->ShutdownForeignScan = goFdwShutdownForeignScan;
   fdw_routine->ImportForeignSchema = goFdwImportForeignSchema;
 
-PG_RETURN_POINTER(fdw_routine);
+  PG_RETURN_POINTER(fdw_routine);
 }
 
 // TODO - Use this to validate the arguments passed to the FDW

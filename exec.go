@@ -21,6 +21,7 @@ import "C"
 
 import (
 	"log"
+	"os"
 	"sync"
 	"unsafe"
 
@@ -36,9 +37,10 @@ type ExecState struct {
 }
 
 var (
-	mu   sync.RWMutex
-	si   uint64
-	sess = make(map[uint64]*ExecState)
+	mu          sync.RWMutex
+	si          uint64
+	sess        = make(map[uint64]*ExecState)
+	stopCounter chan string
 )
 
 func SaveExecState(s *ExecState) unsafe.Pointer {
@@ -46,6 +48,7 @@ func SaveExecState(s *ExecState) unsafe.Pointer {
 	log.Println("[WARN] SaveExecState")
 	si++
 	i := si
+	log.Println("[WARN] SaveExecState for ", i, s.Rel.ID, os.Getpid())
 	sess[i] = s
 	mu.Unlock()
 	cs := C.makeState()
@@ -61,6 +64,7 @@ func ClearExecState(p unsafe.Pointer) {
 	cs := (*C.GoFdwExecutionState)(p)
 	i := uint64(cs.tok)
 	mu.Lock()
+	log.Println("[WARN] ClearExecState for ", i, os.Getpid())
 	delete(sess, i)
 	mu.Unlock()
 	C.freeState(cs)
@@ -75,6 +79,21 @@ func GetExecState(p unsafe.Pointer) *ExecState {
 	i := uint64(cs.tok)
 	mu.RLock()
 	s := sess[i]
+	log.Println("[WARN] GetExecState for ", i, s.Rel.ID, os.Getpid())
 	mu.RUnlock()
 	return s
+}
+
+func GetAllExecStates() []*ExecState {
+	log.Println("[WARN] GetAllExecStates")
+	var states []*ExecState
+	for _, state := range sess {
+		states = append(states, state)
+	}
+	return states
+}
+
+func ClearAllStates() {
+	sess = make(map[uint64]*ExecState)
+	si = 0
 }

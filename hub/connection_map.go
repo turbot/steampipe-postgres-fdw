@@ -72,11 +72,15 @@ func (p *connectionMap) updateTableMap(connection *steampipeconfig.ConnectionPlu
 // get the plugin which serves the given table
 // note: table name will include schema, i.e. the schema name
 func (p *connectionMap) getConnectionPluginForTable(table, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
+	log.Println("[WARN]", "getConnectionPluginForTable", " table", table)
+	log.Println("[WARN]", "getConnectionPluginForTable", " name", connectionName)
+
 	tableKey := p.getTableKey(table, connectionName)
 	connectionKey := p.tableConnectionMap[tableKey]
 
 	log.Printf("[TRACE] connectionMap: getConnectionPluginForTable table %s, connectionKey %s\n", tableKey, connectionKey)
 	connectionPlugin := p.connectionPlugins[connectionKey]
+	log.Println("[WARN]", "getConnectionPluginForTable", " connectionPlugin is nil", (connectionPlugin == nil))
 	if connectionPlugin == nil || connectionPlugin.Plugin.Stub == nil {
 		return nil, fmt.Errorf("no ConnectionPlugin loaded which provides table '%s'", tableKey)
 	}

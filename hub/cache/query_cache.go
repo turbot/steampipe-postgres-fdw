@@ -33,6 +33,8 @@ func NewQueryCache() (*QueryCache, error) {
 }
 
 func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult, ttl time.Duration) {
+	log.Printf("[TRACE] QueryCache Set() - connectionName: %s, table: %s, columns: %s\n", connectionName, table, columns)
+
 	// write to the result cache
 	resultKey := c.BuildResultKey(connectionName, table, qualMap, columns)
 	c.cache.SetWithTTL(resultKey, result, 1, ttl)
@@ -41,6 +43,8 @@ func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.
 	// get the index bucket for this table and quals
 	indexBucketKey := c.BuildIndexKey(connectionName, table, qualMap)
 	indexBucket, ok := c.getIndex(indexBucketKey)
+
+	log.Printf("[TRACE] QueryCache Set() index key %s, result key %s", indexBucketKey, resultKey)
 
 	if ok {
 		indexBucket.Append(&IndexItem{columns, resultKey})
@@ -52,7 +56,6 @@ func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.
 }
 
 func (c QueryCache) Get(connectionName, table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
-
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
 

@@ -16,3 +16,4 @@ replace github.com/c-bata/go-prompt => github.com/binaek89/go-prompt v0.2.7-mult
 
 // main
 //replace github.com/turbot/steampipe => github.com/turbot/steampipe v0.4.1-0.20210506162355-af994d6c203f
+replace github.com/turbot/steampipe-plugin-sdk => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk

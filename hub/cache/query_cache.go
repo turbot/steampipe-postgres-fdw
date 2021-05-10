@@ -109,7 +109,7 @@ func (c QueryCache) BuildIndexKey(connectionName, table string, qualMap map[stri
 	str := c.sanitiseKey(fmt.Sprintf("index__%s%s%s",
 		connectionName,
 		table,
-		grpc.QualMapToString(qualMap)))
+		formatQualMapForKey(qualMap)))
 	return str
 }
 
@@ -117,9 +117,26 @@ func (c QueryCache) BuildResultKey(connectionName, table string, qualMap map[str
 	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
 		connectionName,
 		table,
-		grpc.QualMapToString(qualMap),
+		formatQualMapForKey(qualMap),
 		strings.Join(columns, ",")))
 	return str
+}
+
+func formatQualMapForKey(qualMap map[string]*proto.Quals) string {
+	var strs = make([]string, len(qualMap))
+	idx := 0
+	for _, q := range qualMap {
+		strs[idx] = formatQualsForKey(q)
+	}
+	return strings.Join(strs, "-")
+}
+
+func formatQualsForKey(quals *proto.Quals) string {
+	var strs = make([]string, len(quals.Quals))
+	for i, q := range quals.Quals {
+		strs[i] = fmt.Sprintf("%s-%s-%v", q.FieldName, q.GetStringValue(), grpc.GetQualValue(q.Value))
+	}
+	return strings.Join(strs, "-")
 }
 
 func (c QueryCache) sanitiseKey(str string) string {

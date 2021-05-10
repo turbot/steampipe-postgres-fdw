@@ -2,7 +2,7 @@ package cache
 
 import "github.com/turbot/go-kit/helpers"
 
-// each index bucket contains index items for all cache results for a given table and qual set
+// IndexBucket contains index items for all cache results for a given table and qual set
 type IndexBucket struct {
 	Items []*IndexItem
 }
@@ -20,7 +20,7 @@ func (b *IndexBucket) Append(item *IndexItem) {
 	b.Items = append(b.Items, item)
 }
 
-// find an index item which satisfies all columns
+// Get finds an index item which satisfies all columns
 func (b *IndexBucket) Get(columns []string) *IndexItem {
 	for _, item := range b.Items {
 		if item.SatisfiesColumns(columns) {
@@ -30,7 +30,7 @@ func (b *IndexBucket) Get(columns []string) *IndexItem {
 	return nil
 }
 
-// each index item has the columns and cached index for a single cached query result
+// IndexItem stores the columns and cached index for a single cached query result
 // note - this index item it tied to a specific table and set of quals
 type IndexItem struct {
 	Columns []string
@@ -38,15 +38,10 @@ type IndexItem struct {
 }
 
 func (i IndexItem) SatisfiesColumns(columns []string) bool {
-	// if there are no columns specified, assume this item covers ALL columns
-	if len(i.Columns) == 0 {
-		return true
-	}
 	for _, c := range columns {
 		if !helpers.StringSliceContains(i.Columns, c) {
 			return false
 		}
-
 	}
 	return true
 }

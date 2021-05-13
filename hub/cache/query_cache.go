@@ -33,6 +33,8 @@ func NewQueryCache() (*QueryCache, error) {
 }
 
 func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult, ttl time.Duration) {
+	log.Printf("[TRACE] QueryCache Set() - connectionName: %s, table: %s, columns: %s\n", connectionName, table, columns)
+
 	// write to the result cache
 	resultKey := c.BuildResultKey(connectionName, table, qualMap, columns)
 	c.cache.SetWithTTL(resultKey, result, 1, ttl)
@@ -41,6 +43,8 @@ func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.
 	// get the index bucket for this table and quals
 	indexBucketKey := c.BuildIndexKey(connectionName, table, qualMap)
 	indexBucket, ok := c.getIndex(indexBucketKey)
+
+	log.Printf("[TRACE] QueryCache Set() index key %s, result key %s", indexBucketKey, resultKey)
 
 	if ok {
 		indexBucket.Append(&IndexItem{columns, resultKey})
@@ -52,7 +56,6 @@ func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.
 }
 
 func (c QueryCache) Get(connectionName, table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
-
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
 
@@ -106,7 +109,7 @@ func (c QueryCache) BuildIndexKey(connectionName, table string, qualMap map[stri
 	str := c.sanitiseKey(fmt.Sprintf("index__%s%s%s",
 		connectionName,
 		table,
-		grpc.QualMapToString(qualMap)))
+		formatQualMapForKey(qualMap)))
 	return str
 }
 
@@ -114,9 +117,26 @@ func (c QueryCache) BuildResultKey(connectionName, table string, qualMap map[str
 	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
 		connectionName,
 		table,
-		grpc.QualMapToString(qualMap),
+		formatQualMapForKey(qualMap),
 		strings.Join(columns, ",")))
 	return str
+}
+
+func formatQualMapForKey(qualMap map[string]*proto.Quals) string {
+	var strs = make([]string, len(qualMap))
+	idx := 0
+	for _, q := range qualMap {
+		strs[idx] = formatQualsForKey(q)
+	}
+	return strings.Join(strs, "-")
+}
+
+func formatQualsForKey(quals *proto.Quals) string {
+	var strs = make([]string, len(quals.Quals))
+	for i, q := range quals.Quals {
+		strs[i] = fmt.Sprintf("%s-%s-%v", q.FieldName, q.GetStringValue(), grpc.GetQualValue(q.Value))
+	}
+	return strings.Join(strs, "-")
 }
 
 func (c QueryCache) sanitiseKey(str string) string {

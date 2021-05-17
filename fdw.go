@@ -49,8 +49,6 @@ func init() {
 	log.SetPrefix("")
 	log.SetFlags(0)
 
-	hub.GetHub()
-
 }
 
 //export goFdwGetRelSize
@@ -290,12 +288,17 @@ func goFdwAbortCallback() {
 
 	states := GetAllExecStates()
 	for _, state := range states {
-		iterators = append(iterators, state.Iter)
+		if state.Iter != nil {
+			iterators = append(iterators, state.Iter)
+		}
 	}
 	if len(iterators) > 0 {
 		ClearAllStates()
-		pluginHub, _ := hub.GetHub()
-		pluginHub.Reset(iterators)
+		if pluginHub, err := hub.GetHub(); err != nil {
+			log.Println("[ERROR]", "goFdwAbortCallback - error getting hub", err)
+		} else {
+			pluginHub.Reset(iterators)
+		}
 	}
 }
 

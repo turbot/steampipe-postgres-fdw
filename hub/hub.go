@@ -16,7 +16,6 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
 	"github.com/turbot/steampipe/steampipeconfig"
-	"github.com/turbot/steampipe/utils"
 )
 
 const (
@@ -51,15 +50,16 @@ func GetHub() (*Hub, error) {
 	hubMux.Lock()
 	defer hubMux.Unlock()
 
-	var err error
 	if hubSingleton == nil {
+		var err error
 		hubSingleton, err = newHub()
 		if err != nil {
+			log.Println("[WARN]", "GetHub", "going back with an error")
 			return nil, err
 		}
 	}
 	logging.LogTime("GetHub end")
-	return hubSingleton, err
+	return hubSingleton, nil
 }
 
 func newHub() (*Hub, error) {
@@ -108,37 +108,51 @@ func (h *Hub) Reset(iterators []Iterator) error {
 		}
 	}
 	h.Close()
-	h.createConnections()
-	return nil
+	return h.createConnections()
 }
 
-func (h *Hub) createConnections() (returnError error) {
-	returnError = nil
+func (h *Hub) createConnections() error {
 	h.connections = newConnectionMap()
 
-	for connectionName, connectionConfig := range h.steampipeConfig.Connections {
-		log.Printf("[WARN] create connection %s, plugin %s", connectionName, connectionConfig.Plugin)
-		input := &steampipeconfig.ConnectionPluginInput{
-			PluginName:        steampipeconfig.PluginFQNToSchemaName(connectionConfig.Plugin),
-			ConnectionName:    connectionName,
-			ConnectionConfig:  connectionConfig.Config,
-			ConnectionOptions: connectionConfig.Options}
+	var returnErr error = nil
 
-		if _, err := h.createConnectionPlugin(input); err != nil {
-			log.Println("[ERROR] ", err)
-			returnError = err
-		}
-		log.Printf("[WARN] created connection %s, plugin %s", connectionName, connectionConfig.Plugin)
+	createWg := sync.WaitGroup{}
+
+	for connectionName, connectionConfig := range h.steampipeConfig.Connections {
+		createWg.Add(1)
+		go func(name string, config *steampipeconfig.Connection) {
+			log.Printf("[WARN] create connection %s, plugin %s", name, config.Plugin)
+			input := &steampipeconfig.ConnectionPluginInput{
+				PluginName:        steampipeconfig.PluginFQNToSchemaName(config.Plugin),
+				ConnectionName:    name,
+				ConnectionConfig:  config.Config,
+				ConnectionOptions: config.Options,
+			}
+			if _, err := h.createConnectionPlugin(input); err != nil {
+				log.Println("[ERROR]", "createConnection error while creating", name, err)
+				returnErr = err
+			} else {
+				log.Printf("[WARN] created connection %s, plugin %s", name, config.Plugin)
+			}
+			createWg.Done()
+		}(connectionName, connectionConfig)
 	}
-	utils.DebugDumpJSON("[WARN] Connection Map:", func() string {
+
+	createWg.Wait()
+
+	printConnectionPluginKeys(h.connections)
+
+	return returnErr
+}
+
+func printConnectionPluginKeys(connections *connectionMap) {
+	log.Println("[WARN] Connection Map:", func() string {
 		keys := []string{}
-		for key, _ := range h.connections.connectionPlugins {
+		for key, _ := range connections.connectionPlugins {
 			keys = append(keys, key)
 		}
 		return strings.Join(keys, ",")
 	}())
-
-	return nil
 }
 
 func getInstallDirectory() (string, error) {
@@ -248,13 +262,7 @@ func (h *Hub) ensureInitialized() error {
 		isInitialized = len(h.connections.connectionPlugins) > 0
 		h.connectionLock.Unlock()
 		if isInitialized {
-			utils.DebugDumpJSON("Connection Map:", func() string {
-				keys := []string{}
-				for key, _ := range h.connections.connectionPlugins {
-					keys = append(keys, key)
-				}
-				return strings.Join(keys, ",")
-			}())
+			printConnectionPluginKeys(h.connections)
 			return nil
 		}
 		time.Sleep(50 * time.Millisecond)

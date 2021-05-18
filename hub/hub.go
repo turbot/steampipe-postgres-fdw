@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,8 +26,7 @@ type Hub struct {
 	connections     *connectionMap
 	steampipeConfig *steampipeconfig.SteampipeConfig
 	queryCache      *cache.QueryCache
-	//
-	connectionLock sync.Mutex
+	connectionLock  sync.Mutex
 }
 
 // global hub instance
@@ -67,9 +65,7 @@ func newHub() (*Hub, error) {
 	defer log.Println("[WARN] newHub end")
 	hub := &Hub{}
 	hub.connectionLock.Lock()
-	defer func() {
-		hub.connectionLock.Unlock()
-	}()
+	defer hub.connectionLock.Unlock()
 
 	// NOTE: steampipe determine it's install directory from the input arguments (with a default)
 	// as we are using shared steampipe code we must set the install directory.
@@ -96,11 +92,9 @@ func newHub() (*Hub, error) {
 // Restarts all plugin clients
 func (h *Hub) Reset(iterators []Iterator) error {
 	h.ensureInitialized()
-	log.Println("[WARN] Resetting")
 	h.connectionLock.Lock()
 	defer func() {
 		h.connectionLock.Unlock()
-		log.Println("[WARN] Reset Done")
 	}()
 	for _, it := range iterators {
 		if err := it.Close(); err != nil {
@@ -121,7 +115,7 @@ func (h *Hub) createConnections() error {
 	for connectionName, connectionConfig := range h.steampipeConfig.Connections {
 		createWg.Add(1)
 		go func(name string, config *steampipeconfig.Connection) {
-			log.Printf("[WARN] create connection %s, plugin %s", name, config.Plugin)
+			log.Printf("[TRACE] create connection %s, plugin %s", name, config.Plugin)
 			input := &steampipeconfig.ConnectionPluginInput{
 				PluginName:        steampipeconfig.PluginFQNToSchemaName(config.Plugin),
 				ConnectionName:    name,
@@ -132,7 +126,7 @@ func (h *Hub) createConnections() error {
 				log.Println("[ERROR]", "createConnection error while creating", name, err)
 				returnErr = err
 			} else {
-				log.Printf("[WARN] created connection %s, plugin %s", name, config.Plugin)
+				log.Printf("[TRACE] created connection %s, plugin %s", name, config.Plugin)
 			}
 			createWg.Done()
 		}(connectionName, connectionConfig)
@@ -140,19 +134,7 @@ func (h *Hub) createConnections() error {
 
 	createWg.Wait()
 
-	printConnectionPluginKeys(h.connections)
-
 	return returnErr
-}
-
-func printConnectionPluginKeys(connections *connectionMap) {
-	log.Println("[WARN] Connection Map:", func() string {
-		keys := []string{}
-		for key, _ := range connections.connectionPlugins {
-			keys = append(keys, key)
-		}
-		return strings.Join(keys, ",")
-	}())
 }
 
 func getInstallDirectory() (string, error) {
@@ -251,22 +233,21 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 }
 
 func (h *Hub) ensureInitialized() error {
-	log.Println("[WARN] Ensuring Plugins initialized")
-	defer log.Println("[WARN] Ensured Plugins initialized")
+	log.Println("[TRACE] ensureInitialized start")
+	defer log.Println("[TRACE] ensureInitialized end")
 
 	isInitialized := false
 	started := time.Now()
 	for {
 		h.connectionLock.Lock()
-		log.Println("[WARN] Connection Length", len(h.connections.connectionPlugins))
 		isInitialized = len(h.connections.connectionPlugins) > 0
 		h.connectionLock.Unlock()
 		if isInitialized {
-			printConnectionPluginKeys(h.connections)
 			return nil
 		}
 		time.Sleep(50 * time.Millisecond)
 		if time.Since(started) > 2*time.Second {
+			log.Println("[ERROR] initialization timed out")
 			return fmt.Errorf("initialization timed out")
 		}
 	}
@@ -275,7 +256,6 @@ func (h *Hub) ensureInitialized() error {
 // Scan :: Start a table scan. Returns an iterator
 func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
-	log.Println("[WARN] SCAN start")
 
 	if err := h.ensureInitialized(); err != nil {
 		return nil, err

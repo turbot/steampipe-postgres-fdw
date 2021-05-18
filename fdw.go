@@ -283,7 +283,7 @@ func goFdwShutdownForeignScan(node *C.ForeignScanState) {
 
 //export goFdwAbortCallback
 func goFdwAbortCallback() {
-	log.Println("[WARN] goFdwAbortCallback")
+	log.Println("[WARN] goFdwAbortCallback start")
 	iterators := []hub.Iterator{}
 
 	states := GetAllExecStates()
@@ -300,6 +300,7 @@ func goFdwAbortCallback() {
 			pluginHub.Reset(iterators)
 		}
 	}
+	log.Println("[WARN] goFdwAbortCallback end")
 }
 
 //export goFdwImportForeignSchema

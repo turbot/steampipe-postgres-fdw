@@ -41,15 +41,12 @@ _PG_init(void)
 {
 	/* register an exit hook */
 	on_proc_exit(&exitHook, PointerGetDatum(NULL));
-
 	RegisterXactCallback(pgfdw_xact_callback, NULL);
-
 }
 static void
 pgfdw_xact_callback(XactEvent event, void *arg)
 {
 	if (event == XACT_EVENT_ABORT) {
-    	elog(WARNING, "pg abort event");
 		goFdwAbortCallback();
 	}
 }
@@ -62,7 +59,7 @@ pgfdw_xact_callback(XactEvent event, void *arg)
 void
 exitHook(int code, Datum arg)
 {
-    elog(WARNING, "exitHook");
+	elog(WARNING, "exitHook");
 	goFdwShutdown();
 }
 

@@ -63,14 +63,12 @@ func newScanIterator(hub *Hub, connectionName, table string, qualMap map[string]
 // Next returns next row (tuple). Nil slice means there is no more rows to scan.
 func (i *scanIterator) Next() (map[string]interface{}, error) {
 	logging.LogTime("[hub] Next start")
-	log.Println("[WARN] Next start")
 
 	if canIterate, err := i.CanIterate(); !canIterate {
 		log.Printf("[WARN] scanIterator cannot iterate: %v \n", err)
 		return nil, fmt.Errorf("cannot iterate: %v", err)
 	}
 	row := <-i.rows
-	log.Println("[WARN] new row")
 
 	// now check the iterator state - has an error occurred
 	if i.status == querystatusError {

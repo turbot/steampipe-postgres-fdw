@@ -42,8 +42,6 @@ var hubMux sync.Mutex
 // if a hub exists, but a different pluginDir is specified, reinitialise the hub with the new dir
 func GetHub() (*Hub, error) {
 	logging.LogTime("GetHub start")
-	log.Println("[WARN] GetHub start")
-	defer log.Println("[WARN] GetHub end")
 	// lock access to singleton
 	hubMux.Lock()
 	defer hubMux.Unlock()
@@ -52,7 +50,6 @@ func GetHub() (*Hub, error) {
 		var err error
 		hubSingleton, err = newHub()
 		if err != nil {
-			log.Println("[WARN]", "GetHub", "going back with an error")
 			return nil, err
 		}
 	}
@@ -61,8 +58,9 @@ func GetHub() (*Hub, error) {
 }
 
 func newHub() (*Hub, error) {
-	log.Println("[WARN] newHub start")
-	defer log.Println("[WARN] newHub end")
+	logging.LogTime("newHub start")
+	defer logging.LogTime("newHub end")
+
 	hub := &Hub{}
 	hub.connectionLock.Lock()
 	defer hub.connectionLock.Unlock()
@@ -153,7 +151,6 @@ func getInstallDirectory() (string, error) {
 func (h *Hub) Close() {
 	log.Println("[TRACE] hub: close")
 	for _, connection := range h.connections.connectionPlugins {
-		log.Println("[WARN] kill connection", connection.ConnectionName)
 		connection.Plugin.Client.Kill()
 	}
 }

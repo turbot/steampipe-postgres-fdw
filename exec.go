@@ -35,9 +35,10 @@ type ExecState struct {
 }
 
 var (
-	mu   sync.RWMutex
-	si   uint64
-	sess = make(map[uint64]*ExecState)
+	mu          sync.RWMutex
+	si          uint64
+	sess        = make(map[uint64]*ExecState)
+	stopCounter chan string
 )
 
 func SaveExecState(s *ExecState) unsafe.Pointer {
@@ -73,4 +74,17 @@ func GetExecState(p unsafe.Pointer) *ExecState {
 	s := sess[i]
 	mu.RUnlock()
 	return s
+}
+
+func GetAllExecStates() []*ExecState {
+	var states []*ExecState
+	for _, state := range sess {
+		states = append(states, state)
+	}
+	return states
+}
+
+func ClearAllStates() {
+	sess = make(map[uint64]*ExecState)
+	si = 0
 }

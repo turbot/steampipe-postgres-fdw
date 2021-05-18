@@ -126,8 +126,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 }
 
 func (i *scanIterator) Close() error {
-	// how to close?
-	return nil
+	return i.stream.CloseSend()
 }
 
 func (i *scanIterator) start(stream proto.WrapperPlugin_ExecuteClient) {

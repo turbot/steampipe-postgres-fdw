@@ -269,11 +269,37 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	node.fdw_state = nil
 }
 
+//export goFdwShutdownForeignScan
+func goFdwShutdownForeignScan(node *C.ForeignScanState) {
+	ClearExecState(node.fdw_state)
+	node.fdw_state = nil
+}
+
+//export goFdwAbortCallback
+func goFdwAbortCallback() {
+	iterators := []hub.Iterator{}
+
+	states := GetAllExecStates()
+	for _, state := range states {
+		if state.Iter != nil {
+			iterators = append(iterators, state.Iter)
+		}
+	}
+	if len(iterators) > 0 {
+		ClearAllStates()
+		if pluginHub, err := hub.GetHub(); err != nil {
+			log.Println("[ERROR]", "goFdwAbortCallback - error getting hub", err)
+		} else {
+			pluginHub.Reset(iterators)
+		}
+	}
+}
+
 //export goFdwImportForeignSchema
 func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) *C.List {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[WARN]goFdwImportForeignSchema failed with panic: %v", r)
+			log.Printf("[WARN] goFdwImportForeignSchema failed with panic: %v", r)
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()

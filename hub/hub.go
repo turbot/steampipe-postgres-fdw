@@ -104,9 +104,9 @@ func (h *Hub) Reset(iterators []Iterator) error {
 
 func (h *Hub) createConnections() error {
 	h.connections = newConnectionMap()
-
 	var returnErr error = nil
 	createWg := sync.WaitGroup{}
+
 	for connectionName, connectionConfig := range h.steampipeConfig.Connections {
 		createWg.Add(1)
 		go func(name string, config *steampipeconfig.Connection) {
@@ -141,7 +141,6 @@ func getInstallDirectory() (string, error) {
 		return "", err
 	}
 	return path.Join(wd, "../../.."), nil
-
 }
 
 // shutdown all plugin clients

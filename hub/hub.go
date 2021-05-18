@@ -91,9 +91,8 @@ func newHub() (*Hub, error) {
 func (h *Hub) Reset(iterators []Iterator) error {
 	h.ensureInitialized()
 	h.connectionLock.Lock()
-	defer func() {
-		h.connectionLock.Unlock()
-	}()
+	defer h.connectionLock.Unlock()
+
 	for _, it := range iterators {
 		if err := it.Close(); err != nil {
 			log.Println("[ERROR] Could not close iterator")
@@ -107,9 +106,7 @@ func (h *Hub) createConnections() error {
 	h.connections = newConnectionMap()
 
 	var returnErr error = nil
-
 	createWg := sync.WaitGroup{}
-
 	for connectionName, connectionConfig := range h.steampipeConfig.Connections {
 		createWg.Add(1)
 		go func(name string, config *steampipeconfig.Connection) {

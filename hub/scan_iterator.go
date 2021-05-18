@@ -126,7 +126,6 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 }
 
 func (i *scanIterator) Close() error {
-	// how to close?
 	return i.stream.CloseSend()
 }
 

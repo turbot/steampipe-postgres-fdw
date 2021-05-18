@@ -75,6 +75,7 @@ func (p *connectionMap) getConnectionPluginForTable(table, connectionName string
 	tableKey := p.getTableKey(table, connectionName)
 	connectionKey := p.tableConnectionMap[tableKey]
 
+	log.Printf("[TRACE] connectionMap: getConnectionPluginForTable table %s, connectionKey %s\n", tableKey, connectionKey)
 	connectionPlugin := p.connectionPlugins[connectionKey]
 	if connectionPlugin == nil || connectionPlugin.Plugin.Stub == nil {
 		return nil, fmt.Errorf("no ConnectionPlugin loaded which provides table '%s'", tableKey)

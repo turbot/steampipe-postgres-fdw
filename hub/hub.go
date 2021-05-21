@@ -31,12 +31,12 @@ type Hub struct {
 // global hub instance
 var hubSingleton *Hub
 
-// mutex protecting creation
+// mutex protecting hub creation
 var hubMux sync.Mutex
 
 //// lifecycle ////
 
-// GetHub :: return hub singleton
+// GetHub returns a hub singleton
 // if there is an existing hub singleton instance return it, otherwise create it
 // if a hub exists, but a different pluginDir is specified, reinitialise the hub with the new dir
 func GetHub() (*Hub, error) {
@@ -58,12 +58,11 @@ func GetHub() (*Hub, error) {
 }
 
 func newHub() (*Hub, error) {
-	hub := &Hub{
-		connections: newConnectionMap(),
-	}
+	hub := &Hub{}
+	hub.connections = newConnectionMap(hub)
 
-	// NOTE: steampipe determine it's install directory from the input arguments (with a default)
-	// as we are using shared steampipe code we must set the install directory.
+	// NOTE: Steampipe determine it's install directory from the input arguments (with a default)
+	// as we are using shared Steampipe code we must set the install directory.
 	// we can derive it from the working directory (which is underneath the install directectory)
 	steampipeDir, err := getInstallDirectory()
 	if err != nil {
@@ -78,19 +77,6 @@ func newHub() (*Hub, error) {
 		return nil, err
 	}
 
-	for connectionName, connectionConfig := range hub.steampipeConfig.Connections {
-		log.Printf("[DEBUG] create connection %s, plugin %s", connectionName, connectionConfig.Plugin)
-		input := &steampipeconfig.ConnectionPluginInput{
-			PluginName:        steampipeconfig.PluginFQNToSchemaName(connectionConfig.Plugin),
-			ConnectionName:    connectionName,
-			ConnectionConfig:  connectionConfig.Config,
-			ConnectionOptions: connectionConfig.Options}
-
-		if _, err := hub.createConnectionPlugin(input); err != nil {
-			return nil, err
-		}
-	}
-
 	return hub, nil
 }
 
@@ -103,10 +89,9 @@ func getInstallDirectory() (string, error) {
 		return "", err
 	}
 	return path.Join(wd, "../../.."), nil
-
 }
 
-// shutdown all plugin clients
+// Close shuts down all plugin clients
 func (h *Hub) Close() {
 	log.Println("[TRACE] hub: close")
 	for _, connection := range h.connections.connectionPlugins {
@@ -116,71 +101,32 @@ func (h *Hub) Close() {
 
 //// public fdw functions ////
 
-// GetSchema :: return the schema for a name. Load the plugin for the connection if needed
+// GetSchema returns the schema for a name. Load the plugin for the connection if needed
 func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema, error) {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
 	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
-	c := h.connections.get(pluginFQN, connectionName)
-
-	// if we do not have this ConnectionPlugin loaded, create
-	if c == nil {
-		log.Printf("[TRACE] hub: connection plugin is not loaded - loading\n")
-
-		// load the config for this connection
-		connection, ok := h.steampipeConfig.Connections[connectionName]
-		if !ok {
-			return nil, fmt.Errorf("no config found for connection %s", connectionName)
-		}
-
-		var err error
-		input := &steampipeconfig.ConnectionPluginInput{
-			PluginName:        pluginFQN,
-			ConnectionName:    connectionName,
-			ConnectionConfig:  connection.Config,
-			ConnectionOptions: connection.Options}
-
-		c, err = h.createConnectionPlugin(input)
-		if err != nil {
-			return nil, err
-		}
+	c, err := h.connections.get(pluginFQN, connectionName)
+	if err != nil {
+		return nil, err
 	}
 
 	return c.Schema, nil
 }
 
-// send the locally cached connection config to the plugin
+// SetConnectionConfig sends the locally cached connection config to the plugin
 func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
 	log.Printf("[DEBUG] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
-	c := h.connections.get(pluginFQN, connectionName)
-
-	// if we do not have this ConnectionPlugin loaded, create
-	if c == nil {
-		log.Printf("[TRACE] connection plugin is not loaded - loading\n")
-
-		// load the config for this connection
-		config, ok := h.steampipeConfig.Connections[connectionName]
-		if !ok {
-			return fmt.Errorf("no config found for connection %s", connectionName)
-		}
-
-		input := &steampipeconfig.ConnectionPluginInput{
-			PluginName:        pluginFQN,
-			ConnectionName:    connectionName,
-			ConnectionConfig:  config.Config,
-			ConnectionOptions: config.Options}
-
-		var err error
-		c, err = h.createConnectionPlugin(input)
-		if err != nil {
-			return err
-		}
+	c, err := h.connections.get(pluginFQN, connectionName)
+	if err != nil {
+		return err
 	}
-	_, err := c.Plugin.Stub.SetConnectionConfig(&proto.SetConnectionConfigRequest{
+
+	_, err = c.Plugin.Stub.SetConnectionConfig(&proto.SetConnectionConfigRequest{
 		ConnectionName:   connectionName,
 		ConnectionConfig: c.ConnectionConfig,
 	})
@@ -188,7 +134,7 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 	return steampipeconfig.HandleGrpcError(err, connectionName, "GetSchema")
 }
 
-// Scan :: Start a table scan. Returns an iterator
+// Scan starts a table scan and returns an iterator
 func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
 
@@ -287,8 +233,10 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	connectionName := opts["connection"]
 	table := opts["table"]
 
+	log.Printf("[TRACE] hub.GetPathKeys for connection '%s`, table `%s`", connectionName, table)
+
 	// get the schema for this connection
-	connectionPlugin, err := h.connections.getConnectionPluginForTable(table, connectionName)
+	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -326,11 +274,9 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 // split startScan into a separate function to allow iterator to restart the scan
 func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[string]*proto.Quals) error {
 	table := iterator.table
-	connectionName := iterator.connectionName
-
 	log.Printf("[INFO] StartScan\n  table: %s\n  columns: %v\n", table, columns)
-	// get ConnectionPlugin which serves this table
-	c, err := h.connections.getConnectionPluginForTable(table, connectionName)
+	connectionName := iterator.connectionName
+	c, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
 		return err
 	}
@@ -361,25 +307,47 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[st
 	return nil
 }
 
+func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
+	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
+	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
+	if !ok {
+		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
+	}
+	pluginFQN := connectionConfig.Plugin
+
+	// ask connection map to get or create this connection
+	c, err := h.connections.get(pluginFQN, connectionName)
+	return c, err
+}
+
 // load the given plugin connection into the connection map and return the schema
-func (h *Hub) createConnectionPlugin(input *steampipeconfig.ConnectionPluginInput) (*steampipeconfig.ConnectionPlugin, error) {
+func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
+
+	// load the config for this connection
+	connection, ok := h.steampipeConfig.Connections[connectionName]
+	if !ok {
+		log.Printf("[WARN]no config found for connection %s: %v", connectionName, h.steampipeConfig.Connections)
+		return nil, fmt.Errorf("no config found for connection %s", connectionName)
+	}
+
+	input := &steampipeconfig.ConnectionPluginInput{
+		// pluginName is actually the remote schema name
+		PluginName:        steampipeconfig.PluginFQNToSchemaName(pluginFQN),
+		ConnectionName:    connectionName,
+		ConnectionConfig:  connection.Config,
+		ConnectionOptions: connection.Options}
+
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", input.PluginName, input.ConnectionName, input.ConnectionConfig)
 
-	c, err := steampipeconfig.CreateConnectionPlugin(input)
-	if err != nil {
-		return nil, err
-	}
-	if err = h.connections.add(c); err != nil {
-		return nil, err
-	}
-	return c, nil
+	return steampipeconfig.CreateConnectionPlugin(input)
+
 }
 
 // LoadConnectionConfig :: load the connection config and return whether it has changed
 func (h *Hub) LoadConnectionConfig() (bool, error) {
-	// TODO currently we need to pass a workspace path to LoadSteampipeConfig - pass empty string for now
+	// TODO currently we need to pass a workspace path and command to LoadSteampipeConfig - pass empty strings for now, this will work
 	// refactor to allow us to load only connection config and not workspace options
-	connectionConfig, err := steampipeconfig.LoadSteampipeConfig("")
+	connectionConfig, err := steampipeconfig.LoadSteampipeConfig("", "")
 	if err != nil {
 		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
 		return false, err

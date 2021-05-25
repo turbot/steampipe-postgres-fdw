@@ -15,6 +15,10 @@ func newCacheIterator(cachedResult *cache.QueryResult) *cacheIterator {
 	}
 }
 
+func (i *cacheIterator) ConnectionName() string {
+	return ""
+}
+
 // Iterator implementation
 // Next returns next row (tuple). Nil slice means there is no more rows to scan.
 func (i *cacheIterator) Next() (map[string]interface{}, error) {

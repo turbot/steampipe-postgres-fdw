@@ -198,6 +198,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 
+	pluginHub.AddIterator(iter)
+
 	logging.LogTime("[fdw] BeginForeignScan end")
 }
 
@@ -210,6 +212,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		}
 	}()
 	logging.LogTime("[fdw] IterateForeignScan start")
+	log.Println("[WARN] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
 	slot := node.ss.ss_ScanTupleSlot
@@ -265,8 +268,19 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
+	s := GetExecState(node.fdw_state)
+	if pluginHub, err := hub.GetHub(); err == nil {
+		pluginHub.RemoveIterator(s.Iter)
+	}
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
+}
+
+//export goFdwAbortCallback
+func goFdwAbortCallback() {
+	if pluginHub, err := hub.GetHub(); err == nil {
+		pluginHub.Abort()
+	}
 }
 
 //export goFdwImportForeignSchema

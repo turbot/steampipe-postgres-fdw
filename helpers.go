@@ -12,7 +12,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -195,9 +194,7 @@ func PgTimeToTimestamp(t int64) (*timestamp.Timestamp, error) {
 	// convert to go time
 	epoch := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
 	time := epoch.Add(time.Duration(t*1000) * time.Nanosecond)
-	log.Printf("[WARN] PgTimeToTimestamp %d, %s", t, time.String())
 
 	// now convert to protoibuf timestamp
 	return ptypes.TimestampProto(time)
-
 }

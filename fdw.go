@@ -212,7 +212,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		}
 	}()
 	logging.LogTime("[fdw] IterateForeignScan start")
-	log.Println("[WARN] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
 	slot := node.ss.ss_ScanTupleSlot

@@ -198,6 +198,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 
+	pluginHub.AddIterator(iter)
+
 	logging.LogTime("[fdw] BeginForeignScan end")
 }
 
@@ -265,33 +267,18 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
-	ClearExecState(node.fdw_state)
-	node.fdw_state = nil
-}
-
-//export goFdwShutdownForeignScan
-func goFdwShutdownForeignScan(node *C.ForeignScanState) {
+	s := GetExecState(node.fdw_state)
+	if pluginHub, err := hub.GetHub(); err == nil {
+		pluginHub.RemoveIterator(s.Iter)
+	}
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
 }
 
 //export goFdwAbortCallback
 func goFdwAbortCallback() {
-	iterators := []hub.Iterator{}
-
-	states := GetAllExecStates()
-	for _, state := range states {
-		if state.Iter != nil {
-			iterators = append(iterators, state.Iter)
-		}
-	}
-	if len(iterators) > 0 {
-		ClearAllStates()
-		if pluginHub, err := hub.GetHub(); err != nil {
-			log.Println("[ERROR]", "goFdwAbortCallback - error getting hub", err)
-		} else {
-			pluginHub.Reset(iterators)
-		}
+	if pluginHub, err := hub.GetHub(); err == nil {
+		pluginHub.Abort()
 	}
 }
 
@@ -299,7 +286,7 @@ func goFdwAbortCallback() {
 func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) *C.List {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[WARN] goFdwImportForeignSchema failed with panic: %v", r)
+			log.Printf("[WARN]goFdwImportForeignSchema failed with panic: %v", r)
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()

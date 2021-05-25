@@ -197,5 +197,4 @@ func PgTimeToTimestamp(t int64) (*timestamp.Timestamp, error) {
 
 	// now convert to protoibuf timestamp
 	return ptypes.TimestampProto(time)
-
 }

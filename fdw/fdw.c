@@ -43,10 +43,16 @@ _PG_init(void)
 	on_proc_exit(&exitHook, PointerGetDatum(NULL));
 	RegisterXactCallback(pgfdw_xact_callback, NULL);
 }
+
+/*
+ * pgfdw_xact_callback gets called when a running
+ * query is cancelled
+ */
 static void
 pgfdw_xact_callback(XactEvent event, void *arg)
 {
-	if (event == XACT_EVENT_ABORT) {
+	if (event == XACT_EVENT_ABORT)
+	{
 		goFdwAbortCallback();
 	}
 }
@@ -59,7 +65,6 @@ pgfdw_xact_callback(XactEvent event, void *arg)
 void
 exitHook(int code, Datum arg)
 {
-	elog(WARNING, "exitHook");
 	goFdwShutdown();
 }
 
@@ -73,10 +78,9 @@ Datum fdw_handler(PG_FUNCTION_ARGS) {
   fdw_routine->IterateForeignScan = goFdwIterateForeignScan;
   fdw_routine->ReScanForeignScan = goFdwReScanForeignScan;
   fdw_routine->EndForeignScan = goFdwEndForeignScan;
-  fdw_routine->ShutdownForeignScan = goFdwShutdownForeignScan;
   fdw_routine->ImportForeignSchema = goFdwImportForeignSchema;
 
-  PG_RETURN_POINTER(fdw_routine);
+PG_RETURN_POINTER(fdw_routine);
 }
 
 // TODO - Use this to validate the arguments passed to the FDW

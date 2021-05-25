@@ -59,6 +59,10 @@ func newScanIterator(hub *Hub, connectionName, table string, qualMap map[string]
 	}
 }
 
+func (i *scanIterator) ConnectionName() string {
+	return i.connectionName
+}
+
 // Iterator implementation
 // Next returns next row (tuple). Nil slice means there is no more rows to scan.
 func (i *scanIterator) Next() (map[string]interface{}, error) {
@@ -74,8 +78,6 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	if i.status == querystatusError {
 		return nil, i.err
 	}
-
-	//log.Printf("[DEBUG] row %v  \n", row)
 
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}

@@ -55,6 +55,20 @@ func (p *connectionMap) get(pluginFQN, connectionName string) (*steampipeconfig.
 	return c, nil
 }
 
+func (p *connectionMap) removeAndKill(pluginFQN, connectionName string) {
+	p.connectionLock.Lock()
+	defer p.connectionLock.Unlock()
+	// kill the connection and instance
+	connection, ok := p.connectionPlugins[p.getPluginKey(pluginFQN, connectionName)]
+	if ok {
+		// if found, kill
+		connection.Plugin.Client.Kill()
+	}
+
+	// remove from created connectiosn
+	delete(p.connectionPlugins, p.getPluginKey(pluginFQN, connectionName))
+}
+
 func (p *connectionMap) add(connection *steampipeconfig.ConnectionPlugin) error {
 	key := p.getPluginKey(connection.PluginName, connection.ConnectionName)
 	p.connectionPlugins[key] = connection

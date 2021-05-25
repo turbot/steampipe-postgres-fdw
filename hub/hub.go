@@ -22,10 +22,15 @@ const (
 )
 
 // Hub :: structure representing plugin hub
+// type IteratorConnectionPair struct {
+// 	iterator       Iterator
+// 	connectionName string
+// }
 type Hub struct {
-	connections     *connectionMap
-	steampipeConfig *steampipeconfig.SteampipeConfig
-	queryCache      *cache.QueryCache
+	connections      *connectionMap
+	steampipeConfig  *steampipeconfig.SteampipeConfig
+	queryCache       *cache.QueryCache
+	runningIterators []*scanIterator
 }
 
 // global hub instance
@@ -91,11 +96,50 @@ func getInstallDirectory() (string, error) {
 	return path.Join(wd, "../../.."), nil
 }
 
+func (h *Hub) AddIterator(iterator Iterator) {
+	if s, ok := iterator.(*scanIterator); ok {
+		h.runningIterators = append(h.runningIterators, s)
+	}
+}
+
+func (h *Hub) RemoveIterator(iterator Iterator) {
+	if s, ok := iterator.(*scanIterator); ok {
+		for idx, it := range h.runningIterators {
+			if it == s {
+				h.runningIterators = append(h.runningIterators[:idx], h.runningIterators[idx+1:]...)
+				return
+			}
+		}
+	}
+}
+
 // Close shuts down all plugin clients
 func (h *Hub) Close() {
 	log.Println("[TRACE] hub: close")
 	for _, connection := range h.connections.connectionPlugins {
 		connection.Plugin.Client.Kill()
+	}
+}
+
+// Abort shuts down currently running queries
+func (h *Hub) Abort() {
+	// a map of bools to killed connection names
+	alreadyKilled := map[string]bool{}
+
+	// for all running iterators
+	for _, iterator := range h.runningIterators {
+		// close the iterator
+		iterator.Close()
+
+		// check if we already killed the connection because of an earlier iterator
+		if !alreadyKilled[iterator.ConnectionName()] {
+			// get the connection
+			h.killConnectionPlugin(iterator.ConnectionName())
+			alreadyKilled[iterator.ConnectionName()] = true
+		}
+
+		// remove it from the saved list of iterators
+		h.RemoveIterator(iterator)
 	}
 }
 
@@ -318,6 +362,19 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	// ask connection map to get or create this connection
 	c, err := h.connections.get(pluginFQN, connectionName)
 	return c, err
+}
+
+func (h *Hub) killConnectionPlugin(connectionName string) error {
+	log.Printf("[TRACE] hub.removeConnectionPlugin for connection '%s`", connectionName)
+	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
+	if !ok {
+		return fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
+	}
+	pluginFQN := connectionConfig.Plugin
+
+	// ask connection map to get or create this connection
+	h.connections.removeAndKill(pluginFQN, connectionName)
+	return nil
 }
 
 // load the given plugin connection into the connection map and return the schema

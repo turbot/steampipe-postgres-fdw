@@ -2,11 +2,13 @@
 // defined and available.
 #include "steampipe_postgres_fdw.h"
 #include "nodes/plannodes.h"
+#include "access/xact.h"
 
 extern PGDLLEXPORT void _PG_init(void);
 
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
+static void pgfdw_xact_callback(XactEvent event, void *arg);
 static void exitHook(int code, Datum arg);
 static ForeignScan *fdwGetForeignPlan(
     PlannerInfo *root,
@@ -39,6 +41,20 @@ _PG_init(void)
 {
 	/* register an exit hook */
 	on_proc_exit(&exitHook, PointerGetDatum(NULL));
+	RegisterXactCallback(pgfdw_xact_callback, NULL);
+}
+
+/*
+ * pgfdw_xact_callback gets called when a running
+ * query is cancelled
+ */
+static void
+pgfdw_xact_callback(XactEvent event, void *arg)
+{
+	if (event == XACT_EVENT_ABORT)
+	{
+		goFdwAbortCallback();
+	}
 }
 
 /*

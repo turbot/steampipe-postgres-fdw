@@ -79,8 +79,6 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 		return nil, i.err
 	}
 
-	//log.Printf("[DEBUG] row %v  \n", row)
-
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {

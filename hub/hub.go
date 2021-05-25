@@ -22,10 +22,6 @@ const (
 )
 
 // Hub :: structure representing plugin hub
-// type IteratorConnectionPair struct {
-// 	iterator       Iterator
-// 	connectionName string
-// }
 type Hub struct {
 	connections      *connectionMap
 	steampipeConfig  *steampipeconfig.SteampipeConfig

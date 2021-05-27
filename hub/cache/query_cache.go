@@ -127,6 +127,7 @@ func formatQualMapForKey(qualMap map[string]*proto.Quals) string {
 	idx := 0
 	for _, q := range qualMap {
 		strs[idx] = formatQualsForKey(q)
+		idx++
 	}
 	return strings.Join(strs, "-")
 }

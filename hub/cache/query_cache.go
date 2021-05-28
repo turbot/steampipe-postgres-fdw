@@ -132,9 +132,10 @@ func formatQualMapForKey(qualMap map[string]*proto.Quals) string {
 		keys[idx] = key
 		idx++
 	}
-	fmt.Printf("[TRACE] formatQualMapForKey unsorted keys %v\n", keys)
+	log.Printf("[TRACE] formatQualMapForKey unsorted keys %v\n", keys)
 	sort.Strings(keys)
-	fmt.Printf("[TRACE] formatQualMapForKey sorted keys %v\n", keys)
+	log.Printf("[TRACE] formatQualMapForKey sorted keys %v\n", keys)
+
 	// now construct cache key from ordered quals
 	for i, key := range keys {
 		strs[i] = formatQualsForKey(qualMap[key])

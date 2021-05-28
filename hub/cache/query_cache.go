@@ -3,6 +3,7 @@ package cache
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -124,10 +125,19 @@ func (c QueryCache) BuildResultKey(connectionName, table string, qualMap map[str
 
 func formatQualMapForKey(qualMap map[string]*proto.Quals) string {
 	var strs = make([]string, len(qualMap))
+	// first build list of keys, then sort them
+	keys := make([]string, len(qualMap))
 	idx := 0
-	for _, q := range qualMap {
-		strs[idx] = formatQualsForKey(q)
+	for key := range qualMap {
+		keys[idx] = key
 		idx++
+	}
+	fmt.Printf("[TRACE] formatQualMapForKey unsorted keys %v\n", keys)
+	sort.Strings(keys)
+	fmt.Printf("[TRACE] formatQualMapForKey sorted keys %v\n", keys)
+	// now construct cache key from ordered quals
+	for i, key := range keys {
+		strs[i] = formatQualsForKey(qualMap[key])
 	}
 	return strings.Join(strs, "-")
 }

@@ -49,14 +49,14 @@ func KeyColumnsToPathKeys(required *proto.KeyColumnsSet, optional *proto.KeyColu
 		return nil
 	}
 
-	if len(requiredColumnSets) == 0 {
-		return singleKeyColumnsToPathKeys(optionalColumnSets, allColumns)
-	}
-	if len(optionalColumnSets) == 0 {
-		return singleKeyColumnsToPathKeys(requiredColumnSets, allColumns)
-	}
-
-	return requiredAndOptionalColumnsToPathKeys(requiredColumnSets, optionalColumnSets, allColumns)
+	//if len(requiredColumnSets) == 0 {
+	return singleKeyColumnsToPathKeys(requiredColumnSets, allColumns)
+	//}
+	//if len(optionalColumnSets) == 0 {
+	//	return singleKeyColumnsToPathKeys(requiredColumnSets, allColumns)
+	//}
+	//
+	//return requiredAndOptionalColumnsToPathKeys(requiredColumnSets, optionalColumnSets, allColumns)
 }
 
 // return a list of all the column sets to use in path keys
@@ -93,8 +93,10 @@ func singleKeyColumnsToPathKeys(columnSet [][]string, allColumns []string) []Pat
 		})
 		for _, c := range allColumns {
 			if !helpers.StringSliceContains(r, c) {
+				columnNames := append(r, c)
+
 				res = append(res, PathKey{
-					ColumnNames: append(r, c),
+					ColumnNames: columnNames,
 					// make this less cheap
 					Rows: 1,
 				})
@@ -108,34 +110,22 @@ func requiredAndOptionalColumnsToPathKeys(requiredColumnSets [][]string, optiona
 	var res []PathKey
 	// generate path keys for all permutations of required and optional
 	for _, r := range requiredColumnSets {
-		// add every permutation of a single optional with the required - make this cheapest
-		//for _, o := range optionalColumnSets {
-		//	columnNames := append(r, o...)
-		//	log.Printf("[WARN] requiredAndOptionalColumnsToPathKeys WORKING cols %v", columnNames)
-		//
-		//	//res = append(res, PathKey{
-		//	//	ColumnNames: columnNames,
-		//	//	Rows:        1,
-		//	//})
-		//}
-		// TODO do we need all other permutations??? with multiple optionals?
-
+		// add just required - make this more expensive so the optional columns are included by preference
+		res = append(res, PathKey{
+			ColumnNames: r,
+			Rows:        10,
+		})
 		for _, c := range allColumns {
-			columnNames := append(r, c)
 			if !helpers.StringSliceContains(r, c) {
+				columnNames := append(r, c)
 				log.Printf("[WARN] requiredAndOptionalColumnsToPathKeys cols %v", columnNames)
 				res = append(res, PathKey{
 					ColumnNames: columnNames,
 					// make this less cheap
-					Rows: 10,
+					Rows: 1,
 				})
 			}
 		}
-		// add just required - make this more expensive so the optional columns are included by preference
-		res = append(res, PathKey{
-			ColumnNames: r,
-			Rows:        100,
-		})
 	}
 	return res
 }

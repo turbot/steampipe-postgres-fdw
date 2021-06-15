@@ -274,6 +274,7 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //            For example, the return value corresponding to the previous scenario would be::
 //                [(('id',), 1)]
 func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
+
 	connectionName := opts["connection"]
 	table := opts["table"]
 
@@ -286,9 +287,13 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	}
 	schema := connectionPlugin.Schema.Schema[table]
 
+	var allColumns = make([]string, len(schema.Columns))
+	for i, c := range schema.Columns {
+		allColumns[i] = c.Name
+	}
 	// generate path keys if there are required list key columns
 	// this increases the chances that Postgres will generate a plan which provides the quals when querying the table
-	pathKeys := types.KeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns)
+	pathKeys := types.KeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns, allColumns)
 
 	// NOTE: in the future we may (optionally) add in path keys for Get call key caolumns.
 	// We do not do this by default as it is likely to actually reduce join performance in the general case,

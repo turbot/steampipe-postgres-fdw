@@ -38,7 +38,7 @@ func PathExistsInKeys(pathKeys []PathKey, other PathKey) bool {
 	return false
 }
 
-func KeyColumnsToPathKeys(required *proto.KeyColumnsSet, optional *proto.KeyColumnsSet) []PathKey {
+func KeyColumnsToPathKeys(required *proto.KeyColumnsSet, optional *proto.KeyColumnsSet, allColumns []string) []PathKey {
 	requiredColumnSets := keyColumnsToColumnSet(required)
 	optionalColumnSets := keyColumnsToColumnSet(optional)
 
@@ -47,10 +47,10 @@ func KeyColumnsToPathKeys(required *proto.KeyColumnsSet, optional *proto.KeyColu
 	}
 
 	if len(requiredColumnSets) == 0 {
-		return singleKeyColumnsToPathKeys(optionalColumnSets)
+		return singleKeyColumnsToPathKeys(optionalColumnSets, allColumns)
 	}
 	if len(optionalColumnSets) == 0 {
-		return singleKeyColumnsToPathKeys(requiredColumnSets)
+		return singleKeyColumnsToPathKeys(requiredColumnSets, allColumns)
 	}
 
 	return requiredAndOptionalColumnsToPathKeys(requiredColumnSets, optionalColumnSets)
@@ -78,15 +78,23 @@ func keyColumnsToColumnSet(k *proto.KeyColumnsSet) [][]string {
 	return res
 }
 
-func singleKeyColumnsToPathKeys(columnSet [][]string) []PathKey {
+func singleKeyColumnsToPathKeys(columnSet [][]string, allColumns []string) []PathKey {
 	var res []PathKey
+
 	// generate path keys for all permutations of required and optional
 	for _, r := range columnSet {
 		res = append(res, PathKey{
 			ColumnNames: r,
-			// make this cheap to the planner prefers to give us the qual
+			// make this cheap so the planner prefers to give us the qual
 			Rows: 1,
 		})
+		//for _, c := range allColumns {
+		//	res = append(res, PathKey{
+		//		ColumnNames: append(r, c),
+		//		// make this less cheap
+		//		Rows: 10,
+		//	})
+		//}
 	}
 	return res
 }

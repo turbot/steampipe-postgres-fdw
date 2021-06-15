@@ -143,6 +143,12 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	logging.LogTime("[fdw] BeginForeignScan start")
+	rel := BuildRelation(node.ss.ss_currentRelation)
+	opts := GetFTableOptions(rel.ID)
+	// get the connection name - this is the namespace (i.e. the local schema)
+	opts["connection"] = rel.Namespace
+
+	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -165,22 +171,12 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
 
 	qualList := RestrictionsToQuals(node, execState.cinfos)
-
-	log.Printf("[INFO] goFdwBeginForeignScan got qual list")
-
 	// start the plugin hub
 	var err error
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
 	}
-
-	rel := BuildRelation(node.ss.ss_currentRelation)
-	opts := GetFTableOptions(rel.ID)
-	// get the connection name - this is the namespace (i.e. the local schema)
-	opts["connection"] = rel.Namespace
-
-	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
 
 	iter, err := pluginHub.Scan(columns, qualList, opts)
 	if err != nil {
@@ -268,7 +264,8 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
 	s := GetExecState(node.fdw_state)
-	if pluginHub, err := hub.GetHub(); err == nil {
+	pluginHub, _ := hub.GetHub()
+	if s != nil && pluginHub != nil {
 		pluginHub.RemoveIterator(s.Iter)
 	}
 	ClearExecState(node.fdw_state)
@@ -286,7 +283,7 @@ func goFdwAbortCallback() {
 func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) *C.List {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[WARN]goFdwImportForeignSchema failed with panic: %v", r)
+			log.Printf("[WARN] goFdwImportForeignSchema failed with panic: %v", r)
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()

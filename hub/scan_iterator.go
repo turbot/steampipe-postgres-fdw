@@ -6,6 +6,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/turbot/steampipe/steampipeconfig"
+
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 
 	"github.com/golang/protobuf/ptypes"
@@ -26,45 +28,45 @@ const (
 )
 
 type scanIterator struct {
-	status         queryStatus
-	err            error
-	rows           chan *proto.Row
-	columns        []string
-	stream         proto.WrapperPlugin_ExecuteClient
-	rel            *types.Relation
-	qualMap        map[string]*proto.Quals
-	hub            *Hub
-	cachedRows     *cache.QueryResult
-	cacheEnabled   bool
-	cacheTTL       time.Duration
-	table          string
-	connectionName string
+	status       queryStatus
+	err          error
+	rows         chan *proto.Row
+	columns      []string
+	stream       proto.WrapperPlugin_ExecuteClient
+	rel          *types.Relation
+	qualMap      map[string]*proto.Quals
+	hub          *Hub
+	cachedRows   *cache.QueryResult
+	cacheEnabled bool
+	cacheTTL     time.Duration
+	table        string
+	connection   *steampipeconfig.ConnectionPlugin
 }
 
-func newScanIterator(hub *Hub, connectionName, table string, qualMap map[string]*proto.Quals, columns []string) *scanIterator {
-	cacheEnabled := hub.cacheEnabled(connectionName)
-	cacheTTL := hub.cacheTTL(connectionName)
+func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) *scanIterator {
+	cacheEnabled := hub.cacheEnabled(connection.ConnectionName)
+	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
 	return &scanIterator{
-		status:         querystatusNone,
-		rows:           make(chan *proto.Row, rowBufferSize),
-		hub:            hub,
-		columns:        columns,
-		qualMap:        qualMap,
-		cachedRows:     &cache.QueryResult{},
-		cacheEnabled:   cacheEnabled,
-		cacheTTL:       cacheTTL,
-		table:          table,
-		connectionName: connectionName,
+		status:       querystatusNone,
+		rows:         make(chan *proto.Row, rowBufferSize),
+		hub:          hub,
+		columns:      columns,
+		qualMap:      qualMap,
+		cachedRows:   &cache.QueryResult{},
+		cacheEnabled: cacheEnabled,
+		cacheTTL:     cacheTTL,
+		table:        table,
+		connection:   connection,
 	}
 }
 
 func (i *scanIterator) ConnectionName() string {
-	return i.connectionName
+	return i.connection.ConnectionName
 }
 
-// Iterator implementation
-// Next returns next row (tuple). Nil slice means there is no more rows to scan.
+// Next implements Iterator
+// return the next row (tuple). Nil slice means there is no more rows to scan.
 func (i *scanIterator) Next() (map[string]interface{}, error) {
 	logging.LogTime("[hub] Next start")
 
@@ -187,8 +189,13 @@ func (i *scanIterator) onComplete() {
 	i.err = nil
 	// write the data to the cache
 	if i.cacheEnabled {
-		log.Printf("[INFO] Scan complete - adding %d rows to cache", len(i.cachedRows.Rows))
-		i.hub.queryCache.Set(i.connectionName, i.table, i.qualMap, i.columns, i.cachedRows, i.cacheTTL)
+		res := i.hub.queryCache.Set(i.connection, i.table, i.qualMap, i.columns, i.cachedRows, i.cacheTTL)
+		log.Println("[INFO] scan complete ")
+		if res {
+			log.Printf("[INFO] adding %d rows to cache", len(i.cachedRows.Rows))
+		} else {
+			log.Printf("[WARN] failed to add %d rows to cache", len(i.cachedRows.Rows))
+		}
 	}
 
 }

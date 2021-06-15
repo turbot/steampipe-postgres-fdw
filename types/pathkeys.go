@@ -38,27 +38,77 @@ func PathExistsInKeys(pathKeys []PathKey, other PathKey) bool {
 	return false
 }
 
-func KeyColumnsToPathKeys(k *proto.KeyColumnsSet) []PathKey {
-	var res []PathKey
+func KeyColumnsToPathKeys(required *proto.KeyColumnsSet, optional *proto.KeyColumnsSet) []PathKey {
+	requiredColumnSets := keyColumnsToColumnSet(required)
+	optionalColumnSets := keyColumnsToColumnSet(optional)
+
+	if len(requiredColumnSets)+len(optionalColumnSets) == 0 {
+		return nil
+	}
+
+	if len(requiredColumnSets) == 0 {
+		return singleKeyColumnsToPathKeys(optionalColumnSets)
+	}
+	if len(optionalColumnSets) == 0 {
+		return singleKeyColumnsToPathKeys(requiredColumnSets)
+	}
+
+	return requiredAndOptionalColumnsToPathKeys(requiredColumnSets, optionalColumnSets)
+}
+
+// return a list of all the column sets to use in path keys
+func keyColumnsToColumnSet(k *proto.KeyColumnsSet) [][]string {
+	var res [][]string
+	if k == nil {
+		return res
+	}
+
 	// if a single key column is specified add it
 	if k.Single != "" {
-		res = append(res, PathKey{
-			ColumnNames: []string{k.Single},
-			Rows:        1,
-		})
+		res = append(res, []string{k.Single})
 	}
 	// if 'Any' key columns are specified, add them all separately
 	for _, c := range k.Any {
-		res = append(res, PathKey{
-			ColumnNames: []string{c},
-			Rows:        1,
-		})
+		res = append(res, []string{c})
 	}
 	// if 'All' key columns are specified, add them as a single path
 	if k.All != nil {
+		res = append(res, k.All)
+	}
+	return res
+}
+
+func singleKeyColumnsToPathKeys(columnSet [][]string) []PathKey {
+	var res []PathKey
+	// generate path keys for all permutations of required and optional
+	for _, r := range columnSet {
 		res = append(res, PathKey{
-			ColumnNames: k.All,
-			Rows:        1,
+			ColumnNames: r,
+			// make this cheap to the planner prefers to give us the qual
+			Rows: 1,
+		})
+	}
+	return res
+}
+
+func requiredAndOptionalColumnsToPathKeys(requiredColumnSets [][]string, optionalColumnSets [][]string) []PathKey {
+	var res []PathKey
+	// generate path keys for all permutations of required and optional
+	for _, r := range requiredColumnSets {
+		// add every permutation of a single optional with the required - make this cheapest
+		for _, o := range optionalColumnSets {
+			columnNames := append(r, o...)
+			res = append(res, PathKey{
+				ColumnNames: columnNames,
+				Rows:        1,
+			})
+		}
+		// TODO do we need all other permutations??? with multiple optionals?
+
+		// add just required - make this more expensive so the optional columns are included by preference
+		res = append(res, PathKey{
+			ColumnNames: r,
+			Rows:        100,
 		})
 	}
 	return res

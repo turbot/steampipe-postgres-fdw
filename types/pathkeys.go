@@ -1,8 +1,11 @@
 package types
 
 import (
+	"log"
 	"sort"
 	"strings"
+
+	"github.com/turbot/go-kit/helpers"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
@@ -53,7 +56,7 @@ func KeyColumnsToPathKeys(required *proto.KeyColumnsSet, optional *proto.KeyColu
 		return singleKeyColumnsToPathKeys(requiredColumnSets, allColumns)
 	}
 
-	return requiredAndOptionalColumnsToPathKeys(requiredColumnSets, optionalColumnSets)
+	return requiredAndOptionalColumnsToPathKeys(requiredColumnSets, optionalColumnSets, allColumns)
 }
 
 // return a list of all the column sets to use in path keys
@@ -86,33 +89,48 @@ func singleKeyColumnsToPathKeys(columnSet [][]string, allColumns []string) []Pat
 		res = append(res, PathKey{
 			ColumnNames: r,
 			// make this cheap so the planner prefers to give us the qual
-			Rows: 1,
+			Rows: 10,
 		})
-		//for _, c := range allColumns {
-		//	res = append(res, PathKey{
-		//		ColumnNames: append(r, c),
-		//		// make this less cheap
-		//		Rows: 10,
-		//	})
-		//}
+		for _, c := range allColumns {
+			if !helpers.StringSliceContains(r, c) {
+				res = append(res, PathKey{
+					ColumnNames: append(r, c),
+					// make this less cheap
+					Rows: 1,
+				})
+			}
+		}
 	}
 	return res
 }
 
-func requiredAndOptionalColumnsToPathKeys(requiredColumnSets [][]string, optionalColumnSets [][]string) []PathKey {
+func requiredAndOptionalColumnsToPathKeys(requiredColumnSets [][]string, optionalColumnSets [][]string, allColumns []string) []PathKey {
 	var res []PathKey
 	// generate path keys for all permutations of required and optional
 	for _, r := range requiredColumnSets {
 		// add every permutation of a single optional with the required - make this cheapest
-		for _, o := range optionalColumnSets {
-			columnNames := append(r, o...)
-			res = append(res, PathKey{
-				ColumnNames: columnNames,
-				Rows:        1,
-			})
-		}
+		//for _, o := range optionalColumnSets {
+		//	columnNames := append(r, o...)
+		//	log.Printf("[WARN] requiredAndOptionalColumnsToPathKeys WORKING cols %v", columnNames)
+		//
+		//	//res = append(res, PathKey{
+		//	//	ColumnNames: columnNames,
+		//	//	Rows:        1,
+		//	//})
+		//}
 		// TODO do we need all other permutations??? with multiple optionals?
 
+		for _, c := range allColumns {
+			columnNames := append(r, c)
+			if !helpers.StringSliceContains(r, c) {
+				log.Printf("[WARN] requiredAndOptionalColumnsToPathKeys cols %v", columnNames)
+				res = append(res, PathKey{
+					ColumnNames: columnNames,
+					// make this less cheap
+					Rows: 10,
+				})
+			}
+		}
 		// add just required - make this more expensive so the optional columns are included by preference
 		res = append(res, PathKey{
 			ColumnNames: r,

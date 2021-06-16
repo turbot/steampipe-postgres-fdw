@@ -31,7 +31,7 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 	for it := restrictions.head; it != nil; it = it.next {
 		restriction := C.cellGetExpr(it)
 
-		log.Printf("[INFO] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
+		log.Printf("[TRACE] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
 
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
@@ -69,8 +69,6 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 
 // build a protobuf qual from an OpExpr
 func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
-	log.Printf("[INFO] qualFromOpExpr")
-
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
 
@@ -105,7 +103,7 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 		Value:     qualValue,
 	}
 
-	log.Printf("[INFO] qualFromOpExpr returning %v", qual)
+	log.Printf("[TRACE] qualFromOpExpr returning %v", qual)
 	return qual
 }
 
@@ -229,7 +227,7 @@ func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos 
 }
 
 func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.ConversionInfo) (*proto.QualValue, error) {
-	log.Printf("[INFO] getQualValue")
+	log.Printf("[TRACE] getQualValue")
 	var isNull C.bool
 	var typeOid C.Oid
 	var value C.Datum
@@ -240,7 +238,7 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		typeOid = constQual.consttype
 		value = constQual.constvalue
 		isNull = constQual.constisnull
-		log.Printf("[INFO] getQualValue T_Const qual, value %v", value)
+		log.Printf("[TRACE] getQualValue T_Const qual, value %v", value)
 	case C.T_Param:
 		paramQual := (*C.Param)(right)
 		typeOid = paramQual.paramtype
@@ -248,7 +246,7 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
 		econtext := node.ss.ps.ps_ExprContext
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
-		log.Printf("[INFO] getQualValue T_Param qual, value %v, isNull %v", value, isNull)
+		log.Printf("[TRACE] getQualValue T_Param qual, value %v, isNull %v", value, isNull)
 	default:
 		return nil, fmt.Errorf("QualDefsToQuals: non-const qual value (type %s), skipping\n", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))))
 	}

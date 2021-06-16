@@ -295,7 +295,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	// this increases the chances that Postgres will generate a plan which provides the quals when querying the table
 	pathKeys := types.KeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns, allColumns)
 
-	// NOTE: in the future we may (optionally) add in path keys for Get call key caolumns.
+	// NOTE: in the future we may (optionally) add in path keys for Get call key columns.
 	// We do not do this by default as it is likely to actually reduce join performance in the general case,
 	// particularly when caching is taken into account
 

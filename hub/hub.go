@@ -182,6 +182,10 @@ func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (I
 	connectionName := opts["connection"]
 	table := opts["table"]
 
+	connection, err := h.getConnectionPlugin(connectionName)
+	if err != nil {
+		return nil, err
+	}
 	cacheEnabled := h.cacheEnabled(connectionName)
 	cacheTTL := h.cacheTTL(connectionName)
 	var cacheString = "caching DISABLED"
@@ -198,14 +202,14 @@ func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (I
 
 	// do we have a cached query result
 	if cacheEnabled {
-		cachedResult := h.queryCache.Get(connectionName, table, qualMap, columns)
+		cachedResult := h.queryCache.Get(connection, table, qualMap, columns)
 		if cachedResult != nil {
 			// we have cache data - return a cache iterator
 			return newCacheIterator(cachedResult), nil
 		}
 	}
 
-	iterator := newScanIterator(h, connectionName, table, qualMap, columns)
+	iterator := newScanIterator(h, connection, table, qualMap, columns)
 	err = h.startScan(iterator, columns, qualMap)
 	logging.LogTime("Scan end")
 	return iterator, err
@@ -270,6 +274,7 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //            For example, the return value corresponding to the previous scenario would be::
 //                [(('id',), 1)]
 func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
+
 	connectionName := opts["connection"]
 	table := opts["table"]
 
@@ -282,13 +287,15 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	}
 	schema := connectionPlugin.Schema.Schema[table]
 
+	var allColumns = make([]string, len(schema.Columns))
+	for i, c := range schema.Columns {
+		allColumns[i] = c.Name
+	}
 	// generate path keys if there are required list key columns
 	// this increases the chances that Postgres will generate a plan which provides the quals when querying the table
-	var pathKeys []types.PathKey
-	if listKeyColumns := schema.ListCallKeyColumns; listKeyColumns != nil {
-		pathKeys = types.KeyColumnsToPathKeys(listKeyColumns)
-	}
-	// NOTE: in the future we may (optionally) add in path keys for Get call key caolumns.
+	pathKeys := types.KeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns, allColumns)
+
+	// NOTE: in the future we may (optionally) add in path keys for Get call key columns.
 	// We do not do this by default as it is likely to actually reduce join performance in the general case,
 	// particularly when caching is taken into account
 
@@ -315,11 +322,8 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[string]*proto.Quals) error {
 	table := iterator.table
 	log.Printf("[INFO] StartScan\n  table: %s\n  columns: %v\n", table, columns)
-	connectionName := iterator.connectionName
-	c, err := h.getConnectionPlugin(connectionName)
-	if err != nil {
-		return err
-	}
+	c := iterator.connection
+
 	var queryContext = &proto.QueryContext{
 		Columns: columns,
 		Quals:   qualMap,
@@ -333,13 +337,13 @@ func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[st
 	req := &proto.ExecuteRequest{
 		Table:        table,
 		QueryContext: queryContext,
-		Connection:   connectionName,
+		Connection:   c.ConnectionName,
 	}
 	stream, err := c.Plugin.Stub.Execute(req)
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
-		err = steampipeconfig.HandleGrpcError(err, connectionName, "Execute")
+		err = steampipeconfig.HandleGrpcError(err, c.ConnectionName, "Execute")
 		iterator.setError(err)
 		return err
 	}
@@ -379,7 +383,7 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 	// load the config for this connection
 	connection, ok := h.steampipeConfig.Connections[connectionName]
 	if !ok {
-		log.Printf("[WARN]no config found for connection %s: %v", connectionName, h.steampipeConfig.Connections)
+		log.Printf("[WARN] no config found for connection %s: %v", connectionName, h.steampipeConfig.Connections)
 		return nil, fmt.Errorf("no config found for connection %s", connectionName)
 	}
 

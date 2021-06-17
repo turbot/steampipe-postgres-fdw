@@ -77,7 +77,6 @@ extractColumns(List *reltargetlist, List *restrictinfolist)
 	{
 		List	   *targetcolumns;
 		RestrictInfo *node = (RestrictInfo *) lfirst(lc);
-
 		targetcolumns = pull_var_clause((Node *) node->clause,
 #if PG_VERSION_NUM >= 90600
 										PVC_RECURSE_AGGREGATES|

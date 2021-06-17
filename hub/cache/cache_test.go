@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe/steampipeconfig"
 )
 
 type cacheSetRequest struct {
@@ -322,13 +323,15 @@ func TestCache(t *testing.T) {
 	for name, test := range testCasesCacheTest {
 		queryCache, _ := NewQueryCache()
 		for _, s := range test.set {
-			queryCache.Set(s.connection, s.table, s.qualMap, s.columns, s.result, 500*time.Second)
+			connectionPlugin := &steampipeconfig.ConnectionPlugin{ConnectionName: s.connection, Schema: &proto.Schema{}}
+			queryCache.Set(connectionPlugin, s.table, s.qualMap, s.columns, s.result, 500*time.Second)
 			time.Sleep(100 * time.Millisecond)
 		}
 		time.Sleep(100 * time.Millisecond)
 
 		g := test.get
-		result := queryCache.Get(g.connection, g.table, g.qualMap, g.columns)
+		connectionPlugin := &steampipeconfig.ConnectionPlugin{ConnectionName: g.connection, Schema: &proto.Schema{}}
+		result := queryCache.Get(connectionPlugin, g.table, g.qualMap, g.columns)
 		if !reflect.DeepEqual(test.expected, result) {
 			t.Errorf("Test: '%s'' FAILED : \nexpected:\n %v, \n\ngot:\n %v", name, test.expected, result)
 		}

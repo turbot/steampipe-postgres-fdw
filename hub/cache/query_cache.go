@@ -7,10 +7,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/dgraph-io/ristretto"
-
+	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe/steampipeconfig"
 )
 
 type QueryCache struct {
@@ -33,16 +35,16 @@ func NewQueryCache() (*QueryCache, error) {
 	return cache, nil
 }
 
-func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult, ttl time.Duration) {
-	log.Printf("[TRACE] QueryCache Set() - connectionName: %s, table: %s, columns: %s\n", connectionName, table, columns)
+func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult, ttl time.Duration) bool {
+	log.Printf("[TRACE] QueryCache Set() - connectionName: %s, table: %s, columns: %s\n", connection.ConnectionName, table, columns)
 
 	// write to the result cache
-	resultKey := c.BuildResultKey(connectionName, table, qualMap, columns)
+	resultKey := c.BuildResultKey(connection, table, qualMap, columns)
 	c.cache.SetWithTTL(resultKey, result, 1, ttl)
 
 	// now update the index
 	// get the index bucket for this table and quals
-	indexBucketKey := c.BuildIndexKey(connectionName, table, qualMap)
+	indexBucketKey := c.BuildIndexKey(connection, table, qualMap)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 
 	log.Printf("[TRACE] QueryCache Set() index key %s, result key %s", indexBucketKey, resultKey)
@@ -53,15 +55,15 @@ func (c QueryCache) Set(connectionName, table string, qualMap map[string]*proto.
 		// create new index bucket
 		indexBucket = newIndexBucket(columns, resultKey)
 	}
-	c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl)
+	return c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl)
 }
 
-func (c QueryCache) Get(connectionName, table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
+func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
 
 	// get the index bucket for this table and quals
-	indexBucketKey := c.BuildIndexKey(connectionName, table, qualMap)
+	indexBucketKey := c.BuildIndexKey(connection, table, qualMap)
 	log.Printf("[TRACE] QueryCache Get() - index bucket key: %s\n", indexBucketKey)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 	if !ok {
@@ -89,7 +91,7 @@ func (c QueryCache) Get(connectionName, table string, qualMap map[string]*proto.
 }
 
 // GetIndex :: retrieve an index bucket for a given cache key
-func (c QueryCache) getIndex(indexKey string) (*IndexBucket, bool) {
+func (c *QueryCache) getIndex(indexKey string) (*IndexBucket, bool) {
 	result, ok := c.cache.Get(indexKey)
 	if !ok {
 		return nil, false
@@ -98,7 +100,7 @@ func (c QueryCache) getIndex(indexKey string) (*IndexBucket, bool) {
 }
 
 // GetResult :: retrieve a query result for a given cache key
-func (c QueryCache) getResult(resultKey string) (*QueryResult, bool) {
+func (c *QueryCache) getResult(resultKey string) (*QueryResult, bool) {
 	result, ok := c.cache.Get(resultKey)
 	if !ok {
 		return nil, false
@@ -106,24 +108,24 @@ func (c QueryCache) getResult(resultKey string) (*QueryResult, bool) {
 	return result.(*QueryResult), true
 }
 
-func (c QueryCache) BuildIndexKey(connectionName, table string, qualMap map[string]*proto.Quals) string {
+func (c *QueryCache) BuildIndexKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals) string {
 	str := c.sanitiseKey(fmt.Sprintf("index__%s%s%s",
-		connectionName,
+		connection.ConnectionName,
 		table,
-		formatQualMapForKey(qualMap)))
+		c.formatQualMapForKey(connection, table, qualMap)))
 	return str
 }
 
-func (c QueryCache) BuildResultKey(connectionName, table string, qualMap map[string]*proto.Quals, columns []string) string {
+func (c *QueryCache) BuildResultKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) string {
 	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
-		connectionName,
+		connection.ConnectionName,
 		table,
-		formatQualMapForKey(qualMap),
+		c.formatQualMapForKey(connection, table, qualMap),
 		strings.Join(columns, ",")))
 	return str
 }
 
-func formatQualMapForKey(qualMap map[string]*proto.Quals) string {
+func (c *QueryCache) formatQualMapForKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals) string {
 	var strs = make([]string, len(qualMap))
 	// first build list of keys, then sort them
 	keys := make([]string, len(qualMap))
@@ -137,21 +139,60 @@ func formatQualMapForKey(qualMap map[string]*proto.Quals) string {
 	log.Printf("[TRACE] formatQualMapForKey sorted keys %v\n", keys)
 
 	// now construct cache key from ordered quals
+
+	// get a predicate function which tells us whether to include a qual
+	shouldIncludeQualInKey := c.getShouldIncludeQualInKey(connection, table)
+
 	for i, key := range keys {
-		strs[i] = formatQualsForKey(qualMap[key])
+		strs[i] = c.formatQualsForKey(qualMap[key], shouldIncludeQualInKey)
 	}
 	return strings.Join(strs, "-")
 }
 
-func formatQualsForKey(quals *proto.Quals) string {
-	var strs = make([]string, len(quals.Quals))
-	for i, q := range quals.Quals {
-		strs[i] = fmt.Sprintf("%s-%s-%v", q.FieldName, q.GetStringValue(), grpc.GetQualValue(q.Value))
+func (c *QueryCache) formatQualsForKey(quals *proto.Quals, shouldIncludeQualInKey func(string) bool) string {
+	var strs []string
+	for _, q := range quals.Quals {
+		if shouldIncludeQualInKey(q.FieldName) {
+			strs = append(strs, fmt.Sprintf("%s-%s-%v", q.FieldName, q.GetStringValue(), grpc.GetQualValue(q.Value)))
+		}
 	}
 	return strings.Join(strs, "-")
 }
 
-func (c QueryCache) sanitiseKey(str string) string {
+// for sdk version 0.3.0 and greater, only include key column quals and optional quals
+func (c *QueryCache) getShouldIncludeQualInKey(connection *steampipeconfig.ConnectionPlugin, table string) func(string) bool {
+	v, err := semver.Make(connection.Schema.SdkVersion)
+	if err == nil && v.GE(semver.Version{Minor: 3}) {
+		log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version >= 0.3.0 - only using key columns for cache key")
+
+		// build a list of all columns
+		tableSchema, ok := connection.Schema.Schema[table]
+		if !ok {
+			// any errors, just default to including the column
+			return func(string) bool { return true }
+		}
+		var cols []string
+		if tableSchema.ListCallKeyColumns != nil {
+			cols = append(cols, tableSchema.ListCallKeyColumns.ToSlice()...)
+		}
+		if tableSchema.ListCallOptionalKeyColumns != nil {
+			cols = append(cols, tableSchema.ListCallOptionalKeyColumns.ToSlice()...)
+		}
+
+		return func(column string) bool {
+			res := helpers.StringSliceContains(cols, column)
+			log.Printf("[TRACE] shouldIncludeQual, column %s, include = %v", column, res)
+			return res
+		}
+	}
+
+	log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version < 0.3.0 - using all quals for cache key")
+
+	// for older, or unidentified sdk versions, include all quals
+	return func(string) bool { return true }
+}
+
+func (c *QueryCache) sanitiseKey(str string) string {
 	str = strings.Replace(str, "\n", "", -1)
 	str = strings.Replace(str, "\t", "", -1)
 	return str

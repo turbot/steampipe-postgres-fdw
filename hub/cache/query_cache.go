@@ -175,6 +175,9 @@ func (c *QueryCache) getShouldIncludeQualInKey(connection *steampipeconfig.Conne
 		if tableSchema.ListCallKeyColumns != nil {
 			cols = append(cols, tableSchema.ListCallKeyColumns.ToSlice()...)
 		}
+		if tableSchema.GetCallKeyColumns != nil {
+			cols = append(cols, tableSchema.GetCallKeyColumns.ToSlice()...)
+		}
 		if tableSchema.ListCallOptionalKeyColumns != nil {
 			cols = append(cols, tableSchema.ListCallOptionalKeyColumns.ToSlice()...)
 		}

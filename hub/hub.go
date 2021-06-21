@@ -197,7 +197,9 @@ func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (I
 	if len(qualMap) > 0 {
 		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap))
 	} else {
+		log.Println("[INFO] --------")
 		log.Println("[INFO] no quals")
+		log.Println("[INFO] --------")
 	}
 
 	// do we have a cached query result

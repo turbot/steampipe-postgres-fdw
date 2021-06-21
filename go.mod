@@ -9,10 +9,9 @@ require (
 	github.com/hashicorp/go-hclog v0.15.0
 	github.com/turbot/go-kit v0.2.1
 	github.com/turbot/steampipe v0.5.0
-	github.com/turbot/steampipe-plugin-sdk v0.2.9
+	github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210621130538-6f674aaafaac
 	google.golang.org/protobuf v1.25.0
 )
 
 replace github.com/c-bata/go-prompt => github.com/binaek89/go-prompt v0.2.7-multiline-clearscreen
 
-replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210615163502-8059d5c1556f

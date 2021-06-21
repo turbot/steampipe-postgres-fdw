@@ -69,6 +69,7 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 
 // build a protobuf qual from an OpExpr
 func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	log.Printf("[TRACE] qualFromOpExpr")
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
 
@@ -242,7 +243,12 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 	case C.T_Param:
 		paramQual := (*C.Param)(right)
 		typeOid = paramQual.paramtype
-
+		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
+		econtext := node.ss.ps.ps_ExprContext
+		value = C.ExecEvalExpr(exprState, econtext, &isNull)
+	case C.T_OpExpr:
+		opExprQual := (*C.OpExpr)(right)
+		typeOid = opExprQual.opresulttype
 		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
 		econtext := node.ss.ps.ps_ExprContext
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
@@ -321,7 +327,7 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (re
 			break
 		}
 		result.Value = &proto.QualValue_TimestampValue{TimestampValue: timestamp}
-	case C.TIMESTAMPOID:
+	case C.TIMESTAMPOID, C.TIMESTAMPTZOID:
 		pgts := int64(C.datumTimestamp(datum, cinfo))
 		var timestamp *timestamp.Timestamp
 		timestamp, err := PgTimeToTimestamp(pgts)

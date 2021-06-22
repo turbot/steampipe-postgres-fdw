@@ -19,52 +19,55 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []*proto.Qual {
+func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Quals {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
 
-	var qualsList qualList
+	log.Printf("[INFO] RestrictionsToQuals")
+
+	qualsList := &proto.Quals{}
 	if restrictions == nil {
-		return qualsList.quals
+		return qualsList
 	}
 
 	for it := restrictions.head; it != nil; it = it.next {
 		restriction := C.cellGetExpr(it)
 
-		log.Printf("[TRACE] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
+		log.Printf("[INFO] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
 
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
 			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
-				qualsList.append(q)
+				qualsList.Append(q)
 			}
 		case C.T_Var:
 			q := qualFromVar(C.cellGetVar(it), node, cinfos)
-			qualsList.append(q)
+			qualsList.Append(q)
 
 		case C.T_ScalarArrayOpExpr:
 			if q := qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos); q != nil {
-				qualsList.append(q)
+				qualsList.Append(q)
 			}
 		case C.T_NullTest:
 			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
-			qualsList.append(q)
+			qualsList.Append(q)
 			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
 		case C.T_BooleanTest:
-			q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos)
-			qualsList.append(q)
-			//case C.T_BoolExpr:
-			//	if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
-			//		qualsList.append(q)
-			//	}
+			if q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+				qualsList.Append(q)
+			}
+		case C.T_BoolExpr:
+			if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+				qualsList.Append(q)
+			}
 		}
 
 	}
 	log.Printf("[INFO] RestrictionsToQuals: converted postgres restrictions protobuf quals")
-	//for _, q := range qualsList.quals {
-	//	log.Printf("[INFO] %s", grpc.QualToString(q))
-	//}
-	return qualsList.quals
+	for _, q := range qualsList.Quals {
+		log.Printf("[INFO] %s", grpc.QualToString(q))
+	}
+	return qualsList
 }
 
 // build a protobuf qual from an OpExpr
@@ -104,7 +107,7 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 		Value:     qualValue,
 	}
 
-	log.Printf("[TRACE] qualFromOpExpr returning %v", qual)
+	log.Printf("[INFO] qualFromOpExpr returning %v", qual)
 	return qual
 }
 
@@ -215,16 +218,30 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 	return qual
 }
 
+// convert a boolean expression into a qual
+// currently we only support simple expressions like column=true
+func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	arg := C.cellGetExpr(restriction.args.head)
+	// NOTE currently we only handle boolean expression with a single argument and a NOT operato
+	if restriction.args.length == 1 || restriction.boolop == C.NOT_EXPR && C.fdw_nodeTag(arg) == C.T_Var {
+
+		variable := C.cellGetVar(restriction.args.head)
+
+		return &proto.Qual{
+			FieldName: columnFromVar(variable, cinfos),
+			Operator:  &proto.Qual_StringValue{StringValue: "<>"},
+			Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+		}
+	}
+
+	return nil
+}
+
 func columnFromVar(variable *C.Var, cinfos **C.ConversionInfo) string {
 	arrayIndex := variable.varattno - 1
 	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
 	column := C.GoString(ci.attrname)
 	return column
-}
-
-func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
-
-	return nil
 }
 
 func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.ConversionInfo) (*proto.QualValue, error) {
@@ -400,24 +417,4 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 	log.Printf("[TRACE] datumArrayToQualValue complete, returning array of %d quals values \n", len(qualValues))
 
 	return result, nil
-}
-
-type qualList struct {
-	quals []*proto.Qual
-}
-
-// append the qual to our list, checking for duplicates
-func (q *qualList) append(qual *proto.Qual) {
-	if !q.contains(qual) {
-		q.quals = append(q.quals, qual)
-	}
-}
-
-func (q *qualList) contains(other *proto.Qual) bool {
-	for _, qual := range q.quals {
-		if grpc.QualEquals(qual, other) {
-			return true
-		}
-	}
-	return false
 }

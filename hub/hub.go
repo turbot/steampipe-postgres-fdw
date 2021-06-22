@@ -175,7 +175,7 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 }
 
 // Scan starts a table scan and returns an iterator
-func (h *Hub) Scan(columns []string, quals []*proto.Qual, opts types.Options) (Iterator, error) {
+func (h *Hub) Scan(columns []string, quals *proto.Quals, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
 
 	qualMap, err := h.buildQualMap(quals)
@@ -307,7 +307,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	//}
 	//pathKeys := types.MergePathKeys(getCallPathKeys, listCallPathKeys)
 
-	log.Printf("[INFO] GetPathKeys for connection '%s`, table `%s` returning %v", connectionName, table, pathKeys)
+	log.Printf("[TRACE] GetPathKeys for connection '%s`, table `%s` returning \n%v", connectionName, table, pathKeys)
 	return pathKeys, nil
 }
 

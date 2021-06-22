@@ -19,15 +19,15 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []*proto.Qual {
+func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.DbQuals {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
 
 	log.Printf("[INFO] RestrictionsToQuals")
 
-	var qualsList qualList
+	qualsList := &proto.DbQuals{}
 	if restrictions == nil {
-		return qualsList.quals
+		return qualsList
 	}
 
 	for it := restrictions.head; it != nil; it = it.next {
@@ -38,40 +38,40 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
 			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
-				qualsList.append(q)
+				qualsList.Append(q)
 			}
 		case C.T_Var:
 			q := qualFromVar(C.cellGetVar(it), node, cinfos)
-			qualsList.append(q)
+			qualsList.Append(q)
 
 		case C.T_ScalarArrayOpExpr:
 			if q := qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos); q != nil {
-				qualsList.append(q)
+				qualsList.Append(q)
 			}
 		case C.T_NullTest:
 			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
-			qualsList.append(q)
+			qualsList.Append(q)
 			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
 		case C.T_BooleanTest:
 			if q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
-				qualsList.append(q)
+				qualsList.Append(q)
 			}
 		case C.T_BoolExpr:
 			if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
-				qualsList.append(q)
+				qualsList.Append(q)
 			}
 		}
 
 	}
 	log.Printf("[INFO] RestrictionsToQuals: converted postgres restrictions protobuf quals")
-	//for _, q := range qualsList.quals {
-	//	log.Printf("[INFO] %s", grpc.QualToString(q))
-	//}
-	return qualsList.quals
+	for _, q := range qualsList.Quals {
+		log.Printf("[INFO] %s", grpc.QualToString(q))
+	}
+	return qualsList
 }
 
 // build a protobuf qual from an OpExpr
-func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.DbQual {
 	log.Printf("[TRACE] qualFromOpExpr")
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
@@ -101,26 +101,30 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 
 	column := C.GoString(ci.attrname)
 	operatorName := C.GoString(C.getOperatorString(restriction.opno))
-	qual := &proto.Qual{
-		FieldName: column,
-		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
-		Value:     qualValue,
-	}
+	qual := &proto.DbQual{
+		DbQual: &proto.DbQual_Qual{Qual: &proto.Qual{
+			FieldName: column,
+			Operator:  operatorName,
+			Value:     qualValue,
+		}}}
 
-	log.Printf("[TRACE] qualFromOpExpr returning %v", qual)
+	log.Printf("[INFO] qualFromOpExpr returning %v", qual)
 	return qual
 }
 
 // build a protobuf qual from a Var - this converts to a simple boolean qual where column=true
-func qualFromVar(arg *C.Var, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
-	return &proto.Qual{
-		FieldName: columnFromVar(arg, cinfos),
-		Operator:  &proto.Qual_StringValue{StringValue: "="},
-		Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+func qualFromVar(arg *C.Var, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.DbQual {
+	return &proto.DbQual{
+		DbQual: &proto.DbQual_Qual{Qual: &proto.Qual{
+			FieldName: columnFromVar(arg, cinfos),
+			Operator:  "=",
+			Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+		},
+		},
 	}
 }
 
-func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.DbQual {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
 
@@ -150,17 +154,20 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 
 	column := C.GoString(ci.attrname)
 	operatorName := C.GoString(C.getOperatorString(restriction.opno))
-	qual := &proto.Qual{
-		FieldName: column,
-		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
-		Value:     qualValue,
+	qual := &proto.DbQual{
+		DbQual: &proto.DbQual_Qual{Qual: &proto.Qual{
+			FieldName: column,
+			Operator:  operatorName,
+			Value:     qualValue,
+		},
+		},
 	}
 
 	return qual
 }
 
 // build a protobuf qual from a NullTest
-func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.DbQual {
 
 	if C.fdw_nodeTag(restriction.arg) != C.T_Var {
 		return nil
@@ -180,16 +187,17 @@ func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos 
 
 	column := columnFromVar(arg, cinfos)
 
-	qual := &proto.Qual{
-		FieldName: column,
-		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
-		Value:     nil,
-	}
+	qual := &proto.DbQual{
+		DbQual: &proto.DbQual_Qual{Qual: &proto.Qual{
+			FieldName: column,
+			Operator:  operatorName,
+			Value:     nil,
+		}}}
 	return qual
 }
 
 // build a protobuf qual from a BoolTest
-func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.DbQual {
 	arg := restriction.arg
 	if C.fdw_nodeTag(arg) != C.T_Var {
 		return nil
@@ -209,82 +217,83 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 		return nil
 	}
 
-	qual := &proto.Qual{
-		FieldName: column,
-		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
-		Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
-	}
+	qual := &proto.DbQual{
+		DbQual: &proto.DbQual_Qual{Qual: &proto.Qual{
+			FieldName: column,
+			Operator:  operatorName,
+			Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+		}}}
 
 	return qual
 }
 
 // convert a boolean expression into a qual
 // currently we only support simple expressions like column=true
-func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
-	operator := "="
-	//or := false
+func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.DbQual {
+	var b = &proto.BoolQual{
+		Operator: proto.BoolQual_EQ,
+	}
+
 	log.Printf("[WARN] qualFromBoolExpr")
 	switch restriction.boolop {
 	case C.AND_EXPR:
-		log.Printf("[WARN] AND")
+		b.Operator = proto.BoolQual_AND
 	case C.OR_EXPR:
-		log.Printf("[WARN] OR")
+		b.Operator = proto.BoolQual_OR
 	case C.NOT_EXPR:
-		operator = "<>"
+		b.Operator = proto.BoolQual_NE
+
 	}
 
-	var q *proto.Qual
-
-	var qualsList qualList
 	for it := restriction.args.head; it != nil; it = it.next {
 		arg := C.cellGetExpr(it)
 		switch C.fdw_nodeTag(arg) {
 		case C.T_OpExpr:
 			log.Printf("[WARN] T_OpExpr")
 			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
-				qualsList.append(q)
+				b.Append(q)
 			}
 		case C.T_Var:
 			log.Printf("[WARN] T_Var")
 			q := qualFromVar(C.cellGetVar(it), node, cinfos)
-			qualsList.append(q)
+			b.Append(q)
 
 		case C.T_ScalarArrayOpExpr:
 			log.Printf("[WARN] T_ScalarArrayOpExpr")
 			if q := qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos); q != nil {
-				qualsList.append(q)
+				b.Append(q)
 			}
 		case C.T_NullTest:
 			log.Printf("[WARN] T_NullTest")
 			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
-			qualsList.append(q)
-			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
+			b.Append(q)
 		case C.T_BooleanTest:
 			log.Printf("[WARN] T_BooleanTest")
 			if q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(arg)), node, cinfos); q != nil {
-				qualsList.append(q)
+				b.Append(q)
 			}
 		case C.T_BoolExpr:
 			log.Printf("[WARN] T_BoolExpr")
 			if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(arg)), node, cinfos); q != nil {
-				qualsList.append(q)
+				b.Append(q)
 			}
 		}
 
-		if C.fdw_nodeTag(arg) == C.T_Var {
+		/*	if C.fdw_nodeTag(arg) == C.T_Var {
 			variable := C.cellGetVar(it)
 
-			q = &proto.Qual{
+			b = &proto.Qual{
 				FieldName: columnFromVar(variable, cinfos),
 				Operator:  &proto.Qual_StringValue{StringValue: operator},
 				Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
 			}
-		}
+		}*/
 	}
-	for _, qq := range qualsList.quals {
+	for _, qq := range b.Quals.Quals {
 		log.Printf("[WARN] list qual %v", grpc.QualToString(qq))
 	}
-	return q
+	return &proto.DbQual{
+		DbQual: &proto.DbQual_BoolQual{BoolQual: b}}
 
 }
 
@@ -468,24 +477,4 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 	log.Printf("[TRACE] datumArrayToQualValue complete, returning array of %d quals values \n", len(qualValues))
 
 	return result, nil
-}
-
-type qualList struct {
-	quals []*proto.Qual
-}
-
-// append the qual to our list, checking for duplicates
-func (q *qualList) append(qual *proto.Qual) {
-	if !q.contains(qual) {
-		q.quals = append(q.quals, qual)
-	}
-}
-
-func (q *qualList) contains(other *proto.Qual) bool {
-	for _, qual := range q.quals {
-		if grpc.QualEquals(qual, other) {
-			return true
-		}
-	}
-	return false
 }

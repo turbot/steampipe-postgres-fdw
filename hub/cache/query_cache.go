@@ -35,7 +35,7 @@ func NewQueryCache() (*QueryCache, error) {
 	return cache, nil
 }
 
-func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult, ttl time.Duration) bool {
+func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.DbQuals, columns []string, result *QueryResult, ttl time.Duration) bool {
 	log.Printf("[TRACE] QueryCache Set() - connectionName: %s, table: %s, columns: %s\n", connection.ConnectionName, table, columns)
 
 	// write to the result cache
@@ -58,7 +58,7 @@ func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table str
 	return c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl)
 }
 
-func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
+func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.DbQuals, columns []string) *QueryResult {
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
 
@@ -108,7 +108,7 @@ func (c *QueryCache) getResult(resultKey string) (*QueryResult, bool) {
 	return result.(*QueryResult), true
 }
 
-func (c *QueryCache) BuildIndexKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals) string {
+func (c *QueryCache) BuildIndexKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.DbQuals) string {
 	str := c.sanitiseKey(fmt.Sprintf("index__%s%s%s",
 		connection.ConnectionName,
 		table,
@@ -116,7 +116,7 @@ func (c *QueryCache) BuildIndexKey(connection *steampipeconfig.ConnectionPlugin,
 	return str
 }
 
-func (c *QueryCache) BuildResultKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) string {
+func (c *QueryCache) BuildResultKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.DbQuals, columns []string) string {
 	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
 		connection.ConnectionName,
 		table,
@@ -125,7 +125,7 @@ func (c *QueryCache) BuildResultKey(connection *steampipeconfig.ConnectionPlugin
 	return str
 }
 
-func (c *QueryCache) formatQualMapForKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals) string {
+func (c *QueryCache) formatQualMapForKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.DbQuals) string {
 	var strs = make([]string, len(qualMap))
 	// first build list of keys, then sort them
 	keys := make([]string, len(qualMap))
@@ -149,12 +149,16 @@ func (c *QueryCache) formatQualMapForKey(connection *steampipeconfig.ConnectionP
 	return strings.Join(strs, "-")
 }
 
-func (c *QueryCache) formatQualsForKey(quals *proto.Quals, shouldIncludeQualInKey func(string) bool) string {
+func (c *QueryCache) formatQualsForKey(quals *proto.DbQuals, shouldIncludeQualInKey func(string) bool) string {
 	var strs []string
-	for _, q := range quals.Quals {
-		if shouldIncludeQualInKey(q.FieldName) {
-			strs = append(strs, fmt.Sprintf("%s-%s-%v", q.FieldName, q.GetStringValue(), grpc.GetQualValue(q.Value)))
+	for _, dbQuals := range quals.Quals {
+		q := dbQuals.GetQual()
+		if q != nil {
+			if shouldIncludeQualInKey(q.FieldName) {
+				strs = append(strs, fmt.Sprintf("%s-%s-%v", q.FieldName, q.Operator, grpc.GetQualValue(q.Value)))
+			}
 		}
+		// TODO handle BOOL QUALS
 	}
 	return strings.Join(strs, "-")
 }

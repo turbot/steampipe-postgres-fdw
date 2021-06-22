@@ -307,7 +307,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	//}
 	//pathKeys := types.MergePathKeys(getCallPathKeys, listCallPathKeys)
 
-	log.Printf("[INFO] GetPathKeys for connection '%s`, table `%s` returning %v", connectionName, table, pathKeys)
+	log.Printf("[TRACE] GetPathKeys for connection '%s`, table `%s` returning \n%v", connectionName, table, pathKeys)
 	return pathKeys, nil
 }
 

@@ -23,6 +23,8 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
 
+	log.Printf("[INFO] RestrictionsToQuals")
+
 	var qualsList qualList
 	if restrictions == nil {
 		return qualsList.quals
@@ -31,7 +33,7 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 	for it := restrictions.head; it != nil; it = it.next {
 		restriction := C.cellGetExpr(it)
 
-		log.Printf("[TRACE] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
+		log.Printf("[INFO] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
 
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
@@ -55,7 +57,6 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 				qualsList.append(q)
 			}
 		case C.T_BoolExpr:
-
 			if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
 				qualsList.append(q)
 			}
@@ -237,31 +238,35 @@ func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos 
 	var qualsList qualList
 	for it := restriction.args.head; it != nil; it = it.next {
 		arg := C.cellGetExpr(it)
-		log.Printf("[WARN] *********** arg %v %v", C.fdw_nodeTag(arg), C.T_Var)
 		switch C.fdw_nodeTag(arg) {
 		case C.T_OpExpr:
+			log.Printf("[WARN] T_OpExpr")
 			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
 				qualsList.append(q)
 			}
 		case C.T_Var:
+			log.Printf("[WARN] T_Var")
 			q := qualFromVar(C.cellGetVar(it), node, cinfos)
 			qualsList.append(q)
 
 		case C.T_ScalarArrayOpExpr:
+			log.Printf("[WARN] T_ScalarArrayOpExpr")
 			if q := qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos); q != nil {
 				qualsList.append(q)
 			}
 		case C.T_NullTest:
+			log.Printf("[WARN] T_NullTest")
 			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
 			qualsList.append(q)
 			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
 		case C.T_BooleanTest:
-			if q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+			log.Printf("[WARN] T_BooleanTest")
+			if q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(arg)), node, cinfos); q != nil {
 				qualsList.append(q)
 			}
 		case C.T_BoolExpr:
-
-			if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+			log.Printf("[WARN] T_BoolExpr")
+			if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(arg)), node, cinfos); q != nil {
 				qualsList.append(q)
 			}
 		}

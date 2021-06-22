@@ -51,12 +51,14 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) []
 			qualsList.append(q)
 			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
 		case C.T_BooleanTest:
-			q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos)
-			qualsList.append(q)
-			//case C.T_BoolExpr:
-			//	if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
-			//		qualsList.append(q)
-			//	}
+			if q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+				qualsList.append(q)
+			}
+		case C.T_BoolExpr:
+
+			if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+				qualsList.append(q)
+			}
 		}
 
 	}
@@ -215,16 +217,77 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 	return qual
 }
 
+// convert a boolean expression into a qual
+// currently we only support simple expressions like column=true
+func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	operator := "="
+	//or := false
+	log.Printf("[WARN] qualFromBoolExpr")
+	switch restriction.boolop {
+	case C.AND_EXPR:
+		log.Printf("[WARN] AND")
+	case C.OR_EXPR:
+		log.Printf("[WARN] OR")
+	case C.NOT_EXPR:
+		operator = "<>"
+	}
+
+	var q *proto.Qual
+
+	var qualsList qualList
+	for it := restriction.args.head; it != nil; it = it.next {
+		arg := C.cellGetExpr(it)
+		log.Printf("[WARN] *********** arg %v %v", C.fdw_nodeTag(arg), C.T_Var)
+		switch C.fdw_nodeTag(arg) {
+		case C.T_OpExpr:
+			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
+				qualsList.append(q)
+			}
+		case C.T_Var:
+			q := qualFromVar(C.cellGetVar(it), node, cinfos)
+			qualsList.append(q)
+
+		case C.T_ScalarArrayOpExpr:
+			if q := qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos); q != nil {
+				qualsList.append(q)
+			}
+		case C.T_NullTest:
+			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
+			qualsList.append(q)
+			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
+		case C.T_BooleanTest:
+			if q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+				qualsList.append(q)
+			}
+		case C.T_BoolExpr:
+
+			if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
+				qualsList.append(q)
+			}
+		}
+
+		if C.fdw_nodeTag(arg) == C.T_Var {
+			variable := C.cellGetVar(it)
+
+			q = &proto.Qual{
+				FieldName: columnFromVar(variable, cinfos),
+				Operator:  &proto.Qual_StringValue{StringValue: operator},
+				Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+			}
+		}
+	}
+	for _, qq := range qualsList.quals {
+		log.Printf("[WARN] list qual %v", grpc.QualToString(qq))
+	}
+	return q
+
+}
+
 func columnFromVar(variable *C.Var, cinfos **C.ConversionInfo) string {
 	arrayIndex := variable.varattno - 1
 	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
 	column := C.GoString(ci.attrname)
 	return column
-}
-
-func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
-
-	return nil
 }
 
 func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.ConversionInfo) (*proto.QualValue, error) {

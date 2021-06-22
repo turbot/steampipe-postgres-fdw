@@ -11,7 +11,7 @@ func (h *Hub) buildQualMap(quals []*proto.Qual) (map[string]*proto.Quals, error)
 		if qual == nil {
 			continue
 		}
-		// convert the qual value from cty value to a protobuf 'QualValue' type
+
 		columnQuals, ok := qualMap[qual.FieldName]
 		if ok {
 			columnQuals.Quals = append(columnQuals.Quals, qual)

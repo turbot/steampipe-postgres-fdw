@@ -34,7 +34,7 @@ type scanIterator struct {
 	columns      []string
 	stream       proto.WrapperPlugin_ExecuteClient
 	rel          *types.Relation
-	qualMap      map[string]*proto.DbQuals
+	qualMap      map[string]*proto.Quals
 	hub          *Hub
 	cachedRows   *cache.QueryResult
 	cacheEnabled bool
@@ -43,7 +43,7 @@ type scanIterator struct {
 	connection   *steampipeconfig.ConnectionPlugin
 }
 
-func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.DbQuals, columns []string) *scanIterator {
+func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) *scanIterator {
 	cacheEnabled := hub.cacheEnabled(connection.ConnectionName)
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 

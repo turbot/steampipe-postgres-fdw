@@ -4,23 +4,19 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-func (h *Hub) buildQualMap(quals *proto.DbQuals) (map[string]*proto.DbQuals, error) {
-	qualMap := make(map[string]*proto.DbQuals)
+func (h *Hub) buildQualMap(quals *proto.Quals) (map[string]*proto.Quals, error) {
+	qualMap := make(map[string]*proto.Quals)
 
-	for _, dbQual := range quals.Quals {
-		if dbQual == nil {
-			continue
-		}
-		qual := dbQual.GetQual()
+	for _, qual := range quals.Quals {
 		if qual == nil {
 			continue
 		}
 
 		columnQuals, ok := qualMap[qual.FieldName]
 		if ok {
-			columnQuals.Append(dbQual)
+			columnQuals.Append(qual)
 		} else {
-			columnQuals = &proto.DbQuals{Quals: []*proto.DbQual{dbQual}}
+			columnQuals = &proto.Quals{Quals: []*proto.Qual{qual}}
 		}
 		qualMap[qual.FieldName] = columnQuals
 	}

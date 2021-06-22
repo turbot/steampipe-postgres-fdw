@@ -22,8 +22,7 @@ import (
 func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Quals {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
-
-	log.Printf("[INFO] RestrictionsToQuals")
+	log.Printf("[TRACE] RestrictionsToQuals")
 
 	qualsList := &proto.Quals{}
 	if restrictions == nil {
@@ -33,7 +32,7 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *p
 	for it := restrictions.head; it != nil; it = it.next {
 		restriction := C.cellGetExpr(it)
 
-		log.Printf("[INFO] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
+		log.Printf("[TRACE] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
 
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
@@ -63,9 +62,9 @@ func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *p
 		}
 
 	}
-	log.Printf("[INFO] RestrictionsToQuals: converted postgres restrictions protobuf quals")
+	log.Printf("[TRACE] RestrictionsToQuals: converted postgres restrictions protobuf quals")
 	for _, q := range qualsList.Quals {
-		log.Printf("[INFO] %s", grpc.QualToString(q))
+		log.Printf("[TRACE] %s", grpc.QualToString(q))
 	}
 	return qualsList
 }
@@ -107,7 +106,7 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 		Value:     qualValue,
 	}
 
-	log.Printf("[INFO] qualFromOpExpr returning %v", qual)
+	log.Printf("[TRACE] qualFromOpExpr returning %v", qual)
 	return qual
 }
 
@@ -144,7 +143,7 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
 	qualValue, err := getQualValue(right, node, ci)
 	if err != nil {
-		log.Printf("[INFO] failed to convert qual value; %v", err)
+		log.Printf("[WARN] failed to convert qual value; %v", err)
 		return nil
 	}
 
@@ -161,7 +160,6 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 
 // build a protobuf qual from a NullTest
 func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
-
 	if C.fdw_nodeTag(restriction.arg) != C.T_Var {
 		return nil
 	}
@@ -276,7 +274,7 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 
 	var qualValue *proto.QualValue
 	if isNull {
-		log.Printf("[DEBUG] qualDef.isnull=true - returning qual with nil value")
+		log.Printf("[TRACE] qualDef.isnull=true - returning qual with nil value")
 		qualValue = nil
 	} else {
 		if typeOid == C.InvalidOid {

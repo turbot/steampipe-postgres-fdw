@@ -213,8 +213,8 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 
 	iterator := newScanIterator(h, connection, table, qualMap, columns)
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-
 	err = h.startScan(iterator, queryContext)
+
 	logging.LogTime("Scan end")
 	return iterator, err
 }

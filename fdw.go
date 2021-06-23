@@ -170,7 +170,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	var tupdesc C.TupleDesc = node.ss.ss_currentRelation.rd_att
 	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
 
-	qualList := RestrictionsToQuals(node, execState.cinfos)
+	quals := restrictionsToQuals(node, execState.cinfos)
+
 	// start the plugin hub
 	var err error
 	pluginHub, err := hub.GetHub()
@@ -178,7 +179,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		FdwError(err)
 	}
 
-	iter, err := pluginHub.Scan(columns, qualList, opts)
+	iter, err := pluginHub.Scan(columns, quals, int64(execState.limit), opts)
 	if err != nil {
 		FdwError(err)
 		return

@@ -212,7 +212,9 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	}
 
 	iterator := newScanIterator(h, connection, table, qualMap, columns)
-	err = h.startScan(iterator, columns, qualMap, limit)
+	queryContext := proto.NewQueryContext(columns, qualMap, limit)
+
+	err = h.startScan(iterator, queryContext)
 	logging.LogTime("Scan end")
 	return iterator, err
 }
@@ -321,16 +323,10 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 //// internal implementation ////
 
 // split startScan into a separate function to allow iterator to restart the scan
-func (h *Hub) startScan(iterator *scanIterator, columns []string, qualMap map[string]*proto.Quals, limit int64) error {
+func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
 	table := iterator.table
-	log.Printf("[INFO] StartScan\n  table: %s\n  columns: %v\n", table, columns)
+	log.Printf("[INFO] StartScan\n  table: %s\n  columns: %v\n", table, queryContext.Columns)
 	c := iterator.connection
-
-	var queryContext = &proto.QueryContext{
-		Columns: columns,
-		Quals:   qualMap,
-		Limit:   limit,
-	}
 
 	// if a scanIterator is in progress, fail
 	if iterator.inProgress() {

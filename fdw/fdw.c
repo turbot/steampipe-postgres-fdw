@@ -165,6 +165,10 @@ static int deparseLimit(PlannerInfo *root)
 {
 	int limitVal = 0, offsetVal = 0;
 
+	/* don't push down LIMIT if the query has a GROUP BY clause, an ORDER BY clause or aggregates */
+	if (root->parse->groupClause != NULL || root->parse->sortClause != NULL || root->parse->hasAggs)
+		return -1;
+
 	/* only push down constant LIMITs that are not NULL */
 	if (root->parse->limitCount != NULL && IsA(root->parse->limitCount, Const))
 	{

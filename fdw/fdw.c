@@ -6,6 +6,10 @@
 
 extern PGDLLEXPORT void _PG_init(void);
 
+static int deparseLimit(PlannerInfo *root);
+static char *datumToString(Datum datum, Oid type);
+static char *convertUUID(char *uuid);
+
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static void pgfdw_xact_callback(XactEvent event, void *arg);
@@ -143,10 +147,49 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
 		}
 	}
 
-	// Inject the "rows" and "width" attribute into the baserel
+    // Deduce the limit, if one was specified
+    planstate->limit = deparseLimit(root);
+
+    // Inject the "rows" and "width" attribute into the baserel
 	goFdwGetRelSize(planstate, root, &baserel->rows, &baserel->reltarget->width, baserel);
 
 	planstate->width = baserel->reltarget->width;
+}
+
+
+/*
+ * deparseLimit
+ * 		Deparse LIMIT clause to extract the limit count (limit+offset)
+ */
+static int deparseLimit(PlannerInfo *root)
+{
+	int limitVal = 0, offsetVal = 0;
+
+	/* don't push down LIMIT if the query has a GROUP BY clause, an ORDER BY clause or aggregates */
+	if (root->parse->groupClause != NULL || root->parse->sortClause != NULL || root->parse->hasAggs)
+		return -1;
+
+	/* only push down constant LIMITs that are not NULL */
+	if (root->parse->limitCount != NULL && IsA(root->parse->limitCount, Const))
+	{
+		Const *limit = (Const *)root->parse->limitCount;
+		if (limit->constisnull)
+			return -1;
+		limitVal = atoi(datumToString(limit->constvalue, limit->consttype));
+	}
+	else{
+		return -1;
+    }
+
+	/* only consider OFFSETS that are non-NULL constants */
+	if (root->parse->limitOffset != NULL && IsA(root->parse->limitOffset, Const))
+	{
+		Const *offset = (Const *)root->parse->limitOffset;
+		if (! offset->constisnull)
+			offsetVal = atoi(datumToString(offset->constvalue, offset->consttype));
+	}
+
+	return limitVal+offsetVal;
 }
 
 /*
@@ -258,6 +301,7 @@ static ForeignScan *fdwGetForeignPlan(
  	result = lappend(result, makeConst(INT4OID, -1, InvalidOid, 4, Int32GetDatum(state->numattrs), false, true));
  	result = lappend(result, state->target_list);
  	result = lappend(result, serializeDeparsedSortGroup(state->pathkeys));
+ 	result = lappend(result, makeConst(INT4OID, -1, InvalidOid, 4, Int32GetDatum(state->limit), false, true));
 
  	return result;
  }
@@ -274,15 +318,133 @@ FdwExecState *initializeExecState(void *internalstate) {
 	List	   *values = (List *) internalstate;
 	AttrNumber	numattrs = ((Const *) linitial(values))->constvalue;
 	List		*pathkeys;
+	int limit;
 	/* Those list must be copied, because their memory context can become */
 	/* invalid during the execution (in particular with the cursor interface) */
 	execstate->target_list = copyObject(lsecond(values));
 	pathkeys = lthird(values);
+	limit = ((Const *) lfourth(values))->constvalue;
 
 	execstate->pathkeys = deserializeDeparsedSortGroup(pathkeys);
 	execstate->buffer = makeStringInfo();
 	execstate->cinfos = palloc0(sizeof(ConversionInfo *) * numattrs);
 	execstate->values = palloc(numattrs * sizeof(Datum));
 	execstate->nulls = palloc(numattrs * sizeof(bool));
+	execstate->limit = limit;
 	return execstate;
+}
+
+/*
+ * datumToString
+ * 		Convert a Datum to a string by calling the type output function.
+ * 		Returns the result or NULL if it cannot be converted.
+ */
+static char
+*datumToString(Datum datum, Oid type)
+{
+	StringInfoData result;
+	regproc typoutput;
+	HeapTuple tuple;
+	char *str, *p;
+
+	/* get the type's output function */
+	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(type));
+	if (!HeapTupleIsValid(tuple))
+	{
+		elog(ERROR, "cache lookup failed for type %u", type);
+	}
+	typoutput = ((Form_pg_type)GETSTRUCT(tuple))->typoutput;
+	ReleaseSysCache(tuple);
+
+	switch (type)
+	{
+		case TEXTOID:
+		case CHAROID:
+		case BPCHAROID:
+		case VARCHAROID:
+		case NAMEOID:
+		case UUIDOID:
+			str = DatumGetCString(OidFunctionCall1(typoutput, datum));
+
+			if (str[0] == '\0')
+				return NULL;
+
+			/* strip "-" from "uuid" values */
+			if (type == UUIDOID)
+				convertUUID(str);
+
+			/* quote string */
+			initStringInfo(&result);
+			appendStringInfo(&result, "'");
+			for (p=str; *p; ++p)
+			{
+				if (*p == '\'')
+					appendStringInfo(&result, "'");
+				appendStringInfo(&result, "%c", *p);
+			}
+			appendStringInfo(&result, "'");
+			break;
+		case INT8OID:
+		case INT2OID:
+		case INT4OID:
+		case OIDOID:
+		case FLOAT4OID:
+		case FLOAT8OID:
+		case NUMERICOID:
+			str = DatumGetCString(OidFunctionCall1(typoutput, datum));
+			initStringInfo(&result);
+			appendStringInfo(&result, "%s", str);
+			break;
+//        case DATEOID:
+//			str = deparseDate(datum);
+//			initStringInfo(&result);
+//			appendStringInfo(&result, "(CAST ('%s' AS DATE))", str);
+//			break;
+//		case TIMESTAMPOID:
+//			str = deparseTimestamp(datum, false);
+//			initStringInfo(&result);
+//			appendStringInfo(&result, "(CAST ('%s' AS TIMESTAMP))", str);
+//			break;
+//		case TIMESTAMPTZOID:
+//			str = deparseTimestamp(datum, true);
+//			initStringInfo(&result);
+//			appendStringInfo(&result, "(CAST ('%s' AS TIMESTAMP WITH TIME ZONE))", str);
+//			break;
+//		case INTERVALOID:
+//			str = deparseInterval(datum);
+//			if (str == NULL)
+//				return NULL;
+//			initStringInfo(&result);
+//			appendStringInfo(&result, "%s", str);
+//			break;
+		default:
+			return NULL;
+	}
+
+	return result.data;
+}
+/*
+ * convertUUID
+ * 		Strip "-" from a PostgreSQL "uuid" so that Oracle can parse it.
+ * 		In addition, convert the string to upper case.
+ * 		This modifies the argument in place!
+ */
+char
+*convertUUID(char *uuid)
+{
+	char *p = uuid, *q = uuid, c;
+
+	while (*p != '\0')
+	{
+		if (*p == '-')
+			++p;
+		c = *(p++);
+		if (c >= 'a' && c <= 'f')
+			*(q++) = c - ('a' - 'A');
+		else
+			*(q++) = c;
+	}
+	*q = '\0';
+
+	return uuid;
 }

@@ -56,6 +56,9 @@ typedef struct FdwPlanState
 	 * getRelSize to GetForeignPlan.
 	 */
 	int width;
+	// the number of rows to return (limit+offset). -1 means no limit
+	int limit;
+
 }	FdwPlanState;
 
 
@@ -71,6 +74,9 @@ typedef struct FdwExecState
 	AttrNumber	rowidAttno;
 	char	   *rowidAttrName;
 	List	   *pathkeys; /* list of FdwDeparsedSortGroup) */
+    // the number of rows to return (limit+offset). -1 means no limit
+    int limit;
+
 }	FdwExecState;
 
 
@@ -95,8 +101,6 @@ Timestamp datumDate(Datum datum, ConversionInfo *cinfo);
 Timestamp datumTimestamp(Datum datum, ConversionInfo *cinfo);
 
 // query.c
-void   extractRestrictions(Relids base_relids, Expr *node, List **quals);
-void displayRestriction(PlannerInfo *root, Relids base_relids,RestrictInfo * r);
 List  *extractColumns(List *reltargetlist, List *restrictinfolist);
 void   initConversioninfo(ConversionInfo ** cinfo, AttInMetadata *attinmeta);
 Value *colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState * state);

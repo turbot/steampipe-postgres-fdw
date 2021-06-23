@@ -19,7 +19,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-func RestrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Quals {
+func restrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Quals {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
 	log.Printf("[TRACE] RestrictionsToQuals")

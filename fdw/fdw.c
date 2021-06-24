@@ -97,7 +97,6 @@ Datum fdw_validator(PG_FUNCTION_ARGS) {
 }
 
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid) {
-    elog(WARNING, "fdwGetForeignRelSize, %d",IS_SIMPLE_REL(baserel));
     // initialise logging`
     // to set the log level for fdw logging from C code, set log_min_messages in postgresql.conf
     goInit();

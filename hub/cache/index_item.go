@@ -12,9 +12,7 @@ type IndexBucket struct {
 }
 
 func newIndexBucket() *IndexBucket {
-	return &IndexBucket{
-		Items: []*IndexItem{},
-	}
+	return &IndexBucket{}
 }
 
 func (b *IndexBucket) Append(item *IndexItem) *IndexBucket {

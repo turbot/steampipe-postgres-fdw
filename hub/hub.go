@@ -98,10 +98,14 @@ func (h *Hub) AddIterator(iterator Iterator) {
 	}
 }
 
+// RemoveIterator removes an iterator from list of running iterators
 func (h *Hub) RemoveIterator(iterator Iterator) {
 	if s, ok := iterator.(*scanIterator); ok {
 		for idx, it := range h.runningIterators {
 			if it == s {
+				// tell iterator to stop
+				it.Close()
+				// remove from list
 				h.runningIterators = append(h.runningIterators[:idx], h.runningIterators[idx+1:]...)
 				return
 			}
@@ -204,14 +208,14 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 
 	// do we have a cached query result
 	if cacheEnabled {
-		cachedResult := h.queryCache.Get(connection, table, qualMap, columns)
+		cachedResult := h.queryCache.Get(connection, table, qualMap, columns, limit)
 		if cachedResult != nil {
 			// we have cache data - return a cache iterator
 			return newCacheIterator(cachedResult), nil
 		}
 	}
 
-	iterator := newScanIterator(h, connection, table, qualMap, columns)
+	iterator := newScanIterator(h, connection, table, qualMap, columns, limit)
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 
 	err = h.startScan(iterator, queryContext)

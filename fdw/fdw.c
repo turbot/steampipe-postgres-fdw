@@ -97,6 +97,7 @@ Datum fdw_validator(PG_FUNCTION_ARGS) {
 }
 
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid) {
+    elog(WARNING, "fdwGetForeignRelSize, %d",IS_SIMPLE_REL(baserel));
     // initialise logging`
     // to set the log level for fdw logging from C code, set log_min_messages in postgresql.conf
     goInit();
@@ -165,8 +166,16 @@ static int deparseLimit(PlannerInfo *root)
 {
 	int limitVal = 0, offsetVal = 0;
 
-	/* don't push down LIMIT if the query has a GROUP BY clause, an ORDER BY clause or aggregates */
-	if (root->parse->groupClause != NULL || root->parse->sortClause != NULL || root->parse->hasAggs)
+
+	/* don't push down LIMIT if the query has a GROUP BY, DISTINCT, ORDER BY clause or aggregates
+	   or if the query refers to more than 1 table */
+	if (root->parse->groupClause != NULL ||
+	    root->parse->sortClause != NULL ||
+	    root->parse->distinctClause != NULL ||
+	    root->parse->hasAggs ||
+	    root->parse->hasDistinctOn ||
+	    bms_num_members(root->all_baserels) != 1
+	    )
 		return -1;
 
 	/* only push down constant LIMITs that are not NULL */

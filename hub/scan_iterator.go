@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/turbot/steampipe/steampipeconfig"
@@ -32,6 +33,7 @@ type scanIterator struct {
 	err          error
 	rows         chan *proto.Row
 	columns      []string
+	limit        int64
 	stream       proto.WrapperPlugin_ExecuteClient
 	rel          *types.Relation
 	qualMap      map[string]*proto.Quals
@@ -41,9 +43,10 @@ type scanIterator struct {
 	cacheTTL     time.Duration
 	table        string
 	connection   *steampipeconfig.ConnectionPlugin
+	readLock     sync.Mutex
 }
 
-func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) *scanIterator {
+func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) *scanIterator {
 	cacheEnabled := hub.cacheEnabled(connection.ConnectionName)
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
@@ -52,6 +55,7 @@ func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, tab
 		rows:         make(chan *proto.Row, rowBufferSize),
 		hub:          hub,
 		columns:      columns,
+		limit:        limit,
 		qualMap:      qualMap,
 		cachedRows:   &cache.QueryResult{},
 		cacheEnabled: cacheEnabled,
@@ -84,7 +88,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
-		log.Printf("[DEBUG] row channel is closed - reset iterator\n")
+		log.Printf("[TRACE] row channel is closed - reset iterator\n")
 		i.onComplete()
 		res = map[string]interface{}{}
 	} else {
@@ -130,8 +134,13 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 }
 
 func (i *scanIterator) Close() error {
+	log.Println("[INFO] scanIterator Close")
 	if i.stream != nil {
-		return i.stream.CloseSend()
+		// close our GRPC stream from the plugin
+		log.Printf("[TRACE] there is a stream - calling onComplete")
+
+		// clear iterator state, cache results (if enabled)
+		i.onComplete()
 	}
 	return nil
 }
@@ -156,24 +165,44 @@ func (i *scanIterator) readResults() {
 		panic(fmt.Sprintf("attempting to read scan results but no iteration is in progress - iterator status %v", i.status))
 	}
 
-	for {
-		row, err := i.stream.Recv()
-		logging.LogTime("[hub] receive complete")
-		if err != nil {
-			if err.Error() != "EOF" {
-				log.Printf("[WARN] stream receive error %v\n", err)
-			}
-			i.setError(err)
-		}
-		if row == nil {
-			log.Printf("[DEBUG] nil row received - closing stream\n")
-			close(i.rows)
-			i.stream.CloseSend()
-			return
-		} else {
-			i.rows <- row.Row
-		}
+	for i.readResult() {
+		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// read a single result from the GRPC stream. Return true if there are more results to read
+func (i *scanIterator) readResult() bool {
+	// lock read lock to ensure the stream is not closed from under us by a call to close()
+	i.readLock.Lock()
+	defer i.readLock.Unlock()
+
+	// if iterator has been closed, stream will be nil
+	if i.stream == nil {
+		log.Printf("[TRACE] scanIterator readResultstream is nil, it must have been closed")
+		// stop reading
+		return false
+	}
+
+	row, err := i.stream.Recv()
+
+	if err != nil {
+		if err.Error() != "EOF" {
+			log.Printf("[WARN] stream receive error %v\n", err)
+		}
+		i.setError(err)
+	}
+
+	if row == nil {
+		log.Printf("[TRACE] nil row received - closing stream\n")
+		close(i.rows)
+		i.stream.CloseSend()
+		// stop reading
+		return false
+	} else {
+		i.rows <- row.Row
+	}
+	// continue reading
+	return true
 }
 
 // scanIterator state methods
@@ -187,13 +216,17 @@ func (i *scanIterator) failed() bool {
 
 // called when all the data has been read from the stream - complete status to querystatusNone, and clear stream and error
 func (i *scanIterator) onComplete() {
+	// lock readlock so the stream read process does not try to read from the nil stream
+	i.readLock.Lock()
+	defer i.readLock.Unlock()
+
 	i.status = querystatusNone
 	i.stream = nil
 	i.err = nil
 	// write the data to the cache
 	if i.cacheEnabled {
-		res := i.hub.queryCache.Set(i.connection, i.table, i.qualMap, i.columns, i.cachedRows, i.cacheTTL)
-		log.Println("[INFO] scan complete ")
+		res := i.hub.queryCache.Set(i.connection, i.table, i.qualMap, i.columns, i.limit, i.cachedRows, i.cacheTTL)
+		log.Println("[INFO] scan complete")
 		if res {
 			log.Printf("[INFO] adding %d rows to cache", len(i.cachedRows.Rows))
 		} else {

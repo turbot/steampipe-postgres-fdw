@@ -1,29 +1,31 @@
 package cache
 
-import "github.com/turbot/go-kit/helpers"
+import (
+	"log"
+
+	"github.com/turbot/go-kit/helpers"
+)
 
 // IndexBucket contains index items for all cache results for a given table and qual set
 type IndexBucket struct {
 	Items []*IndexItem
 }
 
-func newIndexBucket(columns []string, key string) *IndexBucket {
+func newIndexBucket() *IndexBucket {
 	return &IndexBucket{
-		Items: []*IndexItem{&IndexItem{
-			Columns: columns,
-			Key:     key,
-		}},
+		Items: []*IndexItem{},
 	}
 }
 
-func (b *IndexBucket) Append(item *IndexItem) {
+func (b *IndexBucket) Append(item *IndexItem) *IndexBucket {
 	b.Items = append(b.Items, item)
+	return b
 }
 
 // Get finds an index item which satisfies all columns
-func (b *IndexBucket) Get(columns []string) *IndexItem {
+func (b *IndexBucket) Get(columns []string, limit int64) *IndexItem {
 	for _, item := range b.Items {
-		if item.SatisfiesColumns(columns) {
+		if item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) {
 			return item
 		}
 	}
@@ -35,6 +37,15 @@ func (b *IndexBucket) Get(columns []string) *IndexItem {
 type IndexItem struct {
 	Columns []string
 	Key     string
+	Limit   int64
+}
+
+func NewIndexItem(columns []string, key string, limit int64) *IndexItem {
+	return &IndexItem{
+		Columns: columns,
+		Key:     key,
+		Limit:   limit,
+	}
 }
 
 func (i IndexItem) SatisfiesColumns(columns []string) bool {
@@ -44,4 +55,22 @@ func (i IndexItem) SatisfiesColumns(columns []string) bool {
 		}
 	}
 	return true
+}
+
+func (i IndexItem) SatisfiesLimit(limit int64) bool {
+	log.Printf("[TRACE] SatisfiesLimit limit %d, item limit %d ", limit, i.Limit)
+	// if there is no limit, it will be -1
+	if i.Limit == -1 {
+		log.Printf("[TRACE] no item limit - satisfied")
+		return true
+	}
+	// if 'limit' is -1 and i.Limit is not, we cannot satisfy this
+	if limit == -1 {
+		return false
+	}
+	// otherwise just check whether limit is <= item limit>
+	res := limit <= i.Limit
+	log.Printf("[TRACE] satisfied = %v", res)
+	return res
+
 }

@@ -35,7 +35,7 @@ func NewQueryCache() (*QueryCache, error) {
 	return cache, nil
 }
 
-func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, result *QueryResult, ttl time.Duration) bool {
+func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryResult, ttl time.Duration) bool {
 	log.Printf("[TRACE] QueryCache Set() - connectionName: %s, table: %s, columns: %s\n", connection.ConnectionName, table, columns)
 
 	// write to the result cache
@@ -50,15 +50,15 @@ func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table str
 	log.Printf("[TRACE] QueryCache Set() index key %s, result key %s", indexBucketKey, resultKey)
 
 	if ok {
-		indexBucket.Append(&IndexItem{columns, resultKey})
+		indexBucket.Append(&IndexItem{columns, resultKey, limit})
 	} else {
 		// create new index bucket
-		indexBucket = newIndexBucket(columns, resultKey)
+		indexBucket = newIndexBucket().Append(NewIndexItem(columns, resultKey, limit))
 	}
 	return c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl)
 }
 
-func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) *QueryResult {
+func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) *QueryResult {
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
 
@@ -72,9 +72,13 @@ func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table str
 	}
 
 	// now check whether we have a cache entry that covers the required columns
-	indexItem := indexBucket.Get(columns)
+	indexItem := indexBucket.Get(columns, limit)
 	if indexItem == nil {
-		log.Printf("[INFO] CACHE MISS - no cached data covers columns %v\n", columns)
+		limitString := "NONE"
+		if limit != -1 {
+			limitString = fmt.Sprintf("%d", limit)
+		}
+		log.Printf("[INFO] CACHE MISS - no cached data covers columns %v, limit %s\n", columns, limitString)
 		return nil
 	}
 

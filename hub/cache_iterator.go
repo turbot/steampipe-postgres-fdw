@@ -5,35 +5,49 @@ import (
 )
 
 type cacheIterator struct {
-	rows  []map[string]interface{}
-	index int
+	name   string
+	rows   []map[string]interface{}
+	index  int
+	status queryStatus
 }
 
-func newCacheIterator(cachedResult *cache.QueryResult) *cacheIterator {
+func newCacheIterator(name string, cachedResult *cache.QueryResult) *cacheIterator {
 	return &cacheIterator{
-		rows: cachedResult.Rows,
+		name:   name,
+		rows:   cachedResult.Rows,
+		status: QueryStatusReady,
 	}
 }
 
+// ConnectionName implements Iterator
 func (i *cacheIterator) ConnectionName() string {
-	return ""
+	return i.name
 }
 
-// Iterator implementation
-// Next returns next row (tuple). Nil slice means there is no more rows to scan.
+func (i *cacheIterator) Status() queryStatus {
+	return i.status
+}
+
+func (i *cacheIterator) Error() error {
+	return nil
+}
+
+// Next implements Iterator
+// return next row (tuple). Nil slice means there is no more rows to scan.
 func (i *cacheIterator) Next() (map[string]interface{}, error) {
 	if idx := i.index; idx < len(i.rows) {
+		i.status = QueryStatusStarted
 		i.index++
 		return i.rows[idx], nil
-
 	}
-	// no more cached rows
+	i.status = QueryStatusComplete
 	return nil, nil
 }
 
-// Close :: clear the rows and the index
-func (i *cacheIterator) Close() error {
+// Close implements Iterator
+// clear the rows and the index
+func (i *cacheIterator) Close(bool) {
 	i.index = 0
 	i.rows = nil
-	return nil
+	i.status = QueryStatusReady
 }

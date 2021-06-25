@@ -26,7 +26,7 @@ type Hub struct {
 	connections      *connectionMap
 	steampipeConfig  *steampipeconfig.SteampipeConfig
 	queryCache       *cache.QueryCache
-	runningIterators []*scanIterator
+	runningIterators []Iterator
 }
 
 // global hub instance
@@ -92,23 +92,17 @@ func getInstallDirectory() (string, error) {
 	return path.Join(wd, "../../.."), nil
 }
 
-func (h *Hub) AddIterator(iterator Iterator) {
-	if s, ok := iterator.(*scanIterator); ok {
-		h.runningIterators = append(h.runningIterators, s)
-	}
+func (h *Hub) addIterator(iterator Iterator) {
+	h.runningIterators = append(h.runningIterators, iterator)
 }
 
 // RemoveIterator removes an iterator from list of running iterators
 func (h *Hub) RemoveIterator(iterator Iterator) {
-	if s, ok := iterator.(*scanIterator); ok {
-		for idx, it := range h.runningIterators {
-			if it == s {
-				// tell iterator to stop
-				it.Close()
-				// remove from list
-				h.runningIterators = append(h.runningIterators[:idx], h.runningIterators[idx+1:]...)
-				return
-			}
+	for idx, it := range h.runningIterators {
+		if it == iterator {
+			// remove from list
+			h.runningIterators = append(h.runningIterators[:idx], h.runningIterators[idx+1:]...)
+			return
 		}
 	}
 }
@@ -123,20 +117,10 @@ func (h *Hub) Close() {
 
 // Abort shuts down currently running queries
 func (h *Hub) Abort() {
-	// a map of bools to killed connection names
-	alreadyKilled := map[string]bool{}
-
 	// for all running iterators
 	for _, iterator := range h.runningIterators {
-		// close the iterator
-		iterator.Close()
-
-		// check if we already killed the connection because of an earlier iterator
-		if !alreadyKilled[iterator.ConnectionName()] {
-			// get the connection
-			h.killConnectionPlugin(iterator.ConnectionName())
-			alreadyKilled[iterator.ConnectionName()] = true
-		}
+		// close the iterator, telling it NOT to cache its results
+		iterator.Close(false)
 
 		// remove it from the saved list of iterators
 		h.RemoveIterator(iterator)
@@ -150,6 +134,17 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 	pluginFQN := remoteSchema
 	connectionName := localSchema
 	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+
+	// first check whether this connection is in fact a connection group
+	//if connectionGroup, ok := h.steampipeConfig.ConnectionGroups[connectionName]; ok {
+	//
+	//	log.Printf("[WARN] '%s' is a connection group: %v\n", connectionName, connectionGroup)
+	//	// get the schema from one of the child connections
+	//	if len(connectionGroup.Connections) == 0 {
+	//		return nil, fmt.Errorf("conmection group %s has no connections", connectionName)
+	//	}
+	//	connectionName = connectionGroup.Connections[0]
+	//}
 
 	c, err := h.connections.get(pluginFQN, connectionName)
 	if err != nil {
@@ -186,6 +181,25 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	connectionName := opts["connection"]
 	table := opts["table"]
 
+	// HACK for now
+	var iterator Iterator
+	//if connectionName == "aws_group" {
+	//	connections := []string{"aws1", "aws2", "aws3"}
+	//	iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connections, h)
+	//} else {
+	iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+	//}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// store the iterator
+	h.addIterator(iterator)
+	return iterator, nil
+}
+
+func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
 	connection, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
 		return nil, err
@@ -211,7 +225,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 		cachedResult := h.queryCache.Get(connection, table, qualMap, columns, limit)
 		if cachedResult != nil {
 			// we have cache data - return a cache iterator
-			return newCacheIterator(cachedResult), nil
+			return newCacheIterator(connectionName, cachedResult), nil
 		}
 	}
 
@@ -219,8 +233,8 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 
 	err = h.startScan(iterator, queryContext)
-	logging.LogTime("Scan end")
-	return iterator, err
+	// TODO why not return error?
+	return iterator, nil
 }
 
 // GetRelSize ::  Method called from the planner to estimate the resulting relation size for a scan.
@@ -342,7 +356,8 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		QueryContext: queryContext,
 		Connection:   c.ConnectionName,
 	}
-	stream, err := c.Plugin.Stub.Execute(req)
+
+	stream, cancel, err := c.Plugin.Stub.Execute(req)
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
@@ -350,7 +365,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		iterator.setError(err)
 		return err
 	}
-	iterator.start(stream)
+	iterator.Start(stream, cancel)
 	return nil
 }
 
@@ -365,19 +380,6 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	// ask connection map to get or create this connection
 	c, err := h.connections.get(pluginFQN, connectionName)
 	return c, err
-}
-
-func (h *Hub) killConnectionPlugin(connectionName string) error {
-	log.Printf("[TRACE] hub.removeConnectionPlugin for connection '%s`", connectionName)
-	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
-	if !ok {
-		return fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
-	}
-	pluginFQN := connectionConfig.Plugin
-
-	// ask connection map to get or create this connection
-	h.connections.removeAndKill(pluginFQN, connectionName)
-	return nil
 }
 
 // load the given plugin connection into the connection map and return the schema

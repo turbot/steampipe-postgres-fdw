@@ -195,8 +195,6 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 
-	pluginHub.AddIterator(iter)
-
 	logging.LogTime("[fdw] BeginForeignScan end")
 }
 
@@ -223,6 +221,8 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}
 
 	if len(row) == 0 {
+		log.Printf("[TRACE] goFdwIterateForeignScan empty row returned")
+
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms
 		//logging.DisplayProfileData(10*time.Millisecond, logger)

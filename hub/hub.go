@@ -92,7 +92,7 @@ func getInstallDirectory() (string, error) {
 	return path.Join(wd, "../../.."), nil
 }
 
-func (h *Hub) AddIterator(iterator Iterator) {
+func (h *Hub) addIterator(iterator Iterator) {
 	if s, ok := iterator.(*scanIterator); ok {
 		h.runningIterators = append(h.runningIterators, s)
 	}
@@ -186,6 +186,25 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	connectionName := opts["connection"]
 	table := opts["table"]
 
+	// HACK for now
+	var iterator Iterator
+	if connectionName == "aws_group" {
+		connections := []string{"aws1", "aws2", "aws3"}
+		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connections, h)
+	} else {
+		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// store the iterator
+	h.addIterator(iterator)
+	return iterator, nil
+}
+
+func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
 	connection, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
 		return nil, err
@@ -211,7 +230,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 		cachedResult := h.queryCache.Get(connection, table, qualMap, columns, limit)
 		if cachedResult != nil {
 			// we have cache data - return a cache iterator
-			return newCacheIterator(cachedResult), nil
+			return newCacheIterator(connectionName, cachedResult), nil
 		}
 	}
 
@@ -219,8 +238,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 
 	err = h.startScan(iterator, queryContext)
-	logging.LogTime("Scan end")
-	return iterator, err
+	return iterator, nil
 }
 
 // GetRelSize ::  Method called from the planner to estimate the resulting relation size for a scan.
@@ -342,7 +360,8 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		QueryContext: queryContext,
 		Connection:   c.ConnectionName,
 	}
-	stream, err := c.Plugin.Stub.Execute(req)
+
+	stream, cancel, err := c.Plugin.Stub.Execute(req)
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
@@ -350,7 +369,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		iterator.setError(err)
 		return err
 	}
-	iterator.start(stream)
+	iterator.start(stream, cancel)
 	return nil
 }
 

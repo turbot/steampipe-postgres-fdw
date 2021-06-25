@@ -1,31 +1,32 @@
 package hub
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe/steampipeconfig"
-
-	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
-
 	"github.com/golang/protobuf/ptypes"
 	typeHelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe/steampipeconfig"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
+
+// TODO think about when we reset status from complete to ready
 
 type queryStatus string
 
 const (
-	querystatusNone    queryStatus = "none"
-	querystatusStarted             = "started"
-	//queryStatus_finished             = "finished"
-	querystatusError = "error"
+	queryStatusReady    queryStatus = "ready"
+	queryStatusStarted              = "started"
+	queryStatusError                = "error"
+	queryStatusComplete             = "complete"
 )
 
 type scanIterator struct {
@@ -44,6 +45,8 @@ type scanIterator struct {
 	table        string
 	connection   *steampipeconfig.ConnectionPlugin
 	readLock     sync.Mutex
+	count        int
+	cancel       context.CancelFunc
 }
 
 func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) *scanIterator {
@@ -51,7 +54,7 @@ func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, tab
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
 	return &scanIterator{
-		status:       querystatusNone,
+		status:       queryStatusReady,
 		rows:         make(chan *proto.Row, rowBufferSize),
 		hub:          hub,
 		columns:      columns,
@@ -69,9 +72,19 @@ func (i *scanIterator) ConnectionName() string {
 	return i.connection.ConnectionName
 }
 
+func (i *scanIterator) Status() queryStatus {
+	return i.status
+}
+
+func (i *scanIterator) Error() error {
+	return i.err
+}
+
 // Next implements Iterator
 // return the next row (tuple). Nil slice means there is no more rows to scan.
 func (i *scanIterator) Next() (map[string]interface{}, error) {
+
+	i.count++
 	logging.LogTime("[hub] Next start")
 
 	if canIterate, err := i.CanIterate(); !canIterate {
@@ -81,14 +94,14 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	row := <-i.rows
 
 	// now check the iterator state - has an error occurred
-	if i.status == querystatusError {
+	if i.status == queryStatusError {
 		return nil, i.err
 	}
 
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
-		log.Printf("[TRACE] row channel is closed - reset iterator\n")
+		log.Printf("[WARN] row channel is closed - reset iterator\n")
 		i.onComplete()
 		res = map[string]interface{}{}
 	} else {
@@ -98,7 +111,9 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 			var val interface{}
 			if bytes := column.GetJsonValue(); bytes != nil {
 				if err := json.Unmarshal(bytes, &val); err != nil {
-					return nil, fmt.Errorf("failed to populate column '%s': %v", columnName, err)
+					err = fmt.Errorf("failed to populate column '%s': %v", columnName, err)
+					i.setError(err)
+					return nil, err
 				}
 			} else if timestamp := column.GetTimestampValue(); timestamp != nil {
 				// convert from protobuf timestamp to time.Time
@@ -106,7 +121,9 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 
 				var err error
 				if val, err = typeHelpers.ToTime(timeString); err != nil {
-					return nil, fmt.Errorf("scanIterator failed to populate %s column: %v", columnName, err)
+					err = fmt.Errorf("scanIterator failed to populate %s column: %v", columnName, err)
+					i.setError(err)
+					return nil, err
 				}
 			} else {
 				// get the first field descriptor and value (we only expect column message to contain a single field
@@ -133,25 +150,27 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	return res, nil
 }
 
-func (i *scanIterator) Close() error {
-	log.Println("[INFO] scanIterator Close")
+func (i *scanIterator) Close() {
+	log.Println("[WARN] scanIterator Close *******************")
 	if i.stream != nil {
 		// close our GRPC stream from the plugin
-		log.Printf("[TRACE] there is a stream - calling onComplete")
+		log.Printf("[WARN] there is a stream - calling KILL")
 
+		i.stream.CloseSend()
+		i.cancel()
 		// clear iterator state, cache results (if enabled)
 		i.onComplete()
 	}
-	return nil
 }
 
-func (i *scanIterator) start(stream proto.WrapperPlugin_ExecuteClient) {
+func (i *scanIterator) start(stream proto.WrapperPlugin_ExecuteClient, cancel context.CancelFunc) {
 	logging.LogTime("[hub] start")
-	if i.status != querystatusNone {
+	if i.status != queryStatusReady {
 		panic("attempting to start iterator which is still in progress")
 	}
-	i.status = querystatusStarted
+	i.status = queryStatusStarted
 	i.stream = stream
+	i.cancel = cancel
 
 	// read the results - this will loop until it hits an error or the stream is closed
 	go i.readResults()
@@ -161,7 +180,7 @@ func (i *scanIterator) start(stream proto.WrapperPlugin_ExecuteClient) {
 // When we reach the end of the stream close the stram and the rows channel so consumers know there is know more data
 func (i *scanIterator) readResults() {
 	log.Printf("[DEBUG] readResults - read results from plugin stream, saving results in 'rows'\n")
-	if i.status != querystatusStarted {
+	if i.status != queryStatusStarted {
 		panic(fmt.Sprintf("attempting to read scan results but no iteration is in progress - iterator status %v", i.status))
 	}
 
@@ -193,7 +212,7 @@ func (i *scanIterator) readResult() bool {
 	}
 
 	if row == nil {
-		log.Printf("[TRACE] nil row received - closing stream\n")
+		log.Printf("[WARN] nil row received - closing stream •••••••••**********\n")
 		close(i.rows)
 		i.stream.CloseSend()
 		// stop reading
@@ -207,20 +226,21 @@ func (i *scanIterator) readResult() bool {
 
 // scanIterator state methods
 func (i *scanIterator) inProgress() bool {
-	return i.status == querystatusStarted
+	return i.status == queryStatusStarted
 }
 
 func (i *scanIterator) failed() bool {
-	return i.status == querystatusError
+	return i.status == queryStatusError
 }
 
-// called when all the data has been read from the stream - complete status to querystatusNone, and clear stream and error
+// called when all the data has been read from the stream - complete status to queryStatusReady, and clear stream and error
 func (i *scanIterator) onComplete() {
+	log.Printf("[WARN] *********** onComplete %s", i.ConnectionName())
 	// lock readlock so the stream read process does not try to read from the nil stream
 	i.readLock.Lock()
 	defer i.readLock.Unlock()
 
-	i.status = querystatusNone
+	i.status = queryStatusComplete
 	i.stream = nil
 	i.err = nil
 	// write the data to the cache
@@ -236,20 +256,20 @@ func (i *scanIterator) onComplete() {
 
 }
 
-// if there is an error other than EOF, save error and set state to querystatusError
+// if there is an error other than EOF, save error and set state to queryStatusError
 func (i *scanIterator) setError(err error) {
 	if err != nil && err.Error() != "EOF" {
-		i.status = querystatusError
+		i.status = queryStatusError
 		i.err = err
 	}
 }
 
 // CanIterate :: return true if this iterator has results available to iterate
 func (i *scanIterator) CanIterate() (bool, error) {
-	if i.status == querystatusError {
+	switch i.status {
+	case queryStatusError:
 		return false, fmt.Errorf("there was an error executing scanIterator: %v", i.err)
-	}
-	if i.status == querystatusNone {
+	case queryStatusReady, queryStatusComplete:
 		return false, fmt.Errorf("no scanIterator in progress")
 	}
 	return true, nil

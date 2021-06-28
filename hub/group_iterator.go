@@ -108,12 +108,14 @@ func (i *groupIterator) canIterate() bool {
 // can this iterator iterate?
 func iteratorCanIterate(iterator Iterator) bool {
 	status := iterator.Status()
-	return status == queryStatusReady || status == queryStatusStarted
+	return status == QueryStatusReady || status == QueryStatusStarted
 }
 
-func (i *groupIterator) Close() {
+func (i *groupIterator) Close(writeToCache bool) {
 	for _, it := range i.Iterators {
-		it.Close()
+		if it.Status() == QueryStatusStarted {
+			it.Close(writeToCache)
+		}
 	}
 	i.currentIterator = 0
 }

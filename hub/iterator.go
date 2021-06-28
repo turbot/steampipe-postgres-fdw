@@ -8,7 +8,7 @@ type Iterator interface {
 	// Next returns next row. Nil slice means there is no more rows to scan.
 	Next() (map[string]interface{}, error)
 	// Close stops an iteration and frees any resources.
-	Close()
+	Close(bool)
 	Status() queryStatus
 	Error() error
 }

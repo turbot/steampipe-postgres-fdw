@@ -15,7 +15,7 @@ func newCacheIterator(name string, cachedResult *cache.QueryResult) *cacheIterat
 	return &cacheIterator{
 		name:   name,
 		rows:   cachedResult.Rows,
-		status: queryStatusReady,
+		status: QueryStatusReady,
 	}
 }
 
@@ -36,18 +36,18 @@ func (i *cacheIterator) Error() error {
 // return next row (tuple). Nil slice means there is no more rows to scan.
 func (i *cacheIterator) Next() (map[string]interface{}, error) {
 	if idx := i.index; idx < len(i.rows) {
-		i.status = queryStatusStarted
+		i.status = QueryStatusStarted
 		i.index++
 		return i.rows[idx], nil
 	}
-	i.status = queryStatusComplete
+	i.status = QueryStatusComplete
 	return nil, nil
 }
 
 // Close implements Iterator
 // clear the rows and the index
-func (i *cacheIterator) Close() {
+func (i *cacheIterator) Close(bool) {
 	i.index = 0
 	i.rows = nil
-	i.status = queryStatusReady
+	i.status = QueryStatusReady
 }

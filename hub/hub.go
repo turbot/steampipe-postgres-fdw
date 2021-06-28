@@ -26,7 +26,7 @@ type Hub struct {
 	connections      *connectionMap
 	steampipeConfig  *steampipeconfig.SteampipeConfig
 	queryCache       *cache.QueryCache
-	runningIterators []*scanIterator
+	runningIterators []Iterator
 }
 
 // global hub instance
@@ -93,22 +93,16 @@ func getInstallDirectory() (string, error) {
 }
 
 func (h *Hub) addIterator(iterator Iterator) {
-	if s, ok := iterator.(*scanIterator); ok {
-		h.runningIterators = append(h.runningIterators, s)
-	}
+	h.runningIterators = append(h.runningIterators, iterator)
 }
 
 // RemoveIterator removes an iterator from list of running iterators
 func (h *Hub) RemoveIterator(iterator Iterator) {
-	if s, ok := iterator.(*scanIterator); ok {
-		for idx, it := range h.runningIterators {
-			if it == s {
-				// tell iterator to stop
-				it.Close()
-				// remove from list
-				h.runningIterators = append(h.runningIterators[:idx], h.runningIterators[idx+1:]...)
-				return
-			}
+	for idx, it := range h.runningIterators {
+		if it == iterator {
+			// remove from list
+			h.runningIterators = append(h.runningIterators[:idx], h.runningIterators[idx+1:]...)
+			return
 		}
 	}
 }
@@ -123,20 +117,10 @@ func (h *Hub) Close() {
 
 // Abort shuts down currently running queries
 func (h *Hub) Abort() {
-	// a map of bools to killed connection names
-	alreadyKilled := map[string]bool{}
-
 	// for all running iterators
 	for _, iterator := range h.runningIterators {
-		// close the iterator
-		iterator.Close()
-
-		// check if we already killed the connection because of an earlier iterator
-		if !alreadyKilled[iterator.ConnectionName()] {
-			// get the connection
-			h.killConnectionPlugin(iterator.ConnectionName())
-			alreadyKilled[iterator.ConnectionName()] = true
-		}
+		// close the iterator, telling it NOT to cache its results
+		iterator.Close(false)
 
 		// remove it from the saved list of iterators
 		h.RemoveIterator(iterator)
@@ -238,6 +222,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 
 	err = h.startScan(iterator, queryContext)
+	// TODO why not return error?
 	return iterator, nil
 }
 
@@ -369,7 +354,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		iterator.setError(err)
 		return err
 	}
-	iterator.start(stream, cancel)
+	iterator.Start(stream, cancel)
 	return nil
 }
 
@@ -384,19 +369,6 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	// ask connection map to get or create this connection
 	c, err := h.connections.get(pluginFQN, connectionName)
 	return c, err
-}
-
-func (h *Hub) killConnectionPlugin(connectionName string) error {
-	log.Printf("[TRACE] hub.removeConnectionPlugin for connection '%s`", connectionName)
-	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
-	if !ok {
-		return fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
-	}
-	pluginFQN := connectionConfig.Plugin
-
-	// ask connection map to get or create this connection
-	h.connections.removeAndKill(pluginFQN, connectionName)
-	return nil
 }
 
 // load the given plugin connection into the connection map and return the schema

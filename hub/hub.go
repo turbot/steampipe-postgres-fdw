@@ -135,6 +135,18 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 	connectionName := localSchema
 	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
+	// first check whether this connection is in fact a connection group
+	if connectionGroup, ok := h.steampipeConfig.ConnectionGroups[connectionName]; ok {
+
+		log.Printf("[WARN] '%s' is a connection group: %v\n", connectionName, connectionGroup)
+		// get the schema from one of the child connections
+		if len(connectionGroup.Connections) == 0 {
+			return nil, fmt.Errorf("conmection group %s has no connections", connectionName)
+		}
+		connectionName = connectionGroup.Connections[0]
+
+	}
+
 	c, err := h.connections.get(pluginFQN, connectionName)
 	if err != nil {
 		return nil, err

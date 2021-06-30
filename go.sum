@@ -961,6 +961,10 @@ github.com/turbot/steampipe v0.6.1-0.20210629133405-2643f0cabf98/go.mod h1:FqVr+
 github.com/turbot/steampipe-plugin-sdk v0.2.8/go.mod h1:hsg1nGt30Nn+FZhz3M+qvWiJy8x+EhxKZYJLaEDoxQk=
 github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210630121447-d3b3374a82fe h1:huR/uhTiRb8r58FLotCkglLFZy1TxLqmP3XjVddaf5k=
 github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210630121447-d3b3374a82fe/go.mod h1:E00M5qOvCp6qwaT1/KhdTNM6S0JUlNY6L11IvlELQV4=
+github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210630161256-54cd4e651d60 h1:mFGcMIx4uhNB/Ke0Rj6kStk/EcLlRtoKo7vHeZ6rqz0=
+github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210630161256-54cd4e651d60/go.mod h1:E00M5qOvCp6qwaT1/KhdTNM6S0JUlNY6L11IvlELQV4=
+github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210701104519-8f310bdd5c60 h1:zLa7TO+NRDcx3U0iXCx7hgOmG7U7zo01pwVyEs03uOI=
+github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210701104519-8f310bdd5c60/go.mod h1:E00M5qOvCp6qwaT1/KhdTNM6S0JUlNY6L11IvlELQV4=
 github.com/ugorji/go v0.0.0-20180813092308-00b869d2f4a5 h1:cMjKdf4PxEBN9K5HaD9UMW8gkTbM0kMzkTa9SJe0WNQ=
 github.com/ugorji/go v0.0.0-20180813092308-00b869d2f4a5/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/ugorji/go v1.1.4 h1:j4s+tAvLfL3bZyefP2SEWmhBzmuIlH/eqNuPdFPgngw=

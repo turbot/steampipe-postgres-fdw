@@ -313,10 +313,21 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	for i, c := range schema.Columns {
 		allColumns[i] = c.Name
 	}
-	// generate path keys if there are required list key columns
-	// this increases the chances that Postgres will generate a plan which provides the quals when querying the table
-	pathKeys := types.KeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns, allColumns)
 
+	var pathKeys []types.PathKey
+
+	// build path keys based on the table key columns
+	// NOTE: the schema data has changed in SDK version 1.3 - we must handle plugins using legacy sdk explicitly
+	// check for legacxy sdk versions
+	if schema.ListCallKeyColumns != nil {
+		log.Printf("[WARN] LEGACY SCHEMA")
+		pathKeys = types.LegacyKeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns, allColumns)
+	} else {
+		log.Printf("[WARN]  NEW SCHEMA")
+		// generate path keys if there are required list key columns
+		// this increases the chances that Postgres will generate a plan which provides the quals when querying the table
+		pathKeys = types.KeyColumnsToPathKeys(schema.ListCallKeyColumnList, allColumns)
+	}
 	// NOTE: in the future we may (optionally) add in path keys for Get call key columns.
 	// We do not do this by default as it is likely to actually reduce join performance in the general case,
 	// particularly when caching is taken into account

@@ -99,7 +99,11 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	var res map[string]interface{}
 	if row == nil {
 		log.Printf("[WARN] row channel is closed - reset iterator\n")
-		// mark iterator complete, caching result
+		// if iterator is in error, return the error
+		if i.Status() == QueryStatusError {
+			return nil, i.err
+		}
+		// otherwise mark iterator complete, caching result
 		i.onComplete(true)
 	} else {
 		var err error
@@ -199,6 +203,9 @@ func (i *scanIterator) readResults() {
 
 // read a single result from the GRPC stream. Return true if there are more results to read
 func (i *scanIterator) readResult() bool {
+	var row *proto.Row
+	continueReading := true
+
 	// lock read lock to ensure the stream is not closed from under us by a call to close()
 	i.readLock.Lock()
 	defer i.readLock.Unlock()
@@ -210,26 +217,31 @@ func (i *scanIterator) readResult() bool {
 		return false
 	}
 
-	row, err := i.stream.Recv()
+	rowResult, err := i.stream.Recv()
 
 	if err != nil {
 		if err.Error() != "EOF" {
 			log.Printf("[WARN] stream receive error %v\n", err)
 		}
 		i.setError(err)
+		// stop reading
+		continueReading = false
 	}
 
-	if row == nil {
+	if rowResult == nil {
 		log.Printf("[WARN] nil row received - closing stream\n")
-		close(i.rows)
-		i.stream.CloseSend()
 		// stop reading
-		return false
+		continueReading = false
 	} else {
-		i.rows <- row.Row
+		// so we have a row
+		row = rowResult.Row
 	}
+
+	// send row (which may be nil)
+	i.rows <- row
+
 	// continue reading
-	return true
+	return continueReading
 }
 
 // scanIterator state methods

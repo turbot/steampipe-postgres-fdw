@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/dgraph-io/ristretto"
+	goVersion "github.com/hashicorp/go-version"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
@@ -165,8 +165,10 @@ func (c *QueryCache) formatQualsForKey(quals *proto.Quals, shouldIncludeQualInKe
 
 // for sdk version 0.3.0 and greater, only include key column quals and optional quals
 func (c *QueryCache) getShouldIncludeQualInKey(connection *steampipeconfig.ConnectionPlugin, table string) func(string) bool {
-	v, err := semver.Make(connection.Schema.SdkVersion)
-	if err == nil && v.GE(semver.Version{Minor: 3}) {
+	v, err := goVersion.NewVersion(connection.Schema.SdkVersion)
+
+	minVersionForNewCachingCode, _ := goVersion.NewVersion("0.3.0")
+	if err == nil && v.GreaterThanOrEqual(minVersionForNewCachingCode) {
 		log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version >= 0.3.0 - only using key columns for cache key")
 
 		// build a list of all columns

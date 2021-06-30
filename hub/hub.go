@@ -136,16 +136,15 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
 	// first check whether this connection is in fact a connection group
-	if connectionGroup, ok := h.steampipeConfig.ConnectionGroups[connectionName]; ok {
-
-		log.Printf("[WARN] '%s' is a connection group: %v\n", connectionName, connectionGroup)
-		// get the schema from one of the child connections
-		if len(connectionGroup.Connections) == 0 {
-			return nil, fmt.Errorf("conmection group %s has no connections", connectionName)
-		}
-		connectionName = connectionGroup.Connections[0]
-
-	}
+	//if connectionGroup, ok := h.steampipeConfig.ConnectionGroups[connectionName]; ok {
+	//
+	//	log.Printf("[WARN] '%s' is a connection group: %v\n", connectionName, connectionGroup)
+	//	// get the schema from one of the child connections
+	//	if len(connectionGroup.Connections) == 0 {
+	//		return nil, fmt.Errorf("conmection group %s has no connections", connectionName)
+	//	}
+	//	connectionName = connectionGroup.Connections[0]
+	//}
 
 	c, err := h.connections.get(pluginFQN, connectionName)
 	if err != nil {
@@ -184,12 +183,12 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 
 	// HACK for now
 	var iterator Iterator
-	if connectionName == "aws_group" {
-		connections := []string{"aws1", "aws2", "aws3"}
-		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connections, h)
-	} else {
-		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
-	}
+	//if connectionName == "aws_group" {
+	//	connections := []string{"aws1", "aws2", "aws3"}
+	//	iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connections, h)
+	//} else {
+	iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+	//}
 
 	if err != nil {
 		return nil, err

@@ -171,21 +171,18 @@ func (c *QueryCache) getShouldIncludeQualInKey(connection *steampipeconfig.Conne
 	if err == nil && v.GreaterThanOrEqual(minVersionForNewCachingCode) {
 		log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version >= 0.3.0 - only using key columns for cache key")
 
-		// build a list of all columns
+		// build a list of all key columns
 		tableSchema, ok := connection.Schema.Schema[table]
 		if !ok {
 			// any errors, just default to including the column
 			return func(string) bool { return true }
 		}
 		var cols []string
-		if tableSchema.ListCallKeyColumns != nil {
-			cols = append(cols, tableSchema.ListCallKeyColumns.ToSlice()...)
+		for _, k := range tableSchema.ListCallKeyColumns {
+			cols = append(cols, k.Name)
 		}
-		if tableSchema.GetCallKeyColumns != nil {
-			cols = append(cols, tableSchema.GetCallKeyColumns.ToSlice()...)
-		}
-		if tableSchema.ListCallOptionalKeyColumns != nil {
-			cols = append(cols, tableSchema.ListCallOptionalKeyColumns.ToSlice()...)
+		for _, k := range tableSchema.GetCallKeyColumns {
+			cols = append(cols, k.Name)
 		}
 
 		return func(column string) bool {

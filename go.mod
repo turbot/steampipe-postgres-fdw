@@ -9,10 +9,11 @@ require (
 	github.com/hashicorp/go-version v1.2.1
 	github.com/turbot/go-kit v0.2.2-0.20210628165333-268ba0a30be3
 	github.com/turbot/steampipe v0.6.1-0.20210629133405-2643f0cabf98 // main
-	github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210630121447-d3b3374a82fe //key_columns_should_allow_specifying_supported_operators_121
+	github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210630161256-54cd4e651d60 //key_columns_should_allow_specifying_supported_operators_121
 	google.golang.org/protobuf v1.25.0
 )
 
 replace github.com/c-bata/go-prompt => github.com/binaek89/go-prompt v0.2.7-multiline-clearscreen
 
 //replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
+//replace github.com/turbot/steampipe-plugin-sdk => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk

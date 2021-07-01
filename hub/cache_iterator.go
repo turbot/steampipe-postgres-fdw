@@ -35,8 +35,11 @@ func (i *cacheIterator) Error() error {
 // Next implements Iterator
 // return next row (tuple). Nil slice means there is no more rows to scan.
 func (i *cacheIterator) Next() (map[string]interface{}, error) {
-	if idx := i.index; idx < len(i.rows) {
+	if i.status == QueryStatusReady {
 		i.status = QueryStatusStarted
+	}
+
+	if idx := i.index; idx < len(i.rows) {
 		i.index++
 		return i.rows[idx], nil
 	}
@@ -50,4 +53,14 @@ func (i *cacheIterator) Close(bool) {
 	i.index = 0
 	i.rows = nil
 	i.status = QueryStatusReady
+}
+
+func (i *cacheIterator) CanIterate() bool {
+	switch i.status {
+	case QueryStatusError, QueryStatusComplete:
+		return false
+	default:
+		return true
+
+	}
 }

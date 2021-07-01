@@ -5,8 +5,11 @@ import (
 	"log"
 	"os"
 	"path"
+	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/turbot/steampipe/steampipeconfig/modconfig"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
@@ -23,7 +26,7 @@ const (
 
 // Hub :: structure representing plugin hub
 type Hub struct {
-	connections      *connectionMap
+	connections      *connectionFactory
 	steampipeConfig  *steampipeconfig.SteampipeConfig
 	queryCache       *cache.QueryCache
 	runningIterators []Iterator
@@ -60,7 +63,7 @@ func GetHub() (*Hub, error) {
 
 func newHub() (*Hub, error) {
 	hub := &Hub{}
-	hub.connections = newConnectionMap(hub)
+	hub.connections = newConnectionFactory(hub)
 
 	// NOTE: Steampipe determine it's install directory from the input arguments (with a default)
 	// as we are using shared Steampipe code we must set the install directory.
@@ -135,16 +138,12 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 	connectionName := localSchema
 	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
-	// first check whether this connection is in fact a connection group
-	//if connectionGroup, ok := h.steampipeConfig.ConnectionGroups[connectionName]; ok {
-	//
-	//	log.Printf("[WARN] '%s' is a connection group: %v\n", connectionName, connectionGroup)
-	//	// get the schema from one of the child connections
-	//	if len(connectionGroup.Connections) == 0 {
-	//		return nil, fmt.Errorf("conmection group %s has no connections", connectionName)
-	//	}
-	//	connectionName = connectionGroup.Connections[0]
-	//}
+	// if this is an aggregate connection, get the name of the first child connection
+	// - we will use this to retrieve the schema
+	if h.IsAggregateConnection(connectionName) {
+		connectionName = h.GetAggregateConnectionChild(connectionName)
+
+	}
 
 	c, err := h.connections.get(pluginFQN, connectionName)
 	if err != nil {
@@ -158,8 +157,12 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
-	log.Printf("[DEBUG] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
+	// we do NOT set connection config for aggregate connections
+	if h.IsAggregateConnection(connectionName) {
+		return nil
+	}
 	c, err := h.connections.get(pluginFQN, connectionName)
 	if err != nil {
 		return err
@@ -181,14 +184,15 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	connectionName := opts["connection"]
 	table := opts["table"]
 
-	// HACK for now
 	var iterator Iterator
-	//if connectionName == "aws_group" {
-	//	connections := []string{"aws1", "aws2", "aws3"}
-	//	iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connections, h)
-	//} else {
-	iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
-	//}
+	// if this is an aggregate connection, create a group iterator
+	if h.IsAggregateConnection(connectionName) {
+		connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
+		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
+
+	} else {
+		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+	}
 
 	if err != nil {
 		return nil, err
@@ -199,6 +203,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	return iterator, nil
 }
 
+// startScanForConnection starts a scan for a single conneciton, using a scanIterator
 func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
 	connection, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
@@ -229,11 +234,14 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		}
 	}
 
-	iterator := newScanIterator(h, connection, table, qualMap, columns, limit)
+	// cache not enabled - create a scan iterator
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
+	iterator := newScanIterator(h, connection, table, qualMap, columns, limit)
 
-	err = h.startScan(iterator, queryContext)
-	// TODO why not return error?
+	if err := h.startScan(iterator, queryContext); err != nil {
+		return nil, err
+	}
+
 	return iterator, nil
 }
 
@@ -302,6 +310,12 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 
 	log.Printf("[TRACE] hub.GetPathKeys for connection '%s`, table `%s`", connectionName, table)
 
+	// if this is an aggregate connection, get the first child connection
+	if h.IsAggregateConnection(connectionName) {
+		connectionName = h.GetAggregateConnectionChild(connectionName)
+		log.Printf("[TRACE] connection is an aggregate - using child connection: %s", connectionName)
+	}
+
 	// get the schema for this connection
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
@@ -354,7 +368,7 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 // split startScan into a separate function to allow iterator to restart the scan
 func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
 	table := iterator.table
-	log.Printf("[INFO] StartScan\n  table: %s\n  columns: %v\n", table, queryContext.Columns)
+	log.Printf("[INFO] StartScan\n  table: %s", table)
 	c := iterator.connection
 
 	// if a scanIterator is in progress, fail
@@ -399,7 +413,8 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 	// load the config for this connection
 	connection, ok := h.steampipeConfig.Connections[connectionName]
 	if !ok {
-		log.Printf("[WARN] no config found for connection %s: %v", connectionName, h.steampipeConfig.Connections)
+		log.Printf("[WARN] no config found for connection %s", connectionName)
+		debug.PrintStack()
 		return nil, fmt.Errorf("no config found for connection %s", connectionName)
 	}
 
@@ -464,4 +479,24 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 	}
 
 	return time.Duration(*connectionOptions.CacheTTL) * time.Second
+}
+
+// IsAggregateConnection returns  whether the connection with the given name is of type "aggregate"
+func (h *Hub) IsAggregateConnection(connectionName string) bool {
+	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
+	return ok && connectionConfig.Type == modconfig.ConnectionTypeAggregate
+}
+
+// GetAggregateConnectionChild returns the name of first child connection of the aggregate connection with the given name
+func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
+	if !h.IsAggregateConnection(connectionName) {
+		panic(fmt.Sprintf("GetAggregateConnectionChild called for connecitron %s which is not an aggregate", connectionName))
+	}
+	aggregateConnection := h.steampipeConfig.Connections[connectionName]
+	// get first key from the Connections map
+	var name string
+	for name = range aggregateConnection.Connections {
+		break
+	}
+	return name
 }

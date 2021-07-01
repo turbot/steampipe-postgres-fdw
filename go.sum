@@ -954,10 +954,14 @@ github.com/turbot/go-kit v0.1.1/go.mod h1:hO/mY90fJXLWAJnAoDkYMvi3LVZ/r+z1tiz3E1
 github.com/turbot/go-kit v0.2.1/go.mod h1:FboSf8p5XWOezO9V/N+rtG07FDKBuBiPhQrSJxQgm+I=
 github.com/turbot/go-kit v0.2.2-0.20210628165333-268ba0a30be3 h1:UAfWYp+K7oESlqomRus4k+h/dSPXU17tEcarbRdtBwQ=
 github.com/turbot/go-kit v0.2.2-0.20210628165333-268ba0a30be3/go.mod h1:SBdPRngbEfYubiR81iAVtO43oPkg1+ASr+XxvgbH7/k=
+github.com/turbot/go-kit v0.2.2-0.20210701162132-c7aef7d72757 h1:b9BnAhxiBRYNZq0aMz1l2r3xGnObCxPgpJ050I5n31g=
+github.com/turbot/go-kit v0.2.2-0.20210701162132-c7aef7d72757/go.mod h1:SBdPRngbEfYubiR81iAVtO43oPkg1+ASr+XxvgbH7/k=
 github.com/turbot/steampipe v0.5.0 h1:eQdqWw2mW+VIRXAzTeDyspg9VX/znPbYnlCSAsq+m8s=
 github.com/turbot/steampipe v0.5.0/go.mod h1:QTiSvt3zSe4QJsXJPu4QPQeNr+mz9TROAhMfkdF+b+I=
 github.com/turbot/steampipe v0.6.1-0.20210629133405-2643f0cabf98 h1:wHIbzJuRzal7+ykNyeo7LJEjsG/du3qzoE0gFkdgroU=
 github.com/turbot/steampipe v0.6.1-0.20210629133405-2643f0cabf98/go.mod h1:FqVr+Hu1h+NohbdGQ3CmmLmdxRKvmqr8Zy3oSgRtM7U=
+github.com/turbot/steampipe v0.6.1-0.20210702114446-b8a439dd3ada h1:U5v3hR5Fja341tnk2NNAUn17en9+8VvFj3hKPncG3wQ=
+github.com/turbot/steampipe v0.6.1-0.20210702114446-b8a439dd3ada/go.mod h1:iNpT26CyAEu3E4n/ApMqGtz6bf+dSalFYrWmIZeupiY=
 github.com/turbot/steampipe-plugin-sdk v0.2.8/go.mod h1:hsg1nGt30Nn+FZhz3M+qvWiJy8x+EhxKZYJLaEDoxQk=
 github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210630121447-d3b3374a82fe h1:huR/uhTiRb8r58FLotCkglLFZy1TxLqmP3XjVddaf5k=
 github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210630121447-d3b3374a82fe/go.mod h1:E00M5qOvCp6qwaT1/KhdTNM6S0JUlNY6L11IvlELQV4=

@@ -24,9 +24,9 @@ type queryStatus string
 
 const (
 	QueryStatusReady    queryStatus = "ready"
-	QueryStatusStarted              = "started"
-	QueryStatusError                = "error"
-	QueryStatusComplete             = "complete"
+	QueryStatusStarted  queryStatus = "started"
+	QueryStatusError    queryStatus = "error"
+	QueryStatusComplete queryStatus = "complete"
 )
 
 type scanIterator struct {
@@ -82,6 +82,7 @@ func (i *scanIterator) Error() error {
 // Next implements Iterator
 // return the next row. Nil row means there are no more rows to scan.
 func (i *scanIterator) Next() (map[string]interface{}, error) {
+
 	// check the iterator state - has an error occurred
 	if i.status == QueryStatusError {
 		return nil, i.err
@@ -89,10 +90,12 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 
 	logging.LogTime("[hub] Next start")
 
-	if canIterate, err := i.CanIterate(); !canIterate {
-		log.Printf("[WARN] scanIterator cannot iterate: %v \n", err)
-		return nil, fmt.Errorf("cannot iterate: %v", err)
+	if !i.CanIterate() {
+		// this is a bug
+		log.Printf("[WARN] scanIterator cannot iterate: connection %s, status: %s", i.ConnectionName(), i.Status())
+		return nil, fmt.Errorf("scanIterator cannot iterate: connection %s, status: %s", i.ConnectionName(), i.Status())
 	}
+
 	row := <-i.rows
 
 	// if the row channel closed, complete the iterator state
@@ -191,7 +194,7 @@ func (i *scanIterator) Close(writeToCache bool) {
 // read results from plugin stream, saving results in 'rows'.
 // When we reach the end of the stream close the stram and the rows channel so consumers know there is know more data
 func (i *scanIterator) readResults() {
-	log.Printf("[DEBUG] readResults - read results from plugin stream, saving results in 'rows'\n")
+	log.Printf("[TRACE] readResults - read results from plugin stream, saving results in 'rows'\n")
 	if i.status != QueryStatusStarted {
 		panic(fmt.Sprintf("attempting to read scan results but no iteration is in progress - iterator status %v", i.status))
 	}
@@ -291,12 +294,13 @@ func (i *scanIterator) setError(err error) {
 }
 
 // CanIterate :: return true if this iterator has results available to iterate
-func (i *scanIterator) CanIterate() (bool, error) {
+func (i *scanIterator) CanIterate() bool {
 	switch i.status {
-	case QueryStatusError:
-		return false, fmt.Errorf("there was an error executing scanIterator: %v", i.err)
-	case QueryStatusReady, QueryStatusComplete:
-		return false, fmt.Errorf("no scanIterator in progress")
+	case QueryStatusError, QueryStatusReady, QueryStatusComplete:
+		// scan iterator must be explicitly started - so we cannot iterate is in ready state
+		return false
+	default:
+		return true
 	}
-	return true, nil
+
 }

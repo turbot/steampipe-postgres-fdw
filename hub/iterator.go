@@ -11,4 +11,5 @@ type Iterator interface {
 	Close(bool)
 	Status() queryStatus
 	Error() error
+	CanIterate() bool
 }

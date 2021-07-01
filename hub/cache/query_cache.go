@@ -168,34 +168,34 @@ func (c *QueryCache) getShouldIncludeQualInKey(connection *steampipeconfig.Conne
 	v, err := goVersion.NewVersion(connection.Schema.SdkVersion)
 
 	minVersionForNewCachingCode, _ := goVersion.NewVersion("0.3.0")
-	if err == nil && v.GreaterThanOrEqual(minVersionForNewCachingCode) {
-		log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version >= 0.3.0 - only using key columns for cache key")
-
-		// build a list of all key columns
-		tableSchema, ok := connection.Schema.Schema[table]
-		if !ok {
-			// any errors, just default to including the column
-			return func(string) bool { return true }
-		}
-		var cols []string
-		for _, k := range tableSchema.ListCallKeyColumns {
-			cols = append(cols, k.Name)
-		}
-		for _, k := range tableSchema.GetCallKeyColumns {
-			cols = append(cols, k.Name)
-		}
-
-		return func(column string) bool {
-			res := helpers.StringSliceContains(cols, column)
-			log.Printf("[TRACE] shouldIncludeQual, column %s, include = %v", column, res)
-			return res
-		}
+	if err != nil || v.LessThan(minVersionForNewCachingCode) {
+		log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version < 0.3.0 - using all quals for cache key")
+		// for older, or unidentified sdk versions, include all quals
+		return func(string) bool { return true }
 	}
 
-	log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version < 0.3.0 - using all quals for cache key")
+	log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version >= 0.3.0 - only using key columns for cache key")
 
-	// for older, or unidentified sdk versions, include all quals
-	return func(string) bool { return true }
+	// build a list of all key columns
+	tableSchema, ok := connection.Schema.Schema[table]
+	if !ok {
+		// any errors, just default to including the column
+		return func(string) bool { return true }
+	}
+	var cols []string
+	for _, k := range tableSchema.ListCallKeyColumnList {
+		cols = append(cols, k.Name)
+	}
+	for _, k := range tableSchema.GetCallKeyColumnList {
+		cols = append(cols, k.Name)
+	}
+
+	return func(column string) bool {
+		res := helpers.StringSliceContains(cols, column)
+		log.Printf("[TRACE] shouldIncludeQual, column %s, include = %v", column, res)
+		return res
+	}
+
 }
 
 func (c *QueryCache) sanitiseKey(str string) string {

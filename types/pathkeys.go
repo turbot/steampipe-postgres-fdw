@@ -42,6 +42,12 @@ func PathExistsInKeys(pathKeys []PathKey, other PathKey) bool {
 	return false
 }
 
+func KeyColumnsToPathKeys(keyColumns []*proto.KeyColumn, allColumns []string) []PathKey {
+	columnPaths := KeyColumnsToColumnPath(keyColumns)
+
+	return columnPathsToPathKeys(columnPaths, allColumns)
+}
+
 // KeyColumnsToColumnPath returns a list of all the column sets to use in path keys
 func KeyColumnsToColumnPath(keyColumns []*proto.KeyColumn) [][]string {
 	var res [][]string
@@ -69,10 +75,45 @@ func KeyColumnsToColumnPath(keyColumns []*proto.KeyColumn) [][]string {
 	return res
 }
 
-func KeyColumnsToPathKeys(keyColumns []*proto.KeyColumn, allColumns []string) []PathKey {
-	columnPaths := KeyColumnsToColumnPath(keyColumns)
+func LegacyKeyColumnsToPathKeys(requiredColumns, optionalColumns *proto.KeyColumnsSet, allColumns []string) []PathKey {
+	requiredColumnSets := LegacyKeyColumnsToColumnPaths(requiredColumns)
+	optionalColumnSets := LegacyKeyColumnsToColumnPaths(optionalColumns)
 
-	return columnPathsToPathKeys(columnPaths, allColumns)
+	if len(requiredColumnSets)+len(optionalColumnSets) == 0 {
+		return nil
+	}
+
+	// if there are only optional, build paths based on those
+	if len(requiredColumnSets) == 0 {
+		return columnPathsToPathKeys(optionalColumnSets, allColumns)
+	}
+
+	// otherwise build paths based just on required columns
+	return columnPathsToPathKeys(requiredColumnSets, allColumns)
+
+	// TODO consider whether we need to add  paths for required+optional+other columns as well??
+}
+
+// LegacyKeyColumnsToColumnPaths returns a list of all the column sets to use in path keys
+func LegacyKeyColumnsToColumnPaths(k *proto.KeyColumnsSet) [][]string {
+	var res [][]string
+	if k == nil {
+		return res
+	}
+
+	// if a single key column is specified add it
+	if k.Single != "" {
+		res = append(res, []string{k.Single})
+	}
+	// if 'Any' key columns are specified, add them all separately
+	for _, c := range k.Any {
+		res = append(res, []string{c})
+	}
+	// if 'All' key columns are specified, add them as a single path
+	if k.All != nil {
+		res = append(res, k.All)
+	}
+	return res
 }
 
 func columnPathsToPathKeys(columnPaths [][]string, allColumns []string) []PathKey {

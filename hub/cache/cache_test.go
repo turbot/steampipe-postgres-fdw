@@ -324,14 +324,14 @@ func TestCache(t *testing.T) {
 		queryCache, _ := NewQueryCache()
 		for _, s := range test.set {
 			connectionPlugin := &steampipeconfig.ConnectionPlugin{ConnectionName: s.connection, Schema: &proto.Schema{}}
-			queryCache.Set(connectionPlugin, s.table, s.qualMap, s.columns, s.result, 500*time.Second)
+			queryCache.Set(connectionPlugin, s.table, s.qualMap, s.columns, -1, s.result, 500*time.Second)
 			time.Sleep(100 * time.Millisecond)
 		}
 		time.Sleep(100 * time.Millisecond)
 
 		g := test.get
 		connectionPlugin := &steampipeconfig.ConnectionPlugin{ConnectionName: g.connection, Schema: &proto.Schema{}}
-		result := queryCache.Get(connectionPlugin, g.table, g.qualMap, g.columns)
+		result := queryCache.Get(connectionPlugin, g.table, g.qualMap, g.columns, -1)
 		if !reflect.DeepEqual(test.expected, result) {
 			t.Errorf("Test: '%s'' FAILED : \nexpected:\n %v, \n\ngot:\n %v", name, test.expected, result)
 		}

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/dgraph-io/ristretto"
+	goVersion "github.com/hashicorp/go-version"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
@@ -165,38 +165,37 @@ func (c *QueryCache) formatQualsForKey(quals *proto.Quals, shouldIncludeQualInKe
 
 // for sdk version 0.3.0 and greater, only include key column quals and optional quals
 func (c *QueryCache) getShouldIncludeQualInKey(connection *steampipeconfig.ConnectionPlugin, table string) func(string) bool {
-	v, err := semver.Make(connection.Schema.SdkVersion)
-	if err == nil && v.GE(semver.Version{Minor: 3}) {
-		log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version >= 0.3.0 - only using key columns for cache key")
+	v, err := goVersion.NewVersion(connection.Schema.SdkVersion)
 
-		// build a list of all columns
-		tableSchema, ok := connection.Schema.Schema[table]
-		if !ok {
-			// any errors, just default to including the column
-			return func(string) bool { return true }
-		}
-		var cols []string
-		if tableSchema.ListCallKeyColumns != nil {
-			cols = append(cols, tableSchema.ListCallKeyColumns.ToSlice()...)
-		}
-		if tableSchema.GetCallKeyColumns != nil {
-			cols = append(cols, tableSchema.GetCallKeyColumns.ToSlice()...)
-		}
-		if tableSchema.ListCallOptionalKeyColumns != nil {
-			cols = append(cols, tableSchema.ListCallOptionalKeyColumns.ToSlice()...)
-		}
-
-		return func(column string) bool {
-			res := helpers.StringSliceContains(cols, column)
-			log.Printf("[TRACE] shouldIncludeQual, column %s, include = %v", column, res)
-			return res
-		}
+	minVersionForNewCachingCode, _ := goVersion.NewVersion("0.3.0")
+	if err != nil || v.LessThan(minVersionForNewCachingCode) {
+		log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version < 0.3.0 - using all quals for cache key")
+		// for older, or unidentified sdk versions, include all quals
+		return func(string) bool { return true }
 	}
 
-	log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version < 0.3.0 - using all quals for cache key")
+	log.Printf("[TRACE] getShouldIncludeQualInKey - sdk version >= 0.3.0 - only using key columns for cache key")
 
-	// for older, or unidentified sdk versions, include all quals
-	return func(string) bool { return true }
+	// build a list of all key columns
+	tableSchema, ok := connection.Schema.Schema[table]
+	if !ok {
+		// any errors, just default to including the column
+		return func(string) bool { return true }
+	}
+	var cols []string
+	for _, k := range tableSchema.ListCallKeyColumnList {
+		cols = append(cols, k.Name)
+	}
+	for _, k := range tableSchema.GetCallKeyColumnList {
+		cols = append(cols, k.Name)
+	}
+
+	return func(column string) bool {
+		res := helpers.StringSliceContains(cols, column)
+		log.Printf("[TRACE] shouldIncludeQual, column %s, include = %v", column, res)
+		return res
+	}
+
 }
 
 func (c *QueryCache) sanitiseKey(str string) string {

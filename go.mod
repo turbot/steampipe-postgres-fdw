@@ -3,13 +3,14 @@ module github.com/turbot/steampipe-postgres-fdw
 go 1.15
 
 require (
-	github.com/blang/semver v3.1.0+incompatible
 	github.com/dgraph-io/ristretto v0.0.3
 	github.com/golang/protobuf v1.4.3
 	github.com/hashicorp/go-hclog v0.15.0
-	github.com/turbot/go-kit v0.2.1
-	github.com/turbot/steampipe v0.5.0
-	github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210623161616-8a9ee475b1ca
+	github.com/hashicorp/go-version v1.2.1
+	github.com/turbot/go-kit v0.2.2-0.20210701162132-c7aef7d72757
+	github.com/turbot/steampipe v0.6.1-0.20210701133655-3ff8eeddc56b // main
+	//github.com/turbot/steampipe v0.6.1-0.20210702114446-b8a439dd3ada // add_support_for_connection_groups
+	github.com/turbot/steampipe-plugin-sdk v0.3.0-rc.0.0.20210701104519-8f310bdd5c60 //key_columns_should_allow_specifying_supported_operators_121
 	google.golang.org/protobuf v1.25.0
 )
 

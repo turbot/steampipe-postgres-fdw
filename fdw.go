@@ -195,8 +195,6 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 
-	pluginHub.AddIterator(iter)
-
 	logging.LogTime("[fdw] BeginForeignScan end")
 }
 
@@ -223,6 +221,8 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}
 
 	if len(row) == 0 {
+		log.Printf("[TRACE] goFdwIterateForeignScan empty row returned")
+
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms
 		//logging.DisplayProfileData(10*time.Millisecond, logger)
@@ -267,6 +267,17 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	s := GetExecState(node.fdw_state)
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {
+		log.Printf("[TRACE] goFdwEndForeignScan")
+		// is the iterator still running? If so it means postgres is stopping a scan before all rows have been read
+		if s.Iter.Status() == hub.QueryStatusStarted {
+			// if we have identified a limit from the query (i.e. it is an ungrouped, unordered query from a single table)
+			// then we can cache the result, using the limit in teh
+			// but if we have NOT extracted a limit, w e cannot cache the results as we are not certain they are complete
+			writeToCache := s.State.limit != -1
+			log.Printf("[TRACE] ending scna before iterator complete - limit: %v, writeToCache: %v", s.State.limit, writeToCache)
+			s.Iter.Close(writeToCache)
+		}
+
 		pluginHub.RemoveIterator(s.Iter)
 	}
 	ClearExecState(node.fdw_state)
@@ -289,7 +300,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		}
 	}()
 
-	log.Printf("[DEBUG] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+	log.Printf("[TRACE] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
 	// get the plugin hub,
 	pluginHub, err := hub.GetHub()
 	if err != nil {
@@ -307,6 +318,8 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		return nil
 	}
 
+	log.Printf("[TRACE] loaded connection config")
+
 	// if the connection config has changed locally, send it to the plugin
 	// NOTE: this is redundant the first time a schema is imported as the hub will probably be freshly created
 	// so connection config will be up to date
@@ -314,7 +327,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	// TODO add a mechanism to prevent reloading the first time - we just need to know if the hub was created  in call to GetHub
 
 	if connectionConfigChanged {
-		log.Printf("[DEBUG] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+		log.Printf("[TRACE] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
 
 		err := pluginHub.SetConnectionConfig(remoteSchema, localSchema)
 		if err != nil {

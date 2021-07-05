@@ -274,8 +274,9 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 			// then we can cache the result, using the limit in teh
 			// but if we have NOT extracted a limit, w e cannot cache the results as we are not certain they are complete
 			writeToCache := s.State.limit != -1
-			log.Printf("[TRACE] ending scna before iterator complete - limit: %v, writeToCache: %v", s.State.limit, writeToCache)
+			log.Printf("[TRACE] ending scan before iterator complete - limit: %v, writeToCache: %v", s.State.limit, writeToCache)
 			s.Iter.Close(writeToCache)
+
 		}
 
 		pluginHub.RemoveIterator(s.Iter)

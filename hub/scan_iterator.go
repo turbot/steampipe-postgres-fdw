@@ -101,9 +101,12 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
-		log.Printf("[WARN] row channel is closed - reset iterator\n")
+		log.Printf("[TRACE] row channel is closed - reset iterator\n")
+
 		// if iterator is in error, return the error
 		if i.Status() == QueryStatusError {
+			i.onError()
+			// return error
 			return nil, i.err
 		}
 		// otherwise mark iterator complete, caching result
@@ -186,7 +189,7 @@ func (i *scanIterator) Close(writeToCache bool) {
 	// if there is an active stream, cancel it
 	if i.stream != nil {
 		// close our GRPC stream from the plugin
-		log.Printf("[WARN] there is a stream - calling cancel")
+		log.Printf("[TRACE] there is a stream - calling cancel")
 
 		i.stream.CloseSend()
 		i.cancel()
@@ -197,7 +200,6 @@ func (i *scanIterator) Close(writeToCache bool) {
 }
 
 // read results from plugin stream, saving results in 'rows'.
-// When we reach the end of the stream close the stram and the rows channel so consumers know there is know more data
 func (i *scanIterator) readResults() {
 	log.Printf("[TRACE] readResults - read results from plugin stream, saving results in 'rows'\n")
 	if i.status != QueryStatusStarted {
@@ -226,18 +228,13 @@ func (i *scanIterator) readResult() bool {
 	}
 
 	rowResult, err := i.stream.Recv()
-
 	if err != nil {
-		if err.Error() != "EOF" {
-			log.Printf("[WARN] stream receive error %v\n", err)
-		}
-		i.setError(err)
-		// stop reading
-		continueReading = false
+		// set error, shut the grpc stream and row channel
+		return i.onReceiveError(err)
 	}
 
 	if rowResult == nil {
-		log.Printf("[WARN] nil row received - closing stream\n")
+		log.Printf("[WARN] nil row received - ending grpc stream read thread\n")
 		// stop reading
 		continueReading = false
 	} else {
@@ -250,6 +247,19 @@ func (i *scanIterator) readResult() bool {
 
 	// continue reading
 	return continueReading
+}
+
+func (i *scanIterator) onReceiveError(err error) bool {
+	if err.Error() != "EOF" {
+		log.Printf("[WARN] stream receive error %v\n", err)
+	}
+	i.setError(err)
+	// clear stream - we will not need it any more an dthis
+	i.stream = nil
+	// close the row channel
+	close(i.rows)
+	// stop reading
+	return false
 }
 
 // scanIterator state methods
@@ -287,7 +297,11 @@ func (i *scanIterator) onComplete(writeToCache bool) {
 			log.Printf("[WARN] failed to add %d rows to cache", len(i.cachedRows.Rows))
 		}
 	}
+}
 
+func (i *scanIterator) onError() {
+	// clear the stream so any subsequent calls to Close do not try to cancel the stream
+	i.stream = nil
 }
 
 // if there is an error other than EOF, save error and set state to QueryStatusError

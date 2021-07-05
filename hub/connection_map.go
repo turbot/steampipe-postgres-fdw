@@ -3,7 +3,6 @@ package hub
 import (
 	"fmt"
 	"log"
-	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -46,10 +45,10 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 	defer f.connectionLock.Unlock()
 	// if this is an aggregate connection, return error
 	// (we must iterate through the child connections explicitly)
-	if f.hub.IsAggregateConnection(connectionName) {
-		debug.PrintStack()
-		return nil, fmt.Errorf("the connectionFactory cannot return or create a connectionPlugin for an aggregate connection")
-	}
+	//if f.hub.IsAggregateConnection(connectionName) {
+	//	debug.PrintStack()
+	//	return nil, fmt.Errorf("the connectionFactory cannot return or create a connectionPlugin for an aggregate connection")
+	//}
 
 	c, ok := f.connectionPlugins[f.getPluginKey(pluginFQN, connectionName)]
 	// if we do not have this connection in out map, create it

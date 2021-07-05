@@ -176,7 +176,12 @@ func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, cancel co
 }
 
 func (i *scanIterator) Close(writeToCache bool) {
-	log.Println("[WARN] scanIterator Close ")
+
+	// lock readlock so the stream read process does not try to read from the nil stream
+	i.readLock.Lock()
+	defer i.readLock.Unlock()
+
+	log.Println("[TRACE] scanIterator Close")
 
 	// if there is an active stream, cancel it
 	if i.stream != nil {

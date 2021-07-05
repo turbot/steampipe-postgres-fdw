@@ -112,8 +112,15 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 
 // build a protobuf qual from a Var - this converts to a simple boolean qual where column=true
 func qualFromVar(arg *C.Var, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	column := columnFromVar(arg, cinfos)
+	// if we failed to get a column we cannot create a qual
+	if column == "" {
+		log.Printf("[WARN] qualFromVar failed to get column from variable %v", arg)
+		return nil
+	}
+
 	return &proto.Qual{
-		FieldName: columnFromVar(arg, cinfos),
+		FieldName: column,
 		Operator:  &proto.Qual_StringValue{StringValue: "="},
 		Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
 	}
@@ -176,7 +183,13 @@ func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos 
 		operatorName = "<>"
 	}
 
+	// try to get th ecolumn
 	column := columnFromVar(arg, cinfos)
+	// if we failed to get a column we cannot create a qual
+	if column == "" {
+		log.Printf("[WARN] qualFromNullTest failed to get column from variable %v", arg)
+		return nil
+	}
 
 	qual := &proto.Qual{
 		FieldName: column,
@@ -193,14 +206,20 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 		return nil
 	}
 
+	// try to get the column
 	variable := (*C.Var)(unsafe.Pointer(arg))
 	column := columnFromVar(variable, cinfos)
-	operatorName := ""
+	// if we failed to get a column we cannot create a qual
+	if column == "" {
+		log.Printf("[WARN] qualFromBooleanTest failed to get column from variable %v", variable)
+		return nil
+	}
 
+	// now populate th eoperator
+	operatorName := ""
 	switch restriction.booltesttype {
 	case C.IS_TRUE:
 		operatorName = "="
-
 	case C.IS_NOT_TRUE, C.IS_FALSE:
 		operatorName = "<>"
 	default:
@@ -223,10 +242,17 @@ func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos 
 	// NOTE currently we only handle boolean expression with a single argument and a NOT operato
 	if restriction.args.length == 1 || restriction.boolop == C.NOT_EXPR && C.fdw_nodeTag(arg) == C.T_Var {
 
+		// try to get the column from the variable
 		variable := C.cellGetVar(restriction.args.head)
+		column := columnFromVar(variable, cinfos)
+		// if we failed to get a column we cannot create a qual
+		if column == "" {
+			log.Printf("[WARN] qualFromBoolExpr failed to get column from variable %v", arg)
+			return nil
+		}
 
 		return &proto.Qual{
-			FieldName: columnFromVar(variable, cinfos),
+			FieldName: column,
 			Operator:  &proto.Qual_StringValue{StringValue: "<>"},
 			Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
 		}
@@ -238,7 +264,11 @@ func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos 
 func columnFromVar(variable *C.Var, cinfos **C.ConversionInfo) string {
 	arrayIndex := variable.varattno - 1
 	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
-	column := C.GoString(ci.attrname)
+
+	var column string
+	if ci != nil && ci.attrname != nil {
+		column = C.GoString(ci.attrname)
+	}
 	return column
 }
 

@@ -376,7 +376,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		Connection:   c.ConnectionName,
 	}
 
-	stream, cancel, err := c.Plugin.Stub.Execute(req)
+	stream, ctx, cancel, err := c.Plugin.Stub.Execute(req)
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
@@ -384,7 +384,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		iterator.setError(err)
 		return err
 	}
-	iterator.Start(stream, cancel)
+	iterator.Start(stream, ctx, cancel)
 	return nil
 }
 

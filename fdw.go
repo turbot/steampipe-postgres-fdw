@@ -288,6 +288,7 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 
 //export goFdwAbortCallback
 func goFdwAbortCallback() {
+	log.Printf("[TRACE] goFdwAbortCallback")
 	if pluginHub, err := hub.GetHub(); err == nil {
 		pluginHub.Abort()
 	}

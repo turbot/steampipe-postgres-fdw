@@ -44,7 +44,6 @@ type scanIterator struct {
 	table           string
 	connection      *steampipeconfig.ConnectionPlugin
 	cancel          context.CancelFunc
-	cancelChan      chan bool
 }
 
 func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) *scanIterator {
@@ -63,8 +62,6 @@ func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, tab
 		cacheTTL:     cacheTTL,
 		table:        table,
 		connection:   connection,
-		// buffer the cancel channel as otherwise we never seem to select from it
-		cancelChan: make(chan bool, 1),
 	}
 }
 
@@ -128,17 +125,15 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	return res, nil
 }
 
-func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, cancel context.CancelFunc) {
+func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
 	logging.LogTime("[hub] start")
-	if i.status != QueryStatusReady {
-		panic("attempting to start iterator which is still in progress")
-	}
+
 	i.status = QueryStatusStarted
 	i.pluginRowStream = stream
 	i.cancel = cancel
 
 	// read the results - this will loop until it hits an error or the stream is closed
-	go i.readThread()
+	go i.readThread(ctx)
 }
 
 func (i *scanIterator) Close(writeToCache bool) {
@@ -146,7 +141,8 @@ func (i *scanIterator) Close(writeToCache bool) {
 
 	// ping the cancel channel - if there is an active read thread, it will cancel the GRPC stream if needed
 	log.Printf("[TRACE]  signalling cancel channel")
-	i.cancelChan <- true
+	// call the context cancellation function
+	i.cancel()
 
 	log.Printf("[TRACE] stream cancelled")
 	if writeToCache {
@@ -213,67 +209,61 @@ func (i *scanIterator) populateRow(row *proto.Row) (map[string]interface{}, erro
 // - the stream is complete
 // - there stream returns an error
 // there is a signal on the cancel channel
-func (i *scanIterator) readThread() {
+func (i *scanIterator) readThread(ctx context.Context) {
 	log.Println("[TRACE] iterator readThread - read results from GRPC stream")
 	if i.status != QueryStatusStarted {
 		panic(fmt.Sprintf("attempting to read scan results but no iteration is in progress - iterator status %v", i.status))
 	}
 
-	for i.readResult() {
-		time.Sleep(10 * time.Millisecond)
+	// keep calling readPluginResult until it returns false
+	for i.readPluginResult(ctx) {
 	}
 
-	log.Println("[TRACE] iterator readThread complete")
-	// we are done
+	// now we are done
 	close(i.rows)
-
+	log.Println("[TRACE] iterator readThread complete")
 }
 
-// read a single result from the GRPC stream. Return true if there are more results to read
-func (i *scanIterator) readResult() bool {
-	var row *proto.Row
+func (i *scanIterator) readPluginResult(ctx context.Context) bool {
+	continueReading := true
+	var rcvChan = make(chan *proto.ExecuteResponse)
+	var errChan = make(chan error)
 
-	rcvChan := make(chan *proto.ExecuteResponse)
-	errChan := make(chan error)
+	// put the stream receive code into a goroutine to ensure cancellation is possible in case of a plugin hang
 	go func() {
 		rowResult, err := i.pluginRowStream.Recv()
+
 		if err != nil {
 			errChan <- err
-			return
+		} else {
+			rcvChan <- rowResult
 		}
-
-		rcvChan <- rowResult
 	}()
 
-	continueReading := true
 	select {
 	// check for cancellation first - this takes precedence over reading the grpc stream
-	case <-i.cancelChan:
-		log.Printf("[TRACE] readResult received signal on cancelChan")
-		i.cancel()
+	case <-ctx.Done():
+		log.Printf("[TRACE] readPluginResult context is cancelled")
 		continueReading = false
 	case rowResult := <-rcvChan:
 		if rowResult == nil {
-			log.Printf("[TRACE] readResult nil row received - stop reading")
+			log.Printf("[TRACE] readPluginResult nil row received - stop reading")
 			// stop reading
 			continueReading = false
 		} else {
 			// so we have a row
-			row = rowResult.Row
+			i.rows <- rowResult.Row
 		}
-		// send row (which may be nil)
-		i.rows <- row
 	case err := <-errChan:
 		if err.Error() == "EOF" {
-			log.Printf("[TRACE] readResult EOF error received - stop reading")
+			log.Printf("[TRACE] readPluginResult EOF error received - stop reading")
 		} else {
 			log.Printf("[WARN] stream receive error %v\n", err)
 			i.setError(err)
 		}
+		// stop reading
 		continueReading = false
-
 	}
-	log.Printf("[TRACE] readResult returning continueReading=%v", continueReading)
 	return continueReading
 }
 

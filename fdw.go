@@ -264,6 +264,7 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
+
 	s := GetExecState(node.fdw_state)
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {

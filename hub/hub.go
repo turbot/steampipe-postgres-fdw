@@ -233,6 +233,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	}
 
 	// cache not enabled - create a scan iterator
+	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 	iterator := newScanIterator(h, connection, table, qualMap, columns, limit)
 
@@ -368,11 +369,6 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 	table := iterator.table
 	log.Printf("[INFO] StartScan\n  table: %s", table)
 	c := iterator.connection
-
-	// if a scanIterator is in progress, fail
-	if iterator.inProgress() {
-		return fmt.Errorf("cannot start scanIterator while existing scanIterator is incomplete - cancel first")
-	}
 
 	req := &proto.ExecuteRequest{
 		Table:        table,

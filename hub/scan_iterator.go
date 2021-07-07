@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	typeHelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
@@ -179,15 +178,8 @@ func (i *scanIterator) populateRow(row *proto.Row) (map[string]interface{}, erro
 				return nil, err
 			}
 		} else if timestamp := column.GetTimestampValue(); timestamp != nil {
-			// convert from protobuf timestamp to time.Time
-			timeString := ptypes.TimestampString(timestamp)
-
-			var err error
-			if val, err = typeHelpers.ToTime(timeString); err != nil {
-				err = fmt.Errorf("scanIterator failed to populate %s column: %v", columnName, err)
-				i.setError(err)
-				return nil, err
-			}
+			// convert from protobuf timestamp to a RFC 3339 time string
+			val = ptypes.TimestampString(timestamp)
 		} else {
 			// get the first field descriptor and value (we only expect column message to contain a single field
 			column.ProtoReflect().Range(func(descriptor protoreflect.FieldDescriptor, v protoreflect.Value) bool {

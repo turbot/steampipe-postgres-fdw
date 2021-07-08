@@ -140,7 +140,7 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 
 	// if this is an aggregate connection, get the name of the first child connection
 	// - we will use this to retrieve the schema
-	if h.IsAggregateConnection(connectionName) {
+	if h.IsAggregatorConnection(connectionName) {
 		connectionName = h.GetAggregateConnectionChild(connectionName)
 
 	}
@@ -160,7 +160,7 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
 	// we do NOT set connection config for aggregate connections
-	if h.IsAggregateConnection(connectionName) {
+	if h.IsAggregatorConnection(connectionName) {
 		return nil
 	}
 	c, err := h.connections.get(pluginFQN, connectionName)
@@ -186,7 +186,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
-	if h.IsAggregateConnection(connectionName) {
+	if h.IsAggregatorConnection(connectionName) {
 		connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
 		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
 
@@ -312,7 +312,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	log.Printf("[TRACE] hub.GetPathKeys for connection '%s`, table `%s`", connectionName, table)
 
 	// if this is an aggregate connection, get the first child connection
-	if h.IsAggregateConnection(connectionName) {
+	if h.IsAggregatorConnection(connectionName) {
 		connectionName = h.GetAggregateConnectionChild(connectionName)
 		log.Printf("[TRACE] connection is an aggregate - using child connection: %s", connectionName)
 	}
@@ -477,16 +477,16 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 	return time.Duration(*connectionOptions.CacheTTL) * time.Second
 }
 
-// IsAggregateConnection returns  whether the connection with the given name is of type "aggregate"
-func (h *Hub) IsAggregateConnection(connectionName string) bool {
+// IsAggregatorConnection returns  whether the connection with the given name is of type "aggregate"
+func (h *Hub) IsAggregatorConnection(connectionName string) bool {
 	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
-	return ok && connectionConfig.Type == modconfig.ConnectionTypeAggregate
+	return ok && connectionConfig.Type == modconfig.ConnectionTypeAggregator
 }
 
 // GetAggregateConnectionChild returns the name of first child connection of the aggregate connection with the given name
 func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
-	if !h.IsAggregateConnection(connectionName) {
-		panic(fmt.Sprintf("GetAggregateConnectionChild called for connecitron %s which is not an aggregate", connectionName))
+	if !h.IsAggregatorConnection(connectionName) {
+		panic(fmt.Sprintf("GetAggregateConnectionChild called for connection %s which is not an aggregate", connectionName))
 	}
 	aggregateConnection := h.steampipeConfig.Connections[connectionName]
 	// get first key from the Connections map

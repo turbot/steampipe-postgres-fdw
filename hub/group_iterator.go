@@ -78,9 +78,7 @@ func (i *groupIterator) Error() error {
 
 // Next implements Iterator
 func (i *groupIterator) Next() (map[string]interface{}, error) {
-	log.Printf("[WARN] Next() before \trow := <-i.rowChan\n")
 	row := <-i.rowChan
-	log.Printf("[WARN] Next() after \trow := <-i.rowChan\n")
 	if len(row) == 0 {
 		return nil, i.aggregateIteratorErrors()
 	}
@@ -91,7 +89,7 @@ func (i *groupIterator) Next() (map[string]interface{}, error) {
 func (i *groupIterator) start() {
 	// start a goroutine for each iterator
 	for _, child := range i.Iterators {
-		log.Printf("[WARN] stream results from connection %s", child.ConnectionName())
+		log.Printf("[TRACE] stream results from connection %s", child.ConnectionName())
 		// increment th running count
 		i.iteratorsRunning++
 		go i.streamIteratorResults(child)
@@ -100,7 +98,7 @@ func (i *groupIterator) start() {
 }
 
 func (i *groupIterator) streamIteratorResults(child Iterator) {
-	log.Printf("[WARN] streamIteratorResults connection %s", child.ConnectionName())
+	log.Printf("[TRACE] streamIteratorResults connection %s", child.ConnectionName())
 	for {
 		// call next - ignore error ass the iterator state will store it
 		row, _ := child.Next()

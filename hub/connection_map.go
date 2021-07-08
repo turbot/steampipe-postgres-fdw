@@ -46,7 +46,7 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 	defer f.connectionLock.Unlock()
 	// if this is an aggregate connection, return error
 	// (we must iterate through the child connections explicitly)
-	if f.hub.IsAggregateConnection(connectionName) {
+	if f.hub.IsAggregatorConnection(connectionName) {
 		debug.PrintStack()
 		return nil, fmt.Errorf("the connectionFactory cannot return or create a connectionPlugin for an aggregate connection")
 	}

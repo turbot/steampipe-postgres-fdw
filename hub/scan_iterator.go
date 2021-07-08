@@ -263,7 +263,7 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 func (i *scanIterator) writeToCache() {
 	log.Printf("[TRACE] writeToCache %s", i.ConnectionName())
 
-	if i.cacheEnabled {
+	if !i.cacheEnabled {
 		log.Printf("[TRACE] caching disabled - returning")
 		// nothing to do
 		return
@@ -276,8 +276,6 @@ func (i *scanIterator) writeToCache() {
 	} else {
 		log.Printf("[WARN] failed to add %d rows to cache", len(i.cachedRows.Rows))
 	}
-
-	log.Printf("[WARN] writeToCache returning")
 }
 
 // if there is an error other than EOF, save error and set state to QueryStatusError

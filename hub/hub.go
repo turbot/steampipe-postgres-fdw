@@ -333,10 +333,10 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	// NOTE: the schema data has changed in SDK version 1.3 - we must handle plugins using legacy sdk explicitly
 	// check for legacxy sdk versions
 	if schema.ListCallKeyColumns != nil {
-		log.Printf("[WARN] LEGACY SCHEMA")
+		log.Printf("[TRACE] schema response include ListCallKeyColumns, it is using legacy protobuff interface ")
 		pathKeys = types.LegacyKeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns, allColumns)
-	} else {
-		log.Printf("[WARN]  NEW SCHEMA")
+	} else if schema.ListCallKeyColumnList != nil {
+		log.Printf("[TRACE] schema response include ListCallKeyColumnList, it is using the updated protobuff interface ")
 		// generate path keys if there are required list key columns
 		// this increases the chances that Postgres will generate a plan which provides the quals when querying the table
 		pathKeys = types.KeyColumnsToPathKeys(schema.ListCallKeyColumnList, allColumns)

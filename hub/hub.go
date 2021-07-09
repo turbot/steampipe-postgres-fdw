@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe/steampipeconfig/modconfig"
-
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
@@ -18,6 +16,7 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
 	"github.com/turbot/steampipe/steampipeconfig"
+	"github.com/turbot/steampipe/steampipeconfig/modconfig"
 )
 
 const (
@@ -120,6 +119,7 @@ func (h *Hub) Close() {
 
 // Abort shuts down currently running queries
 func (h *Hub) Abort() {
+	log.Printf("[Trace] Hub Abort")
 	// for all running iterators
 	for _, iterator := range h.runningIterators {
 		// close the iterator, telling it NOT to cache its results

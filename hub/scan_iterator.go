@@ -80,6 +80,7 @@ func (i *scanIterator) Error() error {
 // Next implements Iterator
 // return the next row. Nil row means there are no more rows to scan.
 func (i *scanIterator) Next() (map[string]interface{}, error) {
+	log.Printf("[TRACE] scanIterator Next")
 	// check the iterator state - has an error occurred
 	if i.status == QueryStatusError {
 		return nil, i.err
@@ -226,6 +227,7 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 		rowResult, err := i.pluginRowStream.Recv()
 
 		if err != nil {
+			log.Printf("[WARN] scanIterator readPluginResult received an error %v", err)
 			errChan <- err
 		} else {
 			rcvChan <- rowResult

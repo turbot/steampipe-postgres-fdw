@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
@@ -224,6 +225,11 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 
 	// put the stream receive code into a goroutine to ensure cancellation is possible in case of a plugin hang
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				errChan <- helpers.ToError(r)
+			}
+		}()
 		rowResult, err := i.pluginRowStream.Recv()
 
 		if err != nil {

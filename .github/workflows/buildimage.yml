@@ -33,6 +33,7 @@ jobs:
 
     - name: make
       run: |-
+        go version
         export PATH="/usr/local/opt/postgresql@12/bin:$PATH"
         export LDFLAGS="-L/usr/local/opt/postgresql@12/lib"
         export CPPFLAGS="-I/usr/local/opt/postgresql@12/include"

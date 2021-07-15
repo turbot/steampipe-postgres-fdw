@@ -102,7 +102,6 @@ func (i *groupIterator) streamIteratorResults(child Iterator) {
 	for {
 		// call next - ignore error ass the iterator state will store it
 		row, _ := child.Next()
-		log.Printf("[WARN] streamIteratorResults connection %s got row", child.ConnectionName())
 		// if no row was returned, we are done
 		if len(row) == 0 {
 			i.rowLock.Lock()

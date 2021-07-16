@@ -238,9 +238,6 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 		rowResult, err := i.pluginRowStream.Recv()
 
 		if err != nil {
-			if err.Error() != "EOF" {
-				log.Printf("[WARN] scanIterator readPluginResult received an error %v", err)
-			}
 			errChan <- err
 		} else {
 			rcvChan <- rowResult

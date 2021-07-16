@@ -179,10 +179,10 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 // Scan starts a table scan and returns an iterator
 func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
-
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
 	table := opts["table"]
+	log.Printf("[TRACE] Hub Scan() table '%s'", table)
 
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
@@ -458,7 +458,7 @@ func (h *Hub) cacheEnabled(connectionName string) bool {
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := h.steampipeConfig.GetConnectionOptions(connectionName)
 
-	// the config loading code shouls ALWAYS populate the connection options, using defaults if needed
+	// the config loading code should ALWAYS populate the connection options, using defaults if needed
 	if connectionOptions.Cache == nil {
 		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
 	}

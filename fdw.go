@@ -264,18 +264,17 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
-
 	s := GetExecState(node.fdw_state)
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {
-		log.Printf("[TRACE] goFdwEndForeignScan")
+		log.Printf("[TRACE] goFdwEndForeignScan, iterator: %s", s.Iter.ConnectionName())
 		// is the iterator still running? If so it means postgres is stopping a scan before all rows have been read
 		if s.Iter.Status() == hub.QueryStatusStarted {
 			// if we have identified a limit from the query (i.e. it is an ungrouped, unordered query from a single table)
 			// then we can cache the result, using the limit in teh
 			// but if we have NOT extracted a limit, w e cannot cache the results as we are not certain they are complete
 			writeToCache := s.State.limit != -1
-			log.Printf("[TRACE] ending scan before iterator complete - limit: %v, writeToCache: %v", s.State.limit, writeToCache)
+			log.Printf("[TRACE] ending scan before iterator complete - limit: %v, writeToCache: %v, iterator: %p", s.State.limit, writeToCache, s.Iter)
 			s.Iter.Close(writeToCache)
 
 		}

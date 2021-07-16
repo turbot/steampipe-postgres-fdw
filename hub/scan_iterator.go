@@ -238,7 +238,9 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 		rowResult, err := i.pluginRowStream.Recv()
 
 		if err != nil {
-			log.Printf("[WARN] scanIterator readPluginResult received an error %v", err)
+			if err.Error() != "EOF" {
+				log.Printf("[WARN] scanIterator readPluginResult received an error %v", err)
+			}
 			errChan <- err
 		} else {
 			rcvChan <- rowResult
@@ -284,7 +286,7 @@ func (i *scanIterator) writeToCache() {
 
 	res := i.hub.queryCache.Set(i.connection, i.table, i.qualMap, i.columns, i.limit, i.cachedRows, i.cacheTTL)
 
-	if res {
+	if res && len(i.cachedRows.Rows) > 0 {
 		log.Printf("[INFO] adding %d rows to cache", len(i.cachedRows.Rows))
 	} else {
 		log.Printf("[WARN] failed to add %d rows to cache", len(i.cachedRows.Rows))

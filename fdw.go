@@ -258,6 +258,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 //export goFdwReScanForeignScan
 func goFdwReScanForeignScan(node *C.ForeignScanState) {
+	log.Printf("[TRACE] goFdwReScanForeignScan")
 	// restart the scan
 	goFdwBeginForeignScan(node, 0)
 }

@@ -262,7 +262,7 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 		if err.Error() == "EOF" {
 			log.Printf("[TRACE] readPluginResult EOF error received - stop reading (%p)", i)
 		} else {
-			log.Printf("[WARN] stream receive error %v (%p)\n", err, i)
+			log.Printf("[TRACE] stream receive error %v (%p)\n", err, i)
 			i.setError(err)
 		}
 		// stop reading

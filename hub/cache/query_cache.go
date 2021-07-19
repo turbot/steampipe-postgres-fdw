@@ -35,7 +35,14 @@ func NewQueryCache() (*QueryCache, error) {
 	return cache, nil
 }
 
-func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryResult, ttl time.Duration) bool {
+func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, limit int64, result *QueryResult, ttl time.Duration) bool {
+
+	// get columns from first row of data
+	var columns []string
+	for col := range result.Rows[0] {
+		columns = append(columns, col)
+	}
+	sort.Strings(columns)
 	log.Printf("[TRACE] QueryCache Set() - connectionName: %s, table: %s, columns: %s\n", connection.ConnectionName, table, columns)
 
 	// write to the result cache

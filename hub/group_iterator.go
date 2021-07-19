@@ -102,6 +102,7 @@ func (i *groupIterator) start() {
 }
 
 func (i *groupIterator) waitForChildren() {
+	// when ALL children are complete, stream a nil row
 	i.childrenRunningWg.Wait()
 	log.Printf("[TRACE] groupIterator (%p) waitForChildren() - children complete, sending nil  row", i)
 	i.rowChan <- nil
@@ -110,7 +111,7 @@ func (i *groupIterator) waitForChildren() {
 func (i *groupIterator) streamIteratorResults(child Iterator) {
 	log.Printf("[TRACE] streamIteratorResults connection %s", child.ConnectionName())
 	for {
-		// call next - ignore error ass the iterator state will store it
+		// call next - ignore error as the iterator state will store it
 		row, _ := child.Next()
 		// if no row was returned, we are done
 		if len(row) == 0 {

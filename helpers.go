@@ -17,6 +17,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/turbot/go-kit/helpers"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	typeHelpers "github.com/turbot/go-kit/types"
@@ -129,7 +131,12 @@ func buildAttr(attr *C.FormData_pg_attribute) (out types.Attr) {
 }
 
 // convert a value from C StringInfo buffer into a C Datum
-func ValToDatum(val interface{}, cinfo *C.ConversionInfo, buffer C.StringInfo) (C.Datum, error) {
+func ValToDatum(val interface{}, cinfo *C.ConversionInfo, buffer C.StringInfo) (res C.Datum, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = helpers.ToError(r)
+		}
+	}()
 	// init an empty return result
 	datum := C.fdw_cStringGetDatum(C.CString(""))
 

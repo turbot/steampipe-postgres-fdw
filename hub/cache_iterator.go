@@ -1,6 +1,8 @@
 package hub
 
 import (
+	"log"
+
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 )
 
@@ -40,9 +42,12 @@ func (i *cacheIterator) Next() (map[string]interface{}, error) {
 	}
 
 	if idx := i.index; idx < len(i.rows) {
+		log.Printf("[TRACE] cacheIterator Next() return row (%p)", i)
+
 		i.index++
 		return i.rows[idx], nil
 	}
+	log.Printf("[TRACE] cacheIterator Next() complete (%p)", i)
 	i.status = QueryStatusComplete
 	return nil, nil
 }
@@ -50,6 +55,7 @@ func (i *cacheIterator) Next() (map[string]interface{}, error) {
 // Close implements Iterator
 // clear the rows and the index
 func (i *cacheIterator) Close(bool) {
+	log.Printf("[TRACE] cacheIterator Close() (%p)", i)
 	i.index = 0
 	i.rows = nil
 	i.status = QueryStatusReady
@@ -61,6 +67,5 @@ func (i *cacheIterator) CanIterate() bool {
 		return false
 	default:
 		return true
-
 	}
 }

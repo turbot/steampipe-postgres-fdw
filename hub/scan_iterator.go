@@ -262,7 +262,7 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 		if err.Error() == "EOF" {
 			log.Printf("[TRACE] readPluginResult EOF error received - stop reading (%p)", i)
 		} else {
-			log.Printf("[TRACE] stream receive error %v (%p)\n", err, i)
+			log.Printf("[WARN] stream receive error %v (%p)\n", err, i)
 			i.setError(err)
 		}
 		// stop reading
@@ -283,8 +283,10 @@ func (i *scanIterator) writeToCache() {
 
 	res := i.hub.queryCache.Set(i.connection, i.table, i.qualMap, i.columns, i.limit, i.cachedRows, i.cacheTTL)
 
-	if res && len(i.cachedRows.Rows) > 0 {
-		log.Printf("[INFO] adding %d rows to cache", len(i.cachedRows.Rows))
+	if res {
+		if len(i.cachedRows.Rows) > 0 {
+			log.Printf("[INFO] adding %d rows to cache", len(i.cachedRows.Rows))
+		}
 	} else {
 		log.Printf("[WARN] failed to add %d rows to cache", len(i.cachedRows.Rows))
 	}

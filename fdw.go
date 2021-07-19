@@ -209,6 +209,10 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
+
+	log.Printf("[TRACE] goFdwIterateForeignScan (%p)", s.Iter)
+	defer log.Printf("[TRACE] goFdwIterateForeignScan end (%p)", s.Iter)
+
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
 
@@ -219,9 +223,10 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		FdwError(err)
 		return slot
 	}
+	log.Printf("[TRACE] goFdwIterateForeignScan iterator returned row (%p)", s.Iter)
 
 	if len(row) == 0 {
-		log.Printf("[TRACE] goFdwIterateForeignScan empty row returned")
+		log.Printf("[TRACE] goFdwIterateForeignScan RETURNED EMPTY ROW - this scan complete (%p)", s.Iter)
 
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms
@@ -231,6 +236,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	isNull := make([]C.bool, len(s.Rel.Attr.Attrs))
 	data := make([]C.Datum, len(s.Rel.Attr.Attrs))
+
 	for i, attr := range s.Rel.Attr.Attrs {
 		column := attr.Name
 
@@ -243,6 +249,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		ci := C.getConversionInfo(s.State.cinfos, C.int(i))
 		// convert value into a datum
 		if datum, err := ValToDatum(val, ci, s.State.buffer); err != nil {
+			log.Printf("[WARN] goFdwIterateForeignScan ValToDatum error %v (%p)", err, s.Iter)
 			FdwError(err)
 			return slot
 		} else {
@@ -253,6 +260,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
 	logging.LogTime("[fdw] IterateForeignScan end")
+
 	return slot
 }
 
@@ -268,7 +276,7 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	s := GetExecState(node.fdw_state)
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {
-		log.Printf("[TRACE] goFdwEndForeignScan, iterator: %s", s.Iter.ConnectionName())
+		log.Printf("[TRACE] goFdwEndForeignScan, iterator: %p", s.Iter)
 		// is the iterator still running? If so it means postgres is stopping a scan before all rows have been read
 		if s.Iter.Status() == hub.QueryStatusStarted {
 			// if we have identified a limit from the query (i.e. it is an ungrouped, unordered query from a single table)

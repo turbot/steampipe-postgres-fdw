@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -189,9 +188,11 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	if h.IsAggregatorConnection(connectionName) {
 		connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
 		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
+		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
 
 	} else {
 		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+		log.Printf("[TRACE] Hub Scan() created iterator (%p)", iterator)
 	}
 
 	if err != nil {
@@ -410,7 +411,6 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 	connection, ok := h.steampipeConfig.Connections[connectionName]
 	if !ok {
 		log.Printf("[WARN] no config found for connection %s", connectionName)
-		debug.PrintStack()
 		return nil, fmt.Errorf("no config found for connection %s", connectionName)
 	}
 

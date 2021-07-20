@@ -17,10 +17,19 @@ import (
 
 type QueryCache struct {
 	cache *ristretto.Cache
+	Stats *CacheStats
+}
+
+type CacheStats struct {
+	// keep count of hits and misses
+	Hits   int
+	Misses int
 }
 
 func NewQueryCache() (*QueryCache, error) {
-	cache := &QueryCache{}
+	cache := &QueryCache{
+		Stats: &CacheStats{},
+	}
 
 	config := &ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
@@ -74,7 +83,8 @@ func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table str
 	log.Printf("[TRACE] QueryCache Get() - index bucket key: %s\n", indexBucketKey)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 	if !ok {
-		log.Printf("[INFO] CACHE MISS - no index\n")
+		c.Stats.Misses++
+		log.Printf("[INFO] CACHE MISS - no index")
 		return nil
 	}
 
@@ -85,6 +95,7 @@ func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table str
 		if limit != -1 {
 			limitString = fmt.Sprintf("%d", limit)
 		}
+		c.Stats.Misses++
 		log.Printf("[INFO] CACHE MISS - no cached data covers columns %v, limit %s\n", columns, limitString)
 		return nil
 	}
@@ -92,10 +103,12 @@ func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table str
 	// so we have a cache index, retrieve the item
 	result, ok := c.getResult(indexItem.Key)
 	if !ok {
-		log.Printf("[INFO] CACHE MISS - no item retrieved for cache key %s\n", indexItem.Key)
+		c.Stats.Misses++
+		log.Printf("[INFO] CACHE MISS - no item retrieved for cache key %s", indexItem.Key)
 		return nil
 	}
 
+	c.Stats.Hits++
 	log.Printf("[INFO] CACHE HIT")
 
 	return result

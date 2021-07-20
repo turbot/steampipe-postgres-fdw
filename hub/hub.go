@@ -114,6 +114,8 @@ func (h *Hub) Close() {
 	for _, connection := range h.connections.connectionPlugins {
 		connection.Plugin.Client.Kill()
 	}
+	log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
+	log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
 }
 
 // Abort shuts down currently running queries

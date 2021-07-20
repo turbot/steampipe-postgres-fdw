@@ -35,12 +35,14 @@ func NewQueryCache() (*QueryCache, error) {
 	return cache, nil
 }
 
-func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, limit int64, result *QueryResult, ttl time.Duration) bool {
+func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryResult, ttl time.Duration) bool {
 
-	// get columns from first row of data
-	var columns []string
-	for col := range result.Rows[0] {
-		columns = append(columns, col)
+	// if any data was returned, extract the columns from the first row
+	if len(result.Rows) > 0 {
+
+		for col := range result.Rows[0] {
+			columns = append(columns, col)
+		}
 	}
 	sort.Strings(columns)
 	log.Printf("[TRACE] QueryCache Set() - connectionName: %s, table: %s, columns: %s\n", connection.ConnectionName, table, columns)
@@ -101,7 +103,7 @@ func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table str
 	return result
 }
 
-// GetIndex :: retrieve an index bucket for a given cache key
+// GetIndex retrieves an index bucket for a given cache key
 func (c *QueryCache) getIndex(indexKey string) (*IndexBucket, bool) {
 	result, ok := c.cache.Get(indexKey)
 	if !ok {
@@ -110,7 +112,7 @@ func (c *QueryCache) getIndex(indexKey string) (*IndexBucket, bool) {
 	return result.(*IndexBucket), true
 }
 
-// GetResult :: retrieve a query result for a given cache key
+// GetResult retrieves a query result for a given cache key
 func (c *QueryCache) getResult(resultKey string) (*QueryResult, bool) {
 	result, ok := c.cache.Get(resultKey)
 	if !ok {

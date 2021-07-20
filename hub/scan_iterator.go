@@ -281,7 +281,7 @@ func (i *scanIterator) writeToCache() {
 		return
 	}
 
-	res := i.hub.queryCache.Set(i.connection, i.table, i.qualMap, i.limit, i.cachedRows, i.cacheTTL)
+	res := i.hub.queryCache.Set(i.connection, i.table, i.qualMap, i.columns, i.limit, i.cachedRows, i.cacheTTL)
 
 	if res {
 		if len(i.cachedRows.Rows) > 0 {

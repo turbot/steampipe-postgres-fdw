@@ -36,10 +36,8 @@ func NewQueryCache() (*QueryCache, error) {
 }
 
 func (c *QueryCache) Set(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryResult, ttl time.Duration) bool {
-
 	// if any data was returned, extract the columns from the first row
 	if len(result.Rows) > 0 {
-
 		for col := range result.Rows[0] {
 			columns = append(columns, col)
 		}

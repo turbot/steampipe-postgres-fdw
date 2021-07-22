@@ -1,8 +1,27 @@
-## v0.0.41 [2021-05-29]
+## v0.1.0 [2021-07-22]
+* Add support for aggregator connections. ([#78](https://github.com/turbot/steampipe-postgres-fdw/issues/78))
+* Construct cache key based on the columns returned by the plugin, not the columns requested. ([#82](https://github.com/turbot/steampipe-postgres-fdw/issues/82))
+
+## v0.0.43 [2021-07-08]
+_Bug fixes_
+* Fix cache enabled logic reversed. ([#77](https://github.com/turbot/steampipe-postgres-fdw/issues/77))
+
+## v0.0.42 [2021-07-07]
+_What's new?_
+* Add support for plugin sdk version 1.3. ([#70](https://github.com/turbot/steampipe-postgres-fdw/issues/70))
+* Deparse limit from the query and set in QueryContext. ([#9](https://github.com/turbot/steampipe-postgres-fdw/issues/9))
+* Query cache must take limit into account. Do not push down limit if the query refers to more than one table, or uses distinct clause.([#66](https://github.com/turbot/steampipe-postgres-fdw/issues/66))
+
+_Bug fixes_
+* Update extractRestrictions to handle BoolExpr so queries like `where column1 is false` work. ([#23](https://github.com/turbot/steampipe-postgres-fdw/issues/23))
+* Fix plugin errors (e.g. missing key column qual) causing a freeze. ([#72](https://github.com/turbot/steampipe-postgres-fdw/issues/72))
+* Update Timestamp column value conversion code to use RFC 3339 string value directly. ([#76](https://github.com/turbot/steampipe-postgres-fdw/issues/76))
+
+## v0.0.41 [2021-06-21]
 _Bug fixes_
 *  For plugins using sdk > 0.3.0, `get` quals were not being taken into account when building cache key. ([#60](https://github.com/turbot/steampipe-postgres-fdw/issues/60))
 
-## v0.0.40 [2021-05-28]
+## v0.0.40 [2021-06-17]
 _What's new?_
 * For plugins using sdk > 0.3.0, only use key columns quals when constructing cache key. ([#58](https://github.com/turbot/steampipe-postgres-fdw/issues/58))
 

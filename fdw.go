@@ -95,6 +95,9 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = getNamespace(rel)
 
+	if opts["connection"] == hub.CommandSchema {
+		return nil
+	}
 	// ask the hub for path keys - it will use the table schema to create path keys for all key columns
 	pathKeys, err := pluginHub.GetPathKeys(opts)
 	if err != nil {
@@ -179,6 +182,13 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		FdwError(err)
 	}
 
+	if rel.Namespace == hub.CommandSchema {
+		if err := pluginHub.HandleCommand(columns); err != nil {
+			FdwError(err)
+		}
+		return
+	}
+
 	iter, err := pluginHub.Scan(columns, quals, int64(execState.limit), opts)
 	if err != nil {
 		FdwError(err)
@@ -208,13 +218,19 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}()
 	logging.LogTime("[fdw] IterateForeignScan start")
 
+	slot := node.ss.ss_ScanTupleSlot
+	C.ExecClearTuple(slot)
+
+	rel := BuildRelation(node.ss.ss_currentRelation)
+
+	if rel.Namespace == hub.CommandSchema {
+		return slot
+	}
+
 	s := GetExecState(node.fdw_state)
 
 	log.Printf("[TRACE] goFdwIterateForeignScan (%p)", s.Iter)
 	defer log.Printf("[TRACE] goFdwIterateForeignScan end (%p)", s.Iter)
-
-	slot := node.ss.ss_ScanTupleSlot
-	C.ExecClearTuple(slot)
 
 	// call the iterator
 	// row is a map of column name to value (as an interface)
@@ -321,6 +337,12 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 
 	remoteSchema := C.GoString(stmt.remote_schema)
 	localSchema := C.GoString(stmt.local_schema)
+
+	if remoteSchema == hub.CommandSchema {
+		commandSchema := pluginHub.GetCommandSchema()
+		sql := SchemaToSql(commandSchema, stmt, serverOid)
+		return sql
+	}
 
 	// reload connection config - the ImportSchema command may be called because the config has been changed
 	connectionConfigChanged, err := pluginHub.LoadConnectionConfig()

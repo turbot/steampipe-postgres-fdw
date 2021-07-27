@@ -5,9 +5,11 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
@@ -20,6 +22,12 @@ import (
 
 const (
 	rowBufferSize = 100
+
+	// todo move these to steampipe
+	CommandSchema     = "steampipe_command"
+	commandCacheClear = "cache_clear"
+	commandCacheOn    = "cache_on"
+	commandCacheOff   = "cache_off"
 )
 
 // Hub :: structure representing plugin hub
@@ -28,6 +36,9 @@ type Hub struct {
 	steampipeConfig  *steampipeconfig.SteampipeConfig
 	queryCache       *cache.QueryCache
 	runningIterators []Iterator
+
+	// if the cache is enabled/disabled by a metacommand, this will be non null
+	overrideCacheEnabled *bool
 }
 
 // global hub instance
@@ -143,7 +154,6 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 	// - we will use this to retrieve the schema
 	if h.IsAggregatorConnection(connectionName) {
 		connectionName = h.GetAggregateConnectionChild(connectionName)
-
 	}
 
 	c, err := h.connections.get(pluginFQN, connectionName)
@@ -183,7 +193,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
 	table := opts["table"]
-	log.Printf("[TRACE] Hub Scan() table '%s'", table)
+	log.Printf("[WARN] Hub Scan() table '%s'", table)
 
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
@@ -312,7 +322,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	connectionName := opts["connection"]
 	table := opts["table"]
 
-	log.Printf("[TRACE] hub.GetPathKeys for connection '%s`, table `%s`", connectionName, table)
+	log.Printf("[WARN] hub.GetPathKeys for connection '%s`, table `%s`", connectionName, table)
 
 	// if this is an aggregate connection, get the first child connection
 	if h.IsAggregatorConnection(connectionName) {
@@ -394,10 +404,11 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 }
 
 func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
-	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
+	log.Printf("[WARN] hub.getConnectionPlugin for connection '%s`", connectionName)
 	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
 	if !ok {
-		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
+
+		return nil, fmt.Errorf("_____no connection config loaded for connection '%s'", connectionName)
 	}
 	pluginFQN := connectionConfig.Plugin
 
@@ -457,6 +468,11 @@ func (h *Hub) createCache() error {
 }
 
 func (h *Hub) cacheEnabled(connectionName string) bool {
+	if h.overrideCacheEnabled != nil {
+		res := *h.overrideCacheEnabled
+		log.Printf("[WARN] cacheEnabled  overrideCacheEnabled %v", *h.overrideCacheEnabled)
+		return res
+	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := h.steampipeConfig.GetConnectionOptions(connectionName)
 
@@ -497,4 +513,49 @@ func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
 		break
 	}
 	return name
+}
+
+func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
+	return map[string]*proto.TableSchema{
+		"commands": {
+			Columns: []*proto.ColumnDefinition{
+				{Name: "cache_clear", Type: proto.ColumnType_BOOL},
+				{Name: "cache_on", Type: proto.ColumnType_BOOL},
+				{Name: "cache_off", Type: proto.ColumnType_BOOL},
+			},
+		},
+	}
+}
+
+func (h *Hub) HandleCommand(columns []string) error {
+	if err := h.ValidateCommand(columns); err != nil {
+		return err
+	}
+	cmd := columns[0]
+	log.Printf("[WARN] HandleCommand %s", cmd)
+
+	switch cmd {
+	case commandCacheClear:
+		h.queryCache.Clear()
+	case commandCacheOn:
+		enabled := true
+		h.overrideCacheEnabled = &enabled
+	case commandCacheOff:
+		enabled := false
+		h.overrideCacheEnabled = &enabled
+		log.Printf("[WARN] overrideCacheEnabled %v", *h.overrideCacheEnabled)
+
+	}
+	return nil
+}
+
+func (h *Hub) ValidateCommand(columns []string) error {
+	validCommands := []string{commandCacheClear, commandCacheOn, commandCacheOff}
+	if len(columns) != 1 {
+		return fmt.Errorf("HandleCommand expects a single column, which is the command. Supported commands are %s", strings.Join(validCommands, ","))
+	}
+	if !helpers.StringSliceContains(validCommands, columns[0]) {
+		return fmt.Errorf("invalid command '%s' - supported commands are %s", columns[0], strings.Join(validCommands, ","))
+	}
+	return nil
 }

@@ -114,6 +114,10 @@ func (c *QueryCache) Get(connection *steampipeconfig.ConnectionPlugin, table str
 	return result
 }
 
+func (c *QueryCache) Clear() {
+	c.cache.Clear()
+}
+
 // GetIndex retrieves an index bucket for a given cache key
 func (c *QueryCache) getIndex(indexKey string) (*IndexBucket, bool) {
 	result, ok := c.cache.Get(indexKey)

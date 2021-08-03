@@ -83,12 +83,10 @@ Datum fdw_handler(PG_FUNCTION_ARGS) {
   fdw_routine->ReScanForeignScan = goFdwReScanForeignScan;
   fdw_routine->EndForeignScan = goFdwEndForeignScan;
   fdw_routine->ImportForeignSchema = goFdwImportForeignSchema;
-//  fdw_routine->ExecForeignUpdate = goFdwExecForeignUpdate;
   fdw_routine->ExecForeignInsert = goFdwExecForeignInsert;
 
 PG_RETURN_POINTER(fdw_routine);
 }
-
 
 // TODO - Use this to validate the arguments passed to the FDW
 // https://github.com/laurenz/oracle_fdw/blob/9d7b5c331b0c8851c71f410f77b41c1a83c89ece/oracle_fdw.c#L420

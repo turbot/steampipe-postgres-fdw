@@ -22,15 +22,9 @@ import (
 
 const (
 	rowBufferSize = 100
-
-	// todo move these to steampipe
-	CommandSchema     = "steampipe_command"
-	commandCacheClear = "cache_clear"
-	commandCacheOn    = "cache_on"
-	commandCacheOff   = "cache_off"
 )
 
-// Hub :: structure representing plugin hub
+// Hub is a structure representing plugin hub
 type Hub struct {
 	connections      *connectionFactory
 	steampipeConfig  *steampipeconfig.SteampipeConfig
@@ -193,7 +187,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
 	table := opts["table"]
-	log.Printf("[WARN] Hub Scan() table '%s'", table)
+	log.Printf("[TRACE] Hub Scan() table '%s'", table)
 
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
@@ -322,7 +316,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	connectionName := opts["connection"]
 	table := opts["table"]
 
-	log.Printf("[WARN] hub.GetPathKeys for connection '%s`, table `%s`", connectionName, table)
+	log.Printf("[TRACE] hub.GetPathKeys for connection '%s`, table `%s`", connectionName, table)
 
 	// if this is an aggregate connection, get the first child connection
 	if h.IsAggregatorConnection(connectionName) {
@@ -404,11 +398,10 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 }
 
 func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
-	log.Printf("[WARN] hub.getConnectionPlugin for connection '%s`", connectionName)
+	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
 	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
 	if !ok {
-
-		return nil, fmt.Errorf("_____no connection config loaded for connection '%s'", connectionName)
+		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
 	}
 	pluginFQN := connectionConfig.Plugin
 
@@ -470,7 +463,7 @@ func (h *Hub) createCache() error {
 func (h *Hub) cacheEnabled(connectionName string) bool {
 	if h.overrideCacheEnabled != nil {
 		res := *h.overrideCacheEnabled
-		log.Printf("[WARN] cacheEnabled  overrideCacheEnabled %v", *h.overrideCacheEnabled)
+		log.Printf("[TRACE] cacheEnabled  overrideCacheEnabled %v", *h.overrideCacheEnabled)
 		return res
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
@@ -517,11 +510,9 @@ func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
 
 func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
 	return map[string]*proto.TableSchema{
-		"commands": {
+		constants.CacheCommandTable: {
 			Columns: []*proto.ColumnDefinition{
-				{Name: "cache_clear", Type: proto.ColumnType_BOOL},
-				{Name: "cache_on", Type: proto.ColumnType_BOOL},
-				{Name: "cache_off", Type: proto.ColumnType_BOOL},
+				{Name: constants.CacheCommandOperationColumn, Type: proto.ColumnType_STRING},
 			},
 		},
 	}
@@ -532,25 +523,26 @@ func (h *Hub) HandleCommand(columns []string) error {
 		return err
 	}
 	cmd := columns[0]
-	log.Printf("[WARN] HandleCommand %s", cmd)
+	log.Printf("[TRACE] HandleCommand %s", cmd)
 
 	switch cmd {
-	case commandCacheClear:
+	case constants.CommandCacheClear:
+		log.Printf("[TRACE] commandCacheClear")
 		h.queryCache.Clear()
-	case commandCacheOn:
+	case constants.CommandCacheOn:
 		enabled := true
 		h.overrideCacheEnabled = &enabled
-	case commandCacheOff:
+		log.Printf("[TRACE] commandCacheOn, overrideCacheEnabled: %v", enabled)
+	case constants.CommandCacheOff:
 		enabled := false
 		h.overrideCacheEnabled = &enabled
-		log.Printf("[WARN] overrideCacheEnabled %v", *h.overrideCacheEnabled)
-
+		log.Printf("[TRACE] commandCacheOff, overrideCacheEnabled: %v", enabled)
 	}
 	return nil
 }
 
 func (h *Hub) ValidateCommand(columns []string) error {
-	validCommands := []string{commandCacheClear, commandCacheOn, commandCacheOff}
+	validCommands := []string{constants.CommandCacheClear, constants.CommandCacheOn, constants.CommandCacheOff}
 	if len(columns) != 1 {
 		return fmt.Errorf("HandleCommand expects a single column, which is the command. Supported commands are %s", strings.Join(validCommands, ","))
 	}

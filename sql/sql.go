@@ -5,20 +5,20 @@ import (
 	"strings"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbot/steampipe/db"
+	"github.com/turbot/steampipe/db/db_common"
 )
 
 func GetSQLForTable(table string, tableSchema *proto.TableSchema, localSchema string, serverName string) (string, error) {
 	// escape everything
-	serverName = db.PgEscapeName(serverName)
-	localSchema = db.PgEscapeName(localSchema)
-	escapedTableName := db.PgEscapeName(table)
+	serverName = db_common.PgEscapeName(serverName)
+	localSchema = db_common.PgEscapeName(localSchema)
+	escapedTableName := db_common.PgEscapeName(table)
 	// we must escape differently for the option
-	escapedTableString := db.PgEscapeString(table)
+	escapedTableString := db_common.PgEscapeString(table)
 
 	var columnsString []string
 	for i, c := range tableSchema.Columns {
-		column := db.PgEscapeName(c.Name)
+		column := db_common.PgEscapeName(c.Name)
 		t, err := sqlTypeForColumnType(c.Type)
 		if err != nil {
 			return "", err

@@ -16,6 +16,8 @@ import (
 	"log"
 	"unsafe"
 
+	"github.com/turbot/steampipe/constants"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
@@ -95,9 +97,11 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = getNamespace(rel)
 
-	if opts["connection"] == hub.CommandSchema {
+	if opts["connection"] == constants.CommandSchema {
+		FdwError(fmt.Errorf("cannot select from command schema"))
 		return nil
 	}
+
 	// ask the hub for path keys - it will use the table schema to create path keys for all key columns
 	pathKeys, err := pluginHub.GetPathKeys(opts)
 	if err != nil {
@@ -151,7 +155,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = rel.Namespace
 
-	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
+	log.Printf("[WARN] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -211,27 +215,13 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}()
 	logging.LogTime("[fdw] IterateForeignScan start")
 
-	slot := node.ss.ss_ScanTupleSlot
-	C.ExecClearTuple(slot)
-
-	rel := BuildRelation(node.ss.ss_currentRelation)
-
 	s := GetExecState(node.fdw_state)
-	if rel.Namespace == hub.CommandSchema {
-		if s.ExecuteCommand {
-			data := make([]C.Datum, 1)
-			isNull := make([]C.bool, 1)
-			data[0] = C.fdw_boolGetDatum(false)
-			C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
-			s.ExecuteCommand = false
-			node.fdw_state = SaveExecState(s)
-		}
-
-		return slot
-	}
 
 	log.Printf("[TRACE] goFdwIterateForeignScan (%p)", s.Iter)
 	defer log.Printf("[TRACE] goFdwIterateForeignScan end (%p)", s.Iter)
+
+	slot := node.ss.ss_ScanTupleSlot
+	C.ExecClearTuple(slot)
 
 	// call the iterator
 	// row is a map of column name to value (as an interface)
@@ -290,13 +280,7 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
-	rel := BuildRelation(node.ss.ss_currentRelation)
-	if rel.Namespace == hub.CommandSchema {
-		return
-	}
-
 	s := GetExecState(node.fdw_state)
-
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {
 		log.Printf("[TRACE] goFdwEndForeignScan, iterator: %p", s.Iter)
@@ -345,7 +329,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	remoteSchema := C.GoString(stmt.remote_schema)
 	localSchema := C.GoString(stmt.local_schema)
 
-	if remoteSchema == hub.CommandSchema {
+	if remoteSchema == constants.CommandSchema {
 		commandSchema := pluginHub.GetCommandSchema()
 		sql := SchemaToSql(commandSchema, stmt, serverOid)
 		return sql

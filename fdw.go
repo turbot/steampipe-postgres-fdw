@@ -16,12 +16,11 @@ import (
 	"log"
 	"unsafe"
 
-	"github.com/turbot/steampipe/constants"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe/constants"
 )
 
 var logger hclog.Logger
@@ -155,7 +154,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = rel.Namespace
 
-	log.Printf("[WARN] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
+	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -329,6 +328,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	remoteSchema := C.GoString(stmt.remote_schema)
 	localSchema := C.GoString(stmt.local_schema)
 
+	// special handling for the command schema
 	if remoteSchema == constants.CommandSchema {
 		commandSchema := pluginHub.GetCommandSchema()
 		sql := SchemaToSql(commandSchema, stmt, serverOid)

@@ -369,8 +369,50 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 
 //export goFdwExecForeignInsert
 func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, planSlot *C.TupleTableSlot) *C.TupleTableSlot {
-	log.Printf("[WARN] goFdwExecForeignUpdate %v", *rinfo)
+	// get the connection from the relation namespace
+	relid := rinfo.ri_RelationDesc.rd_id
+	rel := C.RelationIdGetRelation(relid)
+	defer C.RelationClose(rel)
+	connection := getNamespace(rel)
+	// if this is a command insert, handle it
+	if connection == constants.CommandSchema {
+		return handleCommandInsert(rinfo, slot, rel)
+	}
+
 	return nil
+}
+
+func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.Relation) *C.TupleTableSlot {
+	relid := rinfo.ri_RelationDesc.rd_id
+	opts := GetFTableOptions(types.Oid(relid))
+
+	switch opts["table"] {
+	case constants.CacheCommandTable:
+		// we know there is just a single column - operation
+		var isNull C.bool
+		datum := C.slot_getattr(slot, 1, &isNull)
+		operation := C.GoString(C.fdw_datumGetString(datum))
+		hub, err := hub.GetHub()
+		if err != nil {
+			FdwError(err)
+			return nil
+		}
+		if err := hub.HandleCacheCommand(operation); err != nil {
+			FdwError(err)
+			return nil
+		}
+	}
+
+	return nil
+
+	/*
+		here is how to fetch each attribute value:
+		tupleDesc := buildTupleDesc(rel.rd_att)
+		attributes := tupleDesc.Attrs
+		for i, a := range attributes {
+			var isNull C.bool
+			datum := C.slot_getattr(slot, C.int(i+1), &isNull)
+		}*/
 }
 
 //export goFdwShutdown

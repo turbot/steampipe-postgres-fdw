@@ -45,11 +45,16 @@ static inline Datum fdw_numericGetDatum(int64_t num) { PG_RETURN_INT64(Int64GetD
 static inline Datum fdw_floatGetDatum(double num) { PG_RETURN_FLOAT8(Float8GetDatum(num)); }
 static inline Datum fdw_pointerGetDatum(void* num) { PG_RETURN_DATUM(PointerGetDatum(num)); }
 
+
+
+
+
 static inline void fdw_saveTuple(Datum *data, bool *isnull, ScanState *state) {
   HeapTuple tuple = heap_form_tuple(state->ss_currentRelation->rd_att, data, isnull);
   ExecStoreHeapTuple(tuple, state->ss_ScanTupleSlot, false);
 }
 static inline ArrayType *fdw_datumGetArrayTypeP(Datum datum) { return ((ArrayType *) PG_DETOAST_DATUM(datum));}
+static inline char* fdw_datumGetString(Datum datum) { return text_to_cstring((text *) DatumGetPointer(datum));}
 
 
 // Helpers

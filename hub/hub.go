@@ -518,14 +518,14 @@ func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
 	}
 }
 
-func (h *Hub) HandleCommand(columns []string) error {
-	if err := h.ValidateCommand(columns); err != nil {
+func (h *Hub) HandleCacheCommand(command string) error {
+	if err := h.ValidateCacheCommand(command); err != nil {
 		return err
 	}
-	cmd := columns[0]
-	log.Printf("[TRACE] HandleCommand %s", cmd)
 
-	switch cmd {
+	log.Printf("[TRACE] HandleCacheCommand %s", command)
+
+	switch command {
 	case constants.CommandCacheClear:
 		log.Printf("[TRACE] commandCacheClear")
 		h.queryCache.Clear()
@@ -541,13 +541,11 @@ func (h *Hub) HandleCommand(columns []string) error {
 	return nil
 }
 
-func (h *Hub) ValidateCommand(columns []string) error {
+func (h *Hub) ValidateCacheCommand(command string) error {
 	validCommands := []string{constants.CommandCacheClear, constants.CommandCacheOn, constants.CommandCacheOff}
-	if len(columns) != 1 {
-		return fmt.Errorf("HandleCommand expects a single column, which is the command. Supported commands are %s", strings.Join(validCommands, ","))
-	}
-	if !helpers.StringSliceContains(validCommands, columns[0]) {
-		return fmt.Errorf("invalid command '%s' - supported commands are %s", columns[0], strings.Join(validCommands, ","))
+
+	if !helpers.StringSliceContains(validCommands, command) {
+		return fmt.Errorf("invalid command '%s' - supported commands are %s", command, strings.Join(validCommands, ","))
 	}
 	return nil
 }

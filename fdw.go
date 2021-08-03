@@ -20,6 +20,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe/constants"
 )
 
 var logger hclog.Logger
@@ -94,6 +95,11 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	defer C.RelationClose(rel)
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = getNamespace(rel)
+
+	if opts["connection"] == constants.CommandSchema {
+		FdwError(fmt.Errorf("cannot select from command schema"))
+		return nil
+	}
 
 	// ask the hub for path keys - it will use the table schema to create path keys for all key columns
 	pathKeys, err := pluginHub.GetPathKeys(opts)
@@ -322,6 +328,13 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	remoteSchema := C.GoString(stmt.remote_schema)
 	localSchema := C.GoString(stmt.local_schema)
 
+	// special handling for the command schema
+	if remoteSchema == constants.CommandSchema {
+		commandSchema := pluginHub.GetCommandSchema()
+		sql := SchemaToSql(commandSchema, stmt, serverOid)
+		return sql
+	}
+
 	// reload connection config - the ImportSchema command may be called because the config has been changed
 	connectionConfigChanged, err := pluginHub.LoadConnectionConfig()
 	if err != nil {
@@ -352,6 +365,54 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		return nil
 	}
 	return SchemaToSql(schema.Schema, stmt, serverOid)
+}
+
+//export goFdwExecForeignInsert
+func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, planSlot *C.TupleTableSlot) *C.TupleTableSlot {
+	// get the connection from the relation namespace
+	relid := rinfo.ri_RelationDesc.rd_id
+	rel := C.RelationIdGetRelation(relid)
+	defer C.RelationClose(rel)
+	connection := getNamespace(rel)
+	// if this is a command insert, handle it
+	if connection == constants.CommandSchema {
+		return handleCommandInsert(rinfo, slot, rel)
+	}
+
+	return nil
+}
+
+func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.Relation) *C.TupleTableSlot {
+	relid := rinfo.ri_RelationDesc.rd_id
+	opts := GetFTableOptions(types.Oid(relid))
+
+	switch opts["table"] {
+	case constants.CacheCommandTable:
+		// we know there is just a single column - operation
+		var isNull C.bool
+		datum := C.slot_getattr(slot, 1, &isNull)
+		operation := C.GoString(C.fdw_datumGetString(datum))
+		hub, err := hub.GetHub()
+		if err != nil {
+			FdwError(err)
+			return nil
+		}
+		if err := hub.HandleCacheCommand(operation); err != nil {
+			FdwError(err)
+			return nil
+		}
+	}
+
+	return nil
+
+	/*
+		here is how to fetch each attribute value:
+		tupleDesc := buildTupleDesc(rel.rd_att)
+		attributes := tupleDesc.Attrs
+		for i, a := range attributes {
+			var isNull C.bool
+			datum := C.slot_getattr(slot, C.int(i+1), &isNull)
+		}*/
 }
 
 //export goFdwShutdown

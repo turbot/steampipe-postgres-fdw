@@ -50,6 +50,7 @@ static inline void fdw_saveTuple(Datum *data, bool *isnull, ScanState *state) {
   ExecStoreHeapTuple(tuple, state->ss_ScanTupleSlot, false);
 }
 static inline ArrayType *fdw_datumGetArrayTypeP(Datum datum) { return ((ArrayType *) PG_DETOAST_DATUM(datum));}
+static inline char* fdw_datumGetString(Datum datum) { return text_to_cstring((text *) DatumGetPointer(datum));}
 
 
 // Helpers

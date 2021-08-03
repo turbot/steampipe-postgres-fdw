@@ -28,10 +28,11 @@ import (
 )
 
 type ExecState struct {
-	Rel   *types.Relation
-	Opts  map[string]string
-	Iter  hub.Iterator
-	State *C.FdwExecState
+	Rel            *types.Relation
+	Opts           map[string]string
+	Iter           hub.Iterator
+	State          *C.FdwExecState
+	ExecuteCommand bool
 }
 
 var (

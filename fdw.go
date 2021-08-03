@@ -182,13 +182,6 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		FdwError(err)
 	}
 
-	if rel.Namespace == hub.CommandSchema {
-		if err := pluginHub.HandleCommand(columns); err != nil {
-			FdwError(err)
-		}
-		return
-	}
-
 	iter, err := pluginHub.Scan(columns, quals, int64(execState.limit), opts)
 	if err != nil {
 		FdwError(err)
@@ -223,11 +216,19 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	rel := BuildRelation(node.ss.ss_currentRelation)
 
+	s := GetExecState(node.fdw_state)
 	if rel.Namespace == hub.CommandSchema {
+		if s.ExecuteCommand {
+			data := make([]C.Datum, 1)
+			isNull := make([]C.bool, 1)
+			data[0] = C.fdw_boolGetDatum(false)
+			C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
+			s.ExecuteCommand = false
+			node.fdw_state = SaveExecState(s)
+		}
+
 		return slot
 	}
-
-	s := GetExecState(node.fdw_state)
 
 	log.Printf("[TRACE] goFdwIterateForeignScan (%p)", s.Iter)
 	defer log.Printf("[TRACE] goFdwIterateForeignScan end (%p)", s.Iter)
@@ -289,7 +290,13 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
+	rel := BuildRelation(node.ss.ss_currentRelation)
+	if rel.Namespace == hub.CommandSchema {
+		return
+	}
+
 	s := GetExecState(node.fdw_state)
+
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {
 		log.Printf("[TRACE] goFdwEndForeignScan, iterator: %p", s.Iter)
@@ -374,6 +381,12 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		return nil
 	}
 	return SchemaToSql(schema.Schema, stmt, serverOid)
+}
+
+//export goFdwExecForeignInsert
+func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, planSlot *C.TupleTableSlot) *C.TupleTableSlot {
+	log.Printf("[WARN] goFdwExecForeignUpdate %v", *rinfo)
+	return nil
 }
 
 //export goFdwShutdown

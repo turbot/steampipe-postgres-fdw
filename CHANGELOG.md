@@ -1,4 +1,13 @@
+## v0.2.1 [2021-08-18]
+_Bug fixes_
+* Restart a plugin if it has exited unexpectedly. ([#89](https://github.com/turbot/steampipe-postgres-fdw/issues/89))
+
+## v0.2.0 [2021-08-03]
+_What's new?_
+* Support cache commands sent via SQL queries. ([#86](https://github.com/turbot/steampipe-postgres-fdw/issues/86))
+
 ## v0.1.0 [2021-07-22]
+_What's new?_
 * Add support for aggregator connections. ([#78](https://github.com/turbot/steampipe-postgres-fdw/issues/78))
 * Construct cache key based on the columns returned by the plugin, not the columns requested. ([#82](https://github.com/turbot/steampipe-postgres-fdw/issues/82))
 

@@ -216,6 +216,23 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	if err != nil {
 		return nil, err
 	}
+
+	// make sure that the plugin server is up and running
+	if connection.Plugin.Client.Exited() {
+		// no it's not. START it
+		log.Printf("[WARN] startScanForConnection:%s: plugin exited: %v\n", connectionName, err)
+		connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
+		if ok {
+			log.Printf("[WARN] startScanForConnection:%s: removeAndKill: %v\n", connectionName, err)
+			pluginFQN := connectionConfig.Plugin
+			h.connections.removeAndKill(pluginFQN, connectionName)
+			// wait for some time.
+			// TODO - is there a better way of waiting in case of a cold start?
+			time.Sleep(1 * time.Second)
+			return h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+		}
+	}
+
 	cacheEnabled := h.cacheEnabled(connectionName)
 	cacheTTL := h.cacheTTL(connectionName)
 	var cacheString = "caching DISABLED"

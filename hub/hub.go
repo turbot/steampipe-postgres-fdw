@@ -216,6 +216,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	if err != nil {
 		return nil, err
 	}
+
 	cacheEnabled := h.cacheEnabled(connectionName)
 	cacheTTL := h.cacheTTL(connectionName)
 	var cacheString = "caching DISABLED"

@@ -217,22 +217,6 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		return nil, err
 	}
 
-	// make sure that the plugin server is up and running
-	if connection.Plugin.Client.Exited() {
-		// no it's not. START it
-		log.Printf("[WARN] startScanForConnection:%s: plugin exited: %v\n", connectionName, err)
-		connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
-		if ok {
-			log.Printf("[WARN] startScanForConnection:%s: removeAndKill: %v\n", connectionName, err)
-			pluginFQN := connectionConfig.Plugin
-			h.connections.removeAndKill(pluginFQN, connectionName)
-			// wait for some time.
-			// TODO - is there a better way of waiting in case of a cold start?
-			time.Sleep(1 * time.Second)
-			return h.startScanForConnection(connectionName, table, qualMap, columns, limit)
-		}
-	}
-
 	cacheEnabled := h.cacheEnabled(connectionName)
 	cacheTTL := h.cacheTTL(connectionName)
 	var cacheString = "caching DISABLED"
@@ -414,7 +398,18 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 	return nil
 }
 
+// getConnectionPlugin returns the connectionplugin for the provided connection
+// it also makes sure that the plugin is up and running.
+// if the plugin is not running, it attempts to restart the plugin - errors if unable
 func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
+	return h.getConnectionPluginRecursive(connectionName, 0)
+}
+
+// getConnectionPluginRecursive recurses into trying to startup a connection with its plugin, upto 3 times
+func (h *Hub) getConnectionPluginRecursive(connectionName string, attempt int) (*steampipeconfig.ConnectionPlugin, error) {
+	if attempt > 3 {
+		return nil, fmt.Errorf("max attempts exceeded for plugin start")
+	}
 	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
 	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
 	if !ok {
@@ -424,7 +419,37 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 
 	// ask connection map to get or create this connection
 	c, err := h.connections.get(pluginFQN, connectionName)
-	return c, err
+
+	if err != nil {
+		return nil, err
+	}
+
+	// make sure that the plugin server is up and running
+	if c.Plugin.Client.Exited() {
+		// remove the connection from the available connections cache
+		err := h.removeConnection(connectionName)
+		if err != nil {
+			return nil, err
+		}
+		// and retry
+		return h.getConnectionPluginRecursive(connectionName, attempt+1)
+	}
+
+	return c, nil
+}
+
+func (h *Hub) removeConnection(connectionName string) error {
+	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
+	if !ok {
+		// this error should never happen
+		// by the time the code gets to this,
+		// the `steampipeConfig` structure should be completely
+		// filled up
+		return fmt.Errorf("could not find config for connection - failed to restart plugin")
+	}
+	pluginFQN := connectionConfig.Plugin
+	h.connections.removeAndKill(pluginFQN, connectionName)
+	return nil
 }
 
 // load the given plugin connection into the connection map and return the schema

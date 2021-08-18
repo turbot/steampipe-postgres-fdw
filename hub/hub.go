@@ -397,17 +397,41 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 	return nil
 }
 
+// getConnectionPlugin returns the connectionPlugin for the provided connection
+// it also makes sure that the plugin is up and running.
+// if the plugin is not running, it attempts to restart the plugin - errors if unable
 func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
 	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
+
+	// get the plugin FQN
 	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
 	if !ok {
 		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
 	}
 	pluginFQN := connectionConfig.Plugin
 
-	// ask connection map to get or create this connection
-	c, err := h.connections.get(pluginFQN, connectionName)
-	return c, err
+	// loop as we may need to retry if the plugin exists in the map but has actually exited
+	const maxAttempts = 3
+	for attempt := 1; attempt < maxAttempts; attempt++ {
+		// ask connection map to get or create this connection
+		c, err := h.connections.get(pluginFQN, connectionName)
+		if err != nil {
+			return nil, err
+		}
+
+		// make sure that the plugin is running
+		// (i.e. it has not crashed)
+		if !c.Plugin.Client.Exited() {
+			// it is running, return it
+			return c, nil
+		}
+
+		// remove connection from the connection map and kill the GRPC client
+		h.connections.removeAndKill(pluginFQN, connectionName)
+	}
+
+	// to get to here, we failed :(
+	return nil, fmt.Errorf("plugin exited and failed to restart")
 }
 
 // load the given plugin connection into the connection map and return the schema

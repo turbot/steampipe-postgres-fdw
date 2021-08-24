@@ -172,11 +172,10 @@ func valToBuffer(val interface{}, oid C.Oid, buffer C.StringInfo) (err error) {
 	var valueString string
 	// handle json explicitly
 	if oid == C.JSONBOID {
-		bytes, err := json.Marshal(val)
+		valueString, err = jsonValueString(val, valueString)
 		if err != nil {
 			return err
 		}
-		valueString = string(bytes)
 	} else {
 		valueString = typeHelpers.ToString(val)
 	}
@@ -184,6 +183,16 @@ func valToBuffer(val interface{}, oid C.Oid, buffer C.StringInfo) (err error) {
 	C.resetStringInfo(buffer)
 	C.appendBinaryStringInfo(buffer, C.CString(valueString), C.int(len(valueString)))
 	return
+}
+
+func jsonValueString(val interface{}, valueString string) (string, error) {
+	bytes, err := json.Marshal(val)
+	if err != nil {
+		return "", err
+	}
+	// remove invalid unicode characters
+	valueString = strings.Replace(string(bytes), `\u0000`, "", -1)
+	return valueString, nil
 }
 
 func TimeToPgTime(t time.Time) int64 {

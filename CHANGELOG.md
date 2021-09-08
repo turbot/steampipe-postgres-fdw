@@ -1,3 +1,7 @@
+## v0.2.2 [2021-09-07]
+_Bug fixes_
+* Fix JSON data with '\u0000' resulting in Postgres error "unsupported Unicode escape sequence". ([#93](https://github.com/turbot/steampipe-postgres-fdw/issues/93))
+
 ## v0.2.1 [2021-08-18]
 _Bug fixes_
 * Restart a plugin if it has exited unexpectedly. ([#89](https://github.com/turbot/steampipe-postgres-fdw/issues/89))

@@ -61,6 +61,15 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 		FdwError(err)
 		return
 	}
+
+	// reload connection config
+	_, err = pluginHub.LoadConnectionConfig()
+	if err != nil {
+		log.Printf("[ERROR] LoadConnectionConfig failed %v ", err)
+		FdwError(err)
+		return
+	}
+
 	opts := GetFTableOptions(types.Oid(state.foreigntableid))
 
 	// build columns

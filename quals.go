@@ -49,7 +49,9 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *p
 			}
 		case C.T_NullTest:
 			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
-			qualsList.Append(q)
+			if q != nil {
+				qualsList.Append(q)
+			}
 			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
 		case C.T_BooleanTest:
 			if q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos); q != nil {

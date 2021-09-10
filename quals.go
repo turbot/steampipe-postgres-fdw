@@ -336,12 +336,11 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (re
 	switch typeOid {
 	case C.TEXTOID, C.VARCHAROID:
 		result.Value = &proto.QualValue_StringValue{StringValue: C.GoString(C.datumString(datum, cinfo))}
-	case C.INETOID:
+	case C.INETOID, C.CIDROID:
 		// handle zero value - return nil
 		if datum == 0 {
 			break
 		}
-
 		inet := C.datumInet(datum, cinfo)
 		ipAddrBytes := C.GoBytes(unsafe.Pointer(C.ipAddr(inet)), 16)
 		netmaskBits := int32(C.netmaskBits(inet))

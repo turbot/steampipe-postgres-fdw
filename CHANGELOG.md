@@ -1,3 +1,8 @@
+## v0.2.3 [2021-09-10]
+_Bug fixes_
+* Fix null reference exception when evaluating certain null-test quals. ([#97](https://github.com/turbot/steampipe-postgres-fdw/issues/97))
+* Add support for CIDROID type when converting Postgres datums to qual values. ([#54](https://github.com/turbot/steampipe-postgres-fdw/issues/54))
+
 ## v0.2.2 [2021-09-07]
 _Bug fixes_
 * Fix JSON data with '\u0000' resulting in Postgres error "unsupported Unicode escape sequence". ([#93](https://github.com/turbot/steampipe-postgres-fdw/issues/93))

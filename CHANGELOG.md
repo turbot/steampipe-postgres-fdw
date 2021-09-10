@@ -1,3 +1,7 @@
+## v0.3.0-rc.0 [TBD]
+_Bug fixes_
+* Reload connection config from GetRelSize ([#99](https://github.com/turbot/steampipe-postgres-fdw/issues/99))
+
 ## v0.2.3 [2021-09-10]
 _Bug fixes_
 * Fix null reference exception when evaluating certain null-test quals. ([#97](https://github.com/turbot/steampipe-postgres-fdw/issues/97))

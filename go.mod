@@ -15,5 +15,8 @@ require (
 
 replace github.com/c-bata/go-prompt => github.com/turbot/go-prompt v0.2.6-steampipe.0.20210713132659-0208eda137bd
 
-replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
-replace github.com/turbot/steampipe-plugin-sdk => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk
+// sp_metadata
+replace github.com/turbot/steampipe => github.com/turbot/steampipe v1.7.0-rc.0.0.20210916155011-a3f3a5206dcd
+
+// create_tables
+replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk v1.5.1-0.20210916104843-083998731780

@@ -173,12 +173,7 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 		return err
 	}
 
-	_, err = c.Plugin.Stub.SetConnectionConfig(&proto.SetConnectionConfigRequest{
-		ConnectionName:   connectionName,
-		ConnectionConfig: c.ConnectionConfig,
-	})
-	// format GRPC errors and ignore not implemented errors for backwards compatibility
-	return steampipeconfig.HandleGrpcError(err, connectionName, "GetSchema")
+	return steampipeconfig.SetConnectionConfig(connectionName, c.ConnectionConfig, c.Plugin)
 }
 
 // Scan starts a table scan and returns an iterator

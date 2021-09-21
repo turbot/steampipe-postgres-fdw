@@ -225,9 +225,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	s := GetExecState(node.fdw_state)
 
-	log.Printf("[TRACE] goFdwIterateForeignScan (%p)", s.Iter)
-	defer log.Printf("[TRACE] goFdwIterateForeignScan end (%p)", s.Iter)
-
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
 
@@ -238,7 +235,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		FdwError(err)
 		return slot
 	}
-	log.Printf("[TRACE] goFdwIterateForeignScan iterator returned row (%p)", s.Iter)
 
 	if len(row) == 0 {
 		log.Printf("[TRACE] goFdwIterateForeignScan RETURNED EMPTY ROW - this scan complete (%p)", s.Iter)

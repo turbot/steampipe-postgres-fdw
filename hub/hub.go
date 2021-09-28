@@ -432,7 +432,6 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 
 // load the given plugin connection into the connection map and return the schema
 func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
-
 	// load the config for this connection
 	connection, ok := h.steampipeConfig.Connections[connectionName]
 	if !ok {
@@ -440,24 +439,15 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 		return nil, fmt.Errorf("no config found for connection %s", connectionName)
 	}
 
-	input := &steampipeconfig.ConnectionPluginInput{
-		// pluginName is actually the remote schema name
-		PluginName:        steampipeconfig.PluginFQNToSchemaName(pluginFQN),
-		ConnectionName:    connectionName,
-		ConnectionConfig:  connection.Config,
-		ConnectionOptions: connection.Options}
+	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", steampipeconfig.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
-	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", input.PluginName, input.ConnectionName, input.ConnectionConfig)
-
-	return steampipeconfig.CreateConnectionPlugin(input)
-
+	return steampipeconfig.CreateConnectionPlugin(connection, false)
 }
 
 // LoadConnectionConfig :: load the connection config and return whether it has changed
 func (h *Hub) LoadConnectionConfig() (bool, error) {
-	// TODO currently we need to pass a workspace path and command to LoadSteampipeConfig - pass empty strings for now, this will work
-	// refactor to allow us to load only connection config and not workspace options
-	connectionConfig, err := steampipeconfig.LoadSteampipeConfig("", "")
+	// load connection conFig
+	connectionConfig, err := steampipeconfig.LoadConnectionConfig()
 	if err != nil {
 		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
 		return false, err

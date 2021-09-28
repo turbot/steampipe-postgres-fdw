@@ -455,9 +455,8 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 
 // LoadConnectionConfig :: load the connection config and return whether it has changed
 func (h *Hub) LoadConnectionConfig() (bool, error) {
-	// TODO currently we need to pass a workspace path and command to LoadSteampipeConfig - pass empty strings for now, this will work
-	// refactor to allow us to load only connection config and not workspace options
-	connectionConfig, err := steampipeconfig.LoadSteampipeConfig("", "")
+	// load connection condig
+	connectionConfig, err := steampipeconfig.LoadConnectionConfig()
 	if err != nil {
 		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
 		return false, err

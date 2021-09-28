@@ -9,9 +9,9 @@ require (
 	github.com/hashicorp/go-version v1.3.0
 	github.com/turbot/go-kit v0.2.2-0.20210730122803-1ecb35c27e98
 	// main
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20210921092620-057228e495c7
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20210928155236-352afad764ad
 	github.com/turbot/steampipe-plugin-sdk v1.6.0
 	google.golang.org/protobuf v1.27.1
 )
 
-replace github.com/c-bata/go-prompt => github.com/turbot/go-prompt v0.2.6-steampipe.0.20210713132659-0208eda137bd
+replace github.com/c-bata/go-prompt => github.com/turbot/go-prompt v0.2.6-steampipe.0.20210830083819-c872df2bdcc9

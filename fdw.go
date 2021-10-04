@@ -17,7 +17,6 @@ import (
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
@@ -195,14 +194,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		FdwError(err)
 	}
 
-	// determine whether to include the limit, based on the quals
-	// if there is a 'like' clause, do not use the parsed limit
-	limit := int64(execState.limit)
-	if !shouldUseParsedLimit(quals) {
-		limit = -1
-	}
-
-	iter, err := pluginHub.Scan(columns, quals, limit, opts)
+	iter, err := pluginHub.Scan(columns, quals, int64(execState.limit), opts)
 	if err != nil {
 		FdwError(err)
 		return
@@ -219,16 +211,6 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	node.fdw_state = SaveExecState(s)
 
 	logging.LogTime("[fdw] BeginForeignScan end")
-}
-
-func shouldUseParsedLimit(quals *proto.Quals) bool {
-	// if any quals contains a 'like' operator ("~~") then do not use the parsed limit
-	for _, q := range quals.Quals {
-		if q.GetStringValue() == "~~" {
-			return false
-		}
-	}
-	return true
 }
 
 //export goFdwIterateForeignScan

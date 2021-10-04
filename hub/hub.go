@@ -184,10 +184,11 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	table := opts["table"]
 	log.Printf("[TRACE] Hub Scan() table '%s'", table)
 
+	connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
+
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
 	if h.IsAggregatorConnection(connectionName) {
-		connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
 		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
 		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
 
@@ -207,9 +208,16 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 
 // startScanForConnection starts a scan for a single conneciton, using a scanIterator
 func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
-	connection, err := h.getConnectionPlugin(connectionName)
+	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
 		return nil, err
+	}
+
+	// determine whether to include the limit, based on the quals
+	// we ONLY pushgdown the limit is all quals have corresponding key columns,
+	// and if the qual operator is supported by the key column
+	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionPlugin) {
+		limit = -1
 	}
 
 	cacheEnabled := h.cacheEnabled(connectionName)
@@ -230,7 +238,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 
 	// do we have a cached query result
 	if cacheEnabled {
-		cachedResult := h.queryCache.Get(connection, table, qualMap, columns, limit)
+		cachedResult := h.queryCache.Get(connectionPlugin, table, qualMap, columns, limit)
 		if cachedResult != nil {
 			// we have cache data - return a cache iterator
 			return newCacheIterator(connectionName, cachedResult), nil
@@ -240,13 +248,60 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	// cache not enabled - create a scan iterator
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-	iterator := newScanIterator(h, connection, table, qualMap, columns, limit)
+	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit)
 
 	if err := h.startScan(iterator, queryContext); err != nil {
 		return nil, err
 	}
 
 	return iterator, nil
+}
+
+// determine whether to include the limit, based on the quals
+// we ONLY pushgdown the limit is all quals have corresponding key columns,
+// and if the qual operator is supported by the key column
+func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionPlugin *steampipeconfig.ConnectionPlugin) bool {
+	// build a map of all key columns
+	tableSchema, ok := connectionPlugin.Schema.Schema[table]
+	if !ok {
+		// any errors, just default to NOT pushing down the limit
+		return false
+	}
+	var keyColumnMap = make(map[string]*proto.KeyColumn)
+	for _, k := range tableSchema.ListCallKeyColumnList {
+		keyColumnMap[k.Name] = k
+	}
+	for _, k := range tableSchema.GetCallKeyColumnList {
+		keyColumnMap[k.Name] = k
+	}
+
+	// for every qual, determine if it has a key column and if the operator is supported
+	// if NOT, we cannot push down the limit
+
+	for col, quals := range qualMap {
+		// check whether this qual is declared as a key column for this table
+		if k, ok := keyColumnMap[col]; ok {
+			log.Printf("[TRACE] shouldPushdownLimit found key column for column %s: %v", col, k)
+
+			// check whether every qual for this column has a supported operator
+			for _, q := range quals.Quals {
+				operator := q.GetStringValue()
+				if !helpers.StringSliceContains(k.Operators, operator) {
+					log.Printf("[INFO] operator '%s' not supported for column '%s'. NOT pushing down limit", operator, col)
+					return false
+				}
+				log.Printf("[TRACE] shouldPushdownLimit operator '%s' is supported for column '%s'.", operator, col)
+			}
+		} else {
+			// no key column defined for this qual - DO NOT push down the limit
+			log.Printf("[INFO] shouldPushdownLimit no key column found for column %s. NOT pushing down limit", col)
+			return false
+		}
+	}
+
+	// all quals are supported - push down limit
+	log.Printf("[INFO] shouldPushdownLimit all quals are supported - pushing down limit")
+	return true
 }
 
 // GetRelSize ::  Method called from the planner to estimate the resulting relation size for a scan.

@@ -1,6 +1,11 @@
-## v0.3.0-rc.0 [TBD]
+## v0.2.4 [[2021-10-04]
+_What's new?_
+* Update Steampipe reference to support JSON connection config. ([#105](https://github.com/turbot/steampipe-postgres-fdw/issues/105))
+
 _Bug fixes_
-* Reload connection config from GetRelSize ([#99](https://github.com/turbot/steampipe-postgres-fdw/issues/99))
+* Fix handling of null unicode chars in JSON fields. ([#102](https://github.com/turbot/steampipe-postgres-fdw/issues/102))
+* Fix queries with `like` and `limit` clause not listing correct results. ([#103](https://github.com/turbot/steampipe-postgres-fdw/issues/103))
+* Reload connection config from `GetRelSize` to ensure config changes are respected. ([#99](https://github.com/turbot/steampipe-postgres-fdw/issues/99))
 
 ## v0.2.3 [2021-09-10]
 _Bug fixes_

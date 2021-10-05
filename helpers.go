@@ -12,7 +12,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 	"unsafe"
@@ -172,7 +174,7 @@ func valToBuffer(val interface{}, oid C.Oid, buffer C.StringInfo) (err error) {
 	var valueString string
 	// handle json explicitly
 	if oid == C.JSONBOID {
-		valueString, err = jsonValueString(val, valueString)
+		valueString, err = jsonValueString(val)
 		if err != nil {
 			return err
 		}
@@ -185,13 +187,20 @@ func valToBuffer(val interface{}, oid C.Oid, buffer C.StringInfo) (err error) {
 	return
 }
 
-func jsonValueString(val interface{}, valueString string) (string, error) {
-	bytes, err := json.Marshal(val)
+func jsonValueString(val interface{}) (string, error) {
+	jsonBytes, err := json.Marshal(val)
 	if err != nil {
 		return "", err
 	}
-	// remove invalid unicode characters
-	valueString = strings.Replace(string(bytes), `\u0000`, "", -1)
+	valueString := string(jsonBytes)
+
+	// remove unicode null char "\u0000", UNLESS escaped, i.e."\\u0000"
+	if strings.Contains(valueString, `\u0000`) {
+		log.Printf("[TRACE] null unicode character detected in JSON value - removing if not escaped")
+		re := regexp.MustCompile(`(?:(\\\\u0000)|([^\\]?)\\u0000)`)
+		valueString = re.ReplaceAllString(valueString, "$1$2")
+	}
+
 	return valueString, nil
 }
 

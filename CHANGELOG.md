@@ -1,4 +1,8 @@
-## v0.2.4 [[2021-10-04]
+## v0.2.5 [2021-10-07]
+_What's new?_
+* Update Steampipe reference to fix connection config parsing if there is an options block. ([#993](https://github.com/turbot/steampipe/issues/993))
+
+## v0.2.4 [2021-10-04]
 _What's new?_
 * Update Steampipe reference to support JSON connection config. ([#105](https://github.com/turbot/steampipe-postgres-fdw/issues/105))
 

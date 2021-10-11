@@ -142,7 +142,7 @@ func (h *Hub) Abort() {
 func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema, error) {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
-	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
 	// if this is an aggregate connection, get the name of the first child connection
 	// - we will use this to retrieve the schema
@@ -162,7 +162,7 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
-	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
 	// we do NOT set connection config for aggregate connections
 	if h.IsAggregatorConnection(connectionName) {

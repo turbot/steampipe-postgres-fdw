@@ -118,6 +118,23 @@ func (c *QueryCache) Clear() {
 	c.cache.Clear()
 }
 
+func (c *QueryCache) BuildIndexKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals) string {
+	str := c.sanitiseKey(fmt.Sprintf("index__%s%s%s",
+		connection.ConnectionName,
+		table,
+		c.formatQualMapForKey(connection, table, qualMap)))
+	return str
+}
+
+func (c *QueryCache) BuildResultKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) string {
+	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
+		connection.ConnectionName,
+		table,
+		c.formatQualMapForKey(connection, table, qualMap),
+		strings.Join(columns, ",")))
+	return str
+}
+
 // GetIndex retrieves an index bucket for a given cache key
 func (c *QueryCache) getIndex(indexKey string) (*IndexBucket, bool) {
 	result, ok := c.cache.Get(indexKey)
@@ -134,23 +151,6 @@ func (c *QueryCache) getResult(resultKey string) (*QueryResult, bool) {
 		return nil, false
 	}
 	return result.(*QueryResult), true
-}
-
-func (c *QueryCache) BuildIndexKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals) string {
-	str := c.sanitiseKey(fmt.Sprintf("index__%s%s%s",
-		connection.ConnectionName,
-		table,
-		c.formatQualMapForKey(connection, table, qualMap)))
-	return str
-}
-
-func (c *QueryCache) BuildResultKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string) string {
-	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
-		connection.ConnectionName,
-		table,
-		c.formatQualMapForKey(connection, table, qualMap),
-		strings.Join(columns, ",")))
-	return str
 }
 
 func (c *QueryCache) formatQualMapForKey(connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals) string {

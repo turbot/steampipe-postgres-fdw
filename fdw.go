@@ -237,7 +237,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}
 
 	if len(row) == 0 {
-		log.Printf("[TRACE] goFdwIterateForeignScan RETURNED EMPTY ROW - this scan complete (%p)", s.Iter)
+		log.Printf("[TRACE] goFdwIterateForeignScan returned empty row - this scan complete (%p)", s.Iter)
 
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms

@@ -16,8 +16,10 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
+	"github.com/turbot/steampipe/plugin_manager"
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
+	"github.com/turbot/steampipe/utils"
 )
 
 const (
@@ -116,16 +118,14 @@ func (h *Hub) RemoveIterator(iterator Iterator) {
 // Close shuts down all plugin clients
 func (h *Hub) Close() {
 	log.Println("[TRACE] hub: close")
-	for _, connection := range h.connections.connectionPlugins {
-		connection.Plugin.Client.Kill()
-	}
+
 	log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
 	log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
 }
 
 // Abort shuts down currently running queries
 func (h *Hub) Abort() {
-	log.Printf("[Trace] Hub Abort")
+	log.Printf("[TRACE] Hub Abort")
 	// for all running iterators
 	for _, iterator := range h.runningIterators {
 		// close the iterator, telling it NOT to cache its results
@@ -440,7 +440,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
-		err = steampipeconfig.HandleGrpcError(err, c.ConnectionName, "Execute")
+		err = utils.HandleGrpcError(err, c.ConnectionName, "Execute")
 		iterator.setError(err)
 		return err
 	}
@@ -461,28 +461,14 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	}
 	pluginFQN := connectionConfig.Plugin
 
-	// loop as we may need to retry if the plugin exists in the map but has actually exited
-	const maxAttempts = 3
-	for attempt := 1; attempt < maxAttempts; attempt++ {
-		// ask connection map to get or create this connection
-		c, err := h.connections.get(pluginFQN, connectionName)
-		if err != nil {
-			return nil, err
-		}
-
-		// make sure that the plugin is running
-		// (i.e. it has not crashed)
-		if !c.Plugin.Client.Exited() {
-			// it is running, return it
-			return c, nil
-		}
-
-		// remove connection from the connection map and kill the GRPC client
-		h.connections.removeAndKill(pluginFQN, connectionName)
+	// ask connection map to get or create this connection
+	c, err := h.connections.get(pluginFQN, connectionName)
+	if err != nil {
+		return nil, err
 	}
 
-	// to get to here, we failed :(
-	return nil, fmt.Errorf("plugin exited and failed to restart")
+	return c, nil
+
 }
 
 // load the given plugin connection into the connection map and return the schema
@@ -494,7 +480,7 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 		return nil, fmt.Errorf("no config found for connection %s", connectionName)
 	}
 
-	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", steampipeconfig.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
+	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", plugin_manager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
 	return steampipeconfig.CreateConnectionPlugin(connection, false)
 }

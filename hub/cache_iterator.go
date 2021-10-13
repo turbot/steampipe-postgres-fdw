@@ -42,8 +42,6 @@ func (i *cacheIterator) Next() (map[string]interface{}, error) {
 	}
 
 	if idx := i.index; idx < len(i.rows) {
-		log.Printf("[TRACE] cacheIterator Next() return row (%p)", i)
-
 		i.index++
 		return i.rows[idx], nil
 	}

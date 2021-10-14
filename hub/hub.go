@@ -19,7 +19,6 @@ import (
 	"github.com/turbot/steampipe/plugin_manager"
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
-	"github.com/turbot/steampipe/utils"
 )
 
 const (
@@ -173,7 +172,11 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 		return err
 	}
 
-	return steampipeconfig.SetConnectionConfig(connectionName, c.ConnectionConfig, c.Plugin)
+	req := &proto.SetConnectionConfigRequest{
+		ConnectionName:   connectionName,
+		ConnectionConfig: c.ConnectionConfig,
+	}
+	return c.Plugin.SetConnectionConfig(req)
 }
 
 // Scan starts a table scan and returns an iterator
@@ -435,12 +438,11 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		QueryContext: queryContext,
 		Connection:   c.ConnectionName,
 	}
-
-	stream, ctx, cancel, err := c.Plugin.Stub.Execute(req)
+	stream, ctx, cancel, err := c.Plugin.Execute(req)
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
-		err = utils.HandleGrpcError(err, c.ConnectionName, "Execute")
+		err = grpc.IgnoreNotImplementedError(err, c.ConnectionName, "Execute")
 		iterator.setError(err)
 		return err
 	}

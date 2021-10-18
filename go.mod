@@ -7,10 +7,10 @@ require (
 	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/go-hclog v0.15.0
 	github.com/hashicorp/go-version v1.3.0
-	github.com/turbot/go-kit v0.2.2-0.20210730122803-1ecb35c27e98
+	github.com/turbot/go-kit v0.3.0
 	// main
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20211007103057-77fbee360920
-	github.com/turbot/steampipe-plugin-sdk v1.6.0
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20211018162653-6c21a742dad2
+	github.com/turbot/steampipe-plugin-sdk v1.7.0
 	google.golang.org/protobuf v1.27.1
 )
 

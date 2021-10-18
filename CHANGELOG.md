@@ -1,3 +1,7 @@
+## v0.2.6 [2021-10-18]
+_What's new?_
+* Update Timestamp columns to use "timestamp with time zone", not "timestamp". ([#94](https://github.com/turbot/steampipe-postgres-fdw/issues/94))
+
 ## v0.2.5 [2021-10-07]
 _What's new?_
 * Update Steampipe reference to fix connection config parsing if there is an options block. ([#993](https://github.com/turbot/steampipe/issues/993))

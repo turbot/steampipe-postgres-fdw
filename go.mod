@@ -6,6 +6,7 @@ require (
 	github.com/dgraph-io/ristretto v0.0.3
 	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/go-hclog v0.15.0
+	github.com/hashicorp/go-plugin v1.4.1 // indirect
 	github.com/hashicorp/go-version v1.3.0
 	github.com/turbot/go-kit v0.3.0
 	// main
@@ -17,4 +18,5 @@ require (
 replace github.com/c-bata/go-prompt => github.com/turbot/go-prompt v0.2.6-steampipe.0.20210830083819-c872df2bdcc9
 
 replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
+
 replace github.com/turbot/steampipe-plugin-sdk => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk

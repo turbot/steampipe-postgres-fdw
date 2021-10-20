@@ -176,7 +176,7 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 		ConnectionName:   connectionName,
 		ConnectionConfig: c.ConnectionConfig,
 	}
-	return c.Plugin.SetConnectionConfig(req)
+	return c.PluginClient.SetConnectionConfig(req)
 }
 
 // Scan starts a table scan and returns an iterator
@@ -438,7 +438,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		QueryContext: queryContext,
 		Connection:   c.ConnectionName,
 	}
-	stream, ctx, cancel, err := c.Plugin.Execute(req)
+	stream, ctx, cancel, err := c.PluginClient.Execute(req)
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility

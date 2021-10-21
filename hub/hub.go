@@ -34,6 +34,10 @@ type Hub struct {
 
 	// if the cache is enabled/disabled by a metacommand, this will be non null
 	overrideCacheEnabled *bool
+
+	// the earliest time we will accept cached data from
+	// when the there is a cache clear command, this is reset to time.Now()
+	cacheClearTime time.Time
 }
 
 // global hub instance

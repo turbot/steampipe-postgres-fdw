@@ -434,7 +434,7 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 // split startScan into a separate function to allow iterator to restart the scan
 func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
 	table := iterator.table
-	log.Printf("[INFO] StartScan\n  table: %s", table)
+	log.Printf("[INFO] StartScan for table: %s", table)
 	c := iterator.connection
 
 	req := &proto.ExecuteRequest{

@@ -16,6 +16,7 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
+	"github.com/turbot/steampipe/plugin_manager"
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
 )
@@ -440,6 +441,9 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		Table:        table,
 		QueryContext: queryContext,
 		Connection:   c.ConnectionName,
+		// TODO HACK
+		CacheEnabled: true,
+		CacheTtl:     24 * 60 * 60,
 	}
 	stream, ctx, cancel, err := c.PluginClient.Execute(req)
 	if err != nil {
@@ -517,6 +521,8 @@ func (h *Hub) createCache() error {
 }
 
 func (h *Hub) cacheEnabled(connectionName string) bool {
+	// TODO HACK
+	return false
 	if h.overrideCacheEnabled != nil {
 		res := *h.overrideCacheEnabled
 		log.Printf("[TRACE] cacheEnabled  overrideCacheEnabled %v", *h.overrideCacheEnabled)

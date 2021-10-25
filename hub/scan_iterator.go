@@ -222,7 +222,6 @@ func (i *scanIterator) readThread(ctx context.Context) {
 }
 
 func (i *scanIterator) readPluginResult(ctx context.Context) bool {
-
 	continueReading := true
 	var rcvChan = make(chan *proto.ExecuteResponse)
 	var errChan = make(chan error)

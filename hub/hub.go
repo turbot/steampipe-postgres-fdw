@@ -227,13 +227,19 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		limit = -1
 	}
 
-	cacheEnabled := h.cacheEnabled(connectionName)
+	cacheEnabled := h.cacheEnabled(connectionPlugin)
 	cacheTTL := h.cacheTTL(connectionName)
 	var cacheString = "caching DISABLED"
 	if cacheEnabled {
 		cacheString = fmt.Sprintf("caching ENABLED with TTL %d seconds", int(cacheTTL.Seconds()))
 	}
 	log.Printf("[INFO] executing query for connection %s, %s", connectionName, cacheString)
+
+	// AFTER printing the logging, override the enabled flag if the plugin supports caching internally
+	if connectionPlugin.SupportedOperations.QueryCache {
+		log.Printf("[WARN] connection %s supports query cache so FDW cache is not beqing used", connectionPlugin.ConnectionName)
+		cacheEnabled = false
+	}
 
 	if len(qualMap) > 0 {
 		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap))
@@ -434,17 +440,16 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 // split startScan into a separate function to allow iterator to restart the scan
 func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
 	table := iterator.table
-	log.Printf("[INFO] StartScan for table: %s", table)
 	c := iterator.connection
 
 	req := &proto.ExecuteRequest{
 		Table:        table,
 		QueryContext: queryContext,
 		Connection:   c.ConnectionName,
-		// TODO HACK
-		CacheEnabled: true,
-		CacheTtl:     24 * 60 * 60,
+		CacheEnabled: h.cacheEnabled(c),
+		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
 	}
+	log.Printf("[INFO] StartScan for table: %s, %+v", table, req)
 	stream, ctx, cancel, err := c.PluginClient.Execute(req)
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
@@ -520,20 +525,18 @@ func (h *Hub) createCache() error {
 	return nil
 }
 
-func (h *Hub) cacheEnabled(connectionName string) bool {
-	// TODO HACK
-	return false
+func (h *Hub) cacheEnabled(connection *steampipeconfig.ConnectionPlugin) bool {
 	if h.overrideCacheEnabled != nil {
 		res := *h.overrideCacheEnabled
-		log.Printf("[TRACE] cacheEnabled  overrideCacheEnabled %v", *h.overrideCacheEnabled)
+		log.Printf("[TRACE] cacheEnabled overrideCacheEnabled %v", *h.overrideCacheEnabled)
 		return res
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
-	connectionOptions := h.steampipeConfig.GetConnectionOptions(connectionName)
+	connectionOptions := h.steampipeConfig.GetConnectionOptions(connection.ConnectionName)
 
 	// the config loading code should ALWAYS populate the connection options, using defaults if needed
 	if connectionOptions.Cache == nil {
-		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
+		panic(fmt.Sprintf("No cache options found for connection %s", connection))
 	}
 	return *connectionOptions.Cache
 }
@@ -547,7 +550,14 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
 	}
 
-	return time.Duration(*connectionOptions.CacheTTL) * time.Second
+	ttl := time.Duration(*connectionOptions.CacheTTL) * time.Second
+
+	// would this give data earlier than the cacheClearTime
+	now := time.Now()
+	if now.Add(-ttl).Before(h.cacheClearTime) {
+		ttl = now.Sub(h.cacheClearTime)
+	}
+	return ttl
 }
 
 // IsAggregatorConnection returns  whether the connection with the given name is of type "aggregate"
@@ -591,6 +601,7 @@ func (h *Hub) HandleCacheCommand(command string) error {
 	case constants.CommandCacheClear:
 		log.Printf("[TRACE] commandCacheClear")
 		h.queryCache.Clear()
+		h.cacheClearTime = time.Now()
 	case constants.CommandCacheOn:
 		enabled := true
 		h.overrideCacheEnabled = &enabled

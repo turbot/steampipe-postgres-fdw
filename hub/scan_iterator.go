@@ -47,7 +47,7 @@ type scanIterator struct {
 }
 
 func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) *scanIterator {
-	cacheEnabled := hub.cacheEnabled(connection.ConnectionName)
+	cacheEnabled := hub.cacheEnabled(connection)
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
 	return &scanIterator{

@@ -237,7 +237,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 
 	// AFTER printing the logging, override the enabled flag if the plugin supports caching internally
 	if connectionPlugin.SupportedOperations.QueryCache {
-		log.Printf("[WARN] connection %s supports query cache so FDW cache is not beqing used", connectionPlugin.ConnectionName)
+		log.Printf("[TRACE] connection %s supports query cache so FDW cache is not being used", connectionPlugin.ConnectionName)
 		cacheEnabled = false
 	}
 
@@ -451,10 +451,10 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 	}
 	log.Printf("[INFO] StartScan for table: %s, %+v", table, req)
 	stream, ctx, cancel, err := c.PluginClient.Execute(req)
+	err = grpc.IgnoreNotImplementedError(err, c.ConnectionName, "Execute")
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
 		// format GRPC errors and ignore not implemented errors for backwards compatibility
-		err = grpc.IgnoreNotImplementedError(err, c.ConnectionName, "Execute")
 		iterator.setError(err)
 		return err
 	}

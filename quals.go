@@ -22,7 +22,6 @@ import (
 func restrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Quals {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
-	log.Printf("[TRACE] RestrictionsToQuals")
 
 	qualsList := &proto.Quals{}
 	if restrictions == nil {
@@ -88,7 +87,7 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 
 	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
 	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
-		log.Printf("[WARN] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+		log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
 		return nil
 	}
 
@@ -144,7 +143,7 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 
 	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
 	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
-		log.Printf("[WARN] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+		log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
 		return nil
 	}
 

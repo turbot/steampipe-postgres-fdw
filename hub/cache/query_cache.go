@@ -162,9 +162,7 @@ func (c *QueryCache) formatQualMapForKey(connection *steampipeconfig.ConnectionP
 		keys[idx] = key
 		idx++
 	}
-	log.Printf("[TRACE] formatQualMapForKey unsorted keys %v\n", keys)
 	sort.Strings(keys)
-	log.Printf("[TRACE] formatQualMapForKey sorted keys %v\n", keys)
 
 	// now construct cache key from ordered quals
 

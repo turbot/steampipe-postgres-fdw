@@ -51,9 +51,13 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 		return nil, fmt.Errorf("the connectionFactory cannot return or create a connectionPlugin for an aggregate connection")
 	}
 
-	c, ok := f.connectionPlugins[f.getPluginKey(pluginFQN, connectionName)]
-	// if we do not have this connection in out map, create it
-	if !ok {
+	c, gotPluginClient := f.connectionPlugins[f.getPluginKey(pluginFQN, connectionName)]
+	if gotPluginClient && c.PluginClient.Exited() {
+		log.Printf("[WARN] client for %s has exited - reloading plugin", pluginFQN)
+		gotPluginClient = false
+	}
+	// if we do not have this connection in our map, create it
+	if !gotPluginClient {
 		var err error
 		log.Printf("[TRACE] connectionFactory.get lazy loading connection %s", connectionName)
 		if c, err = f.hub.createConnectionPlugin(pluginFQN, connectionName); err != nil {
@@ -66,8 +70,7 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 	return c, nil
 }
 
-func (f *connectionFactory) add(connection *steampipeconfig.ConnectionPlugin) error {
+func (f *connectionFactory) add(connection *steampipeconfig.ConnectionPlugin) {
 	key := f.getPluginKey(connection.PluginName, connection.ConnectionName)
 	f.connectionPlugins[key] = connection
-	return nil
 }

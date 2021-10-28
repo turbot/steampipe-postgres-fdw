@@ -189,7 +189,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
 	table := opts["table"]
-	log.Printf("[TRACE] Hub Scan() table '%s'", table)
+	log.Printf("[WARN] Hub Scan() table '%s'", table)
 
 	connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
 
@@ -205,6 +205,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	}
 
 	if err != nil {
+		log.Printf("[TRACE] Hub Scan() failed :( %s", err)
 		return nil, err
 	}
 
@@ -213,7 +214,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	return iterator, nil
 }
 
-// startScanForConnection starts a scan for a single conneciton, using a scanIterator
+// startScanForConnection starts a scan for a single connection, using a scanIterator
 func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
@@ -451,10 +452,10 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 	}
 	log.Printf("[INFO] StartScan for table: %s, %+v", table, req)
 	stream, ctx, cancel, err := c.PluginClient.Execute(req)
-	err = grpc.IgnoreNotImplementedError(err, c.ConnectionName, "Execute")
+	// format GRPC errors and ignore not implemented errors for backwards compatibility
+	err = grpc.HandleGrpcError(err, c.ConnectionName, "Execute")
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
-		// format GRPC errors and ignore not implemented errors for backwards compatibility
 		iterator.setError(err)
 		return err
 	}

@@ -260,7 +260,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	}
 
 	// cache not enabled - create a scan iterator
-	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
+	log.Printf("[WARN] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit)
 
@@ -395,7 +395,6 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 		return nil, err
 	}
 	schema := connectionPlugin.Schema.Schema[table]
-
 	var allColumns = make([]string, len(schema.Columns))
 	for i, c := range schema.Columns {
 		allColumns[i] = c.Name
@@ -443,19 +442,23 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 	table := iterator.table
 	c := iterator.connection
 
+	callId := grpc.BuildCallId()
+
 	req := &proto.ExecuteRequest{
 		Table:        table,
 		QueryContext: queryContext,
 		Connection:   c.ConnectionName,
 		CacheEnabled: h.cacheEnabled(c),
 		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
+		CallId:       callId,
 	}
 	log.Printf("[INFO] StartScan for table: %s, %+v", table, req)
+
 	stream, ctx, cancel, err := c.PluginClient.Execute(req)
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
 	err = grpc.HandleGrpcError(err, c.ConnectionName, "Execute")
 	if err != nil {
-		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
+		log.Printf("[WARN] startScan: plugin Execute function callId: %s returned error: %v\n", callId, err)
 		iterator.setError(err)
 		return err
 	}
@@ -467,7 +470,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 // it also makes sure that the plugin is up and running.
 // if the plugin is not running, it attempts to restart the plugin - errors if unable
 func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
-	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
+	log.Printf("[WARN] hub.getConnectionPlugin for connection '%s`", connectionName)
 
 	// get the plugin FQN
 	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
@@ -483,7 +486,6 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	}
 
 	return c, nil
-
 }
 
 // load the given plugin connection into the connection map and return the schema
@@ -497,7 +499,7 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", plugin_manager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
-	return steampipeconfig.CreateConnectionPlugin(connection, false)
+	return steampipeconfig.CreateConnectionPlugin(connection)
 }
 
 // LoadConnectionConfig :: load the connection config and return whether it has changed

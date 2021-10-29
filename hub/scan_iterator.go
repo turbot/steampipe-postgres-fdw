@@ -145,7 +145,6 @@ func (i *scanIterator) Close(writeToCache bool) {
 	if i.status != QueryStatusError {
 		i.status = QueryStatusComplete
 	}
-
 }
 
 // CanIterate returns true if this iterator has results available to iterate
@@ -211,7 +210,6 @@ func (i *scanIterator) readThread(ctx context.Context) {
 }
 
 func (i *scanIterator) readPluginResult(ctx context.Context) bool {
-	log.Printf("[WARN] readPluginResult(%p)\n", i)
 	continueReading := true
 	var rcvChan = make(chan *proto.ExecuteResponse)
 	var errChan = make(chan error)

@@ -16,6 +16,7 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
+	"github.com/turbot/steampipe/plugin_manager"
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
 )
@@ -33,6 +34,10 @@ type Hub struct {
 
 	// if the cache is enabled/disabled by a metacommand, this will be non null
 	overrideCacheEnabled *bool
+
+	// the earliest time we will accept cached data from
+	// when the there is a cache clear command, this is reset to time.Now()
+	cacheClearTime time.Time
 }
 
 // global hub instance
@@ -116,16 +121,14 @@ func (h *Hub) RemoveIterator(iterator Iterator) {
 // Close shuts down all plugin clients
 func (h *Hub) Close() {
 	log.Println("[TRACE] hub: close")
-	for _, connection := range h.connections.connectionPlugins {
-		connection.Plugin.Client.Kill()
-	}
+
 	log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
 	log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
 }
 
 // Abort shuts down currently running queries
 func (h *Hub) Abort() {
-	log.Printf("[Trace] Hub Abort")
+	log.Printf("[TRACE] Hub Abort")
 	// for all running iterators
 	for _, iterator := range h.runningIterators {
 		// close the iterator, telling it NOT to cache its results
@@ -142,7 +145,7 @@ func (h *Hub) Abort() {
 func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema, error) {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
-	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
 	// if this is an aggregate connection, get the name of the first child connection
 	// - we will use this to retrieve the schema
@@ -162,7 +165,7 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
-	log.Printf("[TRACE] GetSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
 	// we do NOT set connection config for aggregate connections
 	if h.IsAggregatorConnection(connectionName) {
@@ -173,7 +176,11 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 		return err
 	}
 
-	return steampipeconfig.SetConnectionConfig(connectionName, c.ConnectionConfig, c.Plugin)
+	req := &proto.SetConnectionConfigRequest{
+		ConnectionName:   connectionName,
+		ConnectionConfig: c.ConnectionConfig,
+	}
+	return c.PluginClient.SetConnectionConfig(req)
 }
 
 // Scan starts a table scan and returns an iterator
@@ -198,6 +205,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	}
 
 	if err != nil {
+		log.Printf("[TRACE] Hub Scan() failed :( %s", err)
 		return nil, err
 	}
 
@@ -206,7 +214,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	return iterator, nil
 }
 
-// startScanForConnection starts a scan for a single conneciton, using a scanIterator
+// startScanForConnection starts a scan for a single connection, using a scanIterator
 func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
@@ -220,13 +228,19 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		limit = -1
 	}
 
-	cacheEnabled := h.cacheEnabled(connectionName)
+	cacheEnabled := h.cacheEnabled(connectionPlugin)
 	cacheTTL := h.cacheTTL(connectionName)
 	var cacheString = "caching DISABLED"
 	if cacheEnabled {
 		cacheString = fmt.Sprintf("caching ENABLED with TTL %d seconds", int(cacheTTL.Seconds()))
 	}
 	log.Printf("[INFO] executing query for connection %s, %s", connectionName, cacheString)
+
+	// AFTER printing the logging, override the enabled flag if the plugin supports caching internally
+	if connectionPlugin.SupportedOperations.QueryCache {
+		log.Printf("[TRACE] connection %s supports query cache so FDW cache is not being used", connectionPlugin.ConnectionName)
+		cacheEnabled = false
+	}
 
 	if len(qualMap) > 0 {
 		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap))
@@ -381,7 +395,6 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 		return nil, err
 	}
 	schema := connectionPlugin.Schema.Schema[table]
-
 	var allColumns = make([]string, len(schema.Columns))
 	for i, c := range schema.Columns {
 		allColumns[i] = c.Name
@@ -427,20 +440,25 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 // split startScan into a separate function to allow iterator to restart the scan
 func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
 	table := iterator.table
-	log.Printf("[INFO] StartScan\n  table: %s", table)
 	c := iterator.connection
+
+	callId := grpc.BuildCallId()
 
 	req := &proto.ExecuteRequest{
 		Table:        table,
 		QueryContext: queryContext,
 		Connection:   c.ConnectionName,
+		CacheEnabled: h.cacheEnabled(c),
+		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
+		CallId:       callId,
 	}
 
-	stream, ctx, cancel, err := c.Plugin.Stub.Execute(req)
+	log.Printf("[INFO] StartScan for table: %s, callId %s, iterator %p", table, callId, iterator)
+	stream, ctx, cancel, err := c.PluginClient.Execute(req)
+	// format GRPC errors and ignore not implemented errors for backwards compatibility
+	err = grpc.HandleGrpcError(err, c.ConnectionName, "Execute")
 	if err != nil {
-		log.Printf("[WARN] startScan: plugin Execute function returned error: %v\n", err)
-		// format GRPC errors and ignore not implemented errors for backwards compatibility
-		err = steampipeconfig.HandleGrpcError(err, c.ConnectionName, "Execute")
+		log.Printf("[WARN] startScan: plugin Execute function callId: %s returned error: %v\n", callId, err)
 		iterator.setError(err)
 		return err
 	}
@@ -461,28 +479,13 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	}
 	pluginFQN := connectionConfig.Plugin
 
-	// loop as we may need to retry if the plugin exists in the map but has actually exited
-	const maxAttempts = 3
-	for attempt := 1; attempt < maxAttempts; attempt++ {
-		// ask connection map to get or create this connection
-		c, err := h.connections.get(pluginFQN, connectionName)
-		if err != nil {
-			return nil, err
-		}
-
-		// make sure that the plugin is running
-		// (i.e. it has not crashed)
-		if !c.Plugin.Client.Exited() {
-			// it is running, return it
-			return c, nil
-		}
-
-		// remove connection from the connection map and kill the GRPC client
-		h.connections.removeAndKill(pluginFQN, connectionName)
+	// ask connection map to get or create this connection
+	c, err := h.connections.get(pluginFQN, connectionName)
+	if err != nil {
+		return nil, err
 	}
 
-	// to get to here, we failed :(
-	return nil, fmt.Errorf("plugin exited and failed to restart")
+	return c, nil
 }
 
 // load the given plugin connection into the connection map and return the schema
@@ -494,9 +497,9 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 		return nil, fmt.Errorf("no config found for connection %s", connectionName)
 	}
 
-	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", steampipeconfig.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
+	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", plugin_manager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
-	return steampipeconfig.CreateConnectionPlugin(connection, false)
+	return steampipeconfig.CreateConnectionPlugin(connection)
 }
 
 // LoadConnectionConfig :: load the connection config and return whether it has changed
@@ -525,18 +528,18 @@ func (h *Hub) createCache() error {
 	return nil
 }
 
-func (h *Hub) cacheEnabled(connectionName string) bool {
+func (h *Hub) cacheEnabled(connection *steampipeconfig.ConnectionPlugin) bool {
 	if h.overrideCacheEnabled != nil {
 		res := *h.overrideCacheEnabled
-		log.Printf("[TRACE] cacheEnabled  overrideCacheEnabled %v", *h.overrideCacheEnabled)
+		log.Printf("[TRACE] cacheEnabled overrideCacheEnabled %v", *h.overrideCacheEnabled)
 		return res
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
-	connectionOptions := h.steampipeConfig.GetConnectionOptions(connectionName)
+	connectionOptions := h.steampipeConfig.GetConnectionOptions(connection.ConnectionName)
 
 	// the config loading code should ALWAYS populate the connection options, using defaults if needed
 	if connectionOptions.Cache == nil {
-		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
+		panic(fmt.Sprintf("No cache options found for connection %s", connection))
 	}
 	return *connectionOptions.Cache
 }
@@ -550,7 +553,14 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
 	}
 
-	return time.Duration(*connectionOptions.CacheTTL) * time.Second
+	ttl := time.Duration(*connectionOptions.CacheTTL) * time.Second
+
+	// would this give data earlier than the cacheClearTime
+	now := time.Now()
+	if now.Add(-ttl).Before(h.cacheClearTime) {
+		ttl = now.Sub(h.cacheClearTime)
+	}
+	return ttl
 }
 
 // IsAggregatorConnection returns  whether the connection with the given name is of type "aggregate"
@@ -594,6 +604,7 @@ func (h *Hub) HandleCacheCommand(command string) error {
 	case constants.CommandCacheClear:
 		log.Printf("[TRACE] commandCacheClear")
 		h.queryCache.Clear()
+		h.cacheClearTime = time.Now()
 	case constants.CommandCacheOn:
 		enabled := true
 		h.overrideCacheEnabled = &enabled

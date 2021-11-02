@@ -196,6 +196,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	iter, err := pluginHub.Scan(columns, quals, int64(execState.limit), opts)
 	if err != nil {
+		log.Printf("[WARN] pluginHub.Scan FAILED: %s", err)
 		FdwError(err)
 		return
 	}
@@ -237,7 +238,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	}
 
 	if len(row) == 0 {
-		log.Printf("[TRACE] goFdwIterateForeignScan RETURNED EMPTY ROW - this scan complete (%p)", s.Iter)
+		log.Printf("[TRACE] goFdwIterateForeignScan returned empty row - this scan complete (%p)", s.Iter)
 
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms

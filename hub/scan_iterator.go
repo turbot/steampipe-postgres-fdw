@@ -47,7 +47,7 @@ type scanIterator struct {
 }
 
 func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) *scanIterator {
-	cacheEnabled := hub.cacheEnabled(connection.ConnectionName)
+	cacheEnabled := hub.cacheEnabled(connection)
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
 	return &scanIterator{
@@ -99,14 +99,11 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
-		log.Printf("[TRACE] row channel is closed - reset iterator (%p)", i)
-
 		// if iterator is in error, return the error
 		if i.Status() == QueryStatusError {
 			// return error
 			return nil, i.err
 		}
-		log.Printf("[TRACE] scanIterator complete (%p)", i)
 		// otherwise mark iterator complete, caching result
 		i.status = QueryStatusComplete
 		i.writeToCache()
@@ -129,8 +126,6 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 
 func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
 	logging.LogTime("[hub] start")
-
-	log.Printf("[TRACE] scanIterator Start (%p)", i)
 	i.status = QueryStatusStarted
 	i.pluginRowStream = stream
 	i.cancel = cancel
@@ -140,23 +135,15 @@ func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx conte
 }
 
 func (i *scanIterator) Close(writeToCache bool) {
-	log.Printf("[TRACE] scanIterator Close (%p)", i)
-
-	// ping the cancel channel - if there is an active read thread, it will cancel the GRPC stream if needed
-	log.Printf("[TRACE]  signalling cancel channel (%p)", i)
 	// call the context cancellation function
 	i.cancel()
-
-	log.Printf("[TRACE] stream cancelled (%p)", i)
 	if writeToCache {
 		i.writeToCache()
 	}
 	// set status to complete
 	if i.status != QueryStatusError {
-		log.Printf("[TRACE] scanIterator complete (%p)", i)
 		i.status = QueryStatusComplete
 	}
-
 }
 
 // CanIterate returns true if this iterator has results available to iterate
@@ -207,7 +194,6 @@ func (i *scanIterator) populateRow(row *proto.Row) (map[string]interface{}, erro
 // - there stream returns an error
 // there is a signal on the cancel channel
 func (i *scanIterator) readThread(ctx context.Context) {
-	log.Printf("[TRACE] iterator readThread - read results from GRPC stream (%p)", i)
 	// if the iterator is not in a started state, skip
 	// (this can happen if postgres cancels the scan before receiving any results)
 	if i.status == QueryStatusStarted {
@@ -218,11 +204,9 @@ func (i *scanIterator) readThread(ctx context.Context) {
 
 	// now we are done
 	close(i.rows)
-	log.Println("[TRACE] iterator readThread complete")
 }
 
 func (i *scanIterator) readPluginResult(ctx context.Context) bool {
-
 	continueReading := true
 	var rcvChan = make(chan *proto.ExecuteResponse)
 	var errChan = make(chan error)

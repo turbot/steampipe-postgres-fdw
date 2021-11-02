@@ -189,7 +189,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
 	table := opts["table"]
-	log.Printf("[WARN] Hub Scan() table '%s'", table)
+	log.Printf("[TRACE] Hub Scan() table '%s'", table)
 
 	connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
 
@@ -260,7 +260,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	}
 
 	// cache not enabled - create a scan iterator
-	log.Printf("[WARN] startScanForConnection creating a new scan iterator")
+	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit)
 
@@ -452,8 +452,8 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
 		CallId:       callId,
 	}
-	log.Printf("[INFO] StartScan for table: %s, %+v", table, req)
-	log.Printf("[WARN] StartScan table: %s, callId %s, iterator %p", table, callId, iterator)
+
+	log.Printf("[INFO] StartScan for table: %s, callId %s, iterator %p", table, callId, iterator)
 	stream, ctx, cancel, err := c.PluginClient.Execute(req)
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
 	err = grpc.HandleGrpcError(err, c.ConnectionName, "Execute")
@@ -470,7 +470,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 // it also makes sure that the plugin is up and running.
 // if the plugin is not running, it attempts to restart the plugin - errors if unable
 func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
-	log.Printf("[WARN] hub.getConnectionPlugin for connection '%s`", connectionName)
+	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
 
 	// get the plugin FQN
 	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]

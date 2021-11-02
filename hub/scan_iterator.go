@@ -126,7 +126,6 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 
 func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
 	logging.LogTime("[hub] start")
-	log.Printf("[WARN] scanIterator Start(%p)\n", i)
 	i.status = QueryStatusStarted
 	i.pluginRowStream = stream
 	i.cancel = cancel
@@ -195,8 +194,6 @@ func (i *scanIterator) populateRow(row *proto.Row) (map[string]interface{}, erro
 // - there stream returns an error
 // there is a signal on the cancel channel
 func (i *scanIterator) readThread(ctx context.Context) {
-	log.Printf("[WARN] scanIterator readThread(%p)\n", i)
-
 	// if the iterator is not in a started state, skip
 	// (this can happen if postgres cancels the scan before receiving any results)
 	if i.status == QueryStatusStarted {

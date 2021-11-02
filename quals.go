@@ -78,7 +78,7 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 
 	restriction = C.canonicalOpExpr(restriction, relids)
 	if restriction == nil {
-		log.Printf("[WARN] could not convert OpExpr to canonical form - NOT adding qual for OpExpr")
+		log.Printf("[INFO] could not convert OpExpr to canonical form - NOT adding qual for OpExpr")
 		return nil
 	}
 

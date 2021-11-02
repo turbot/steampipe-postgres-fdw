@@ -196,7 +196,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	iter, err := pluginHub.Scan(columns, quals, int64(execState.limit), opts)
 	if err != nil {
-		log.Printf("[WARN] pluginHub.Scan FAILED")
+		log.Printf("[WARN] pluginHub.Scan FAILED: %s", err)
 		FdwError(err)
 		return
 	}

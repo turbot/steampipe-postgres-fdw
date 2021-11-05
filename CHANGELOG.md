@@ -2,6 +2,9 @@
 _What's new?_
 * Add support for plugin manager and plugin-level query caching. ([#111](https://github.com/turbot/steampipe-postgres-fdw/issues/111))
 
+_Bug fixes_
+* Avoid concurrency error when calling execute multiple times in parallel. ([#114](https://github.com/turbot/steampipe-postgres-fdw/issues/114))
+
 ## v0.2.6 [2021-10-18]
 _What's new?_
 * Update Timestamp columns to use "timestamp with time zone", not "timestamp". ([#94](https://github.com/turbot/steampipe-postgres-fdw/issues/94))

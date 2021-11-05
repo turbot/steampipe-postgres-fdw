@@ -38,6 +38,9 @@ type Hub struct {
 	// the earliest time we will accept cached data from
 	// when the there is a cache clear command, this is reset to time.Now()
 	cacheClearTime time.Time
+
+	timingLock   sync.Mutex
+	lastScanTime time.Time
 }
 
 // global hub instance
@@ -439,6 +442,9 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 
 // split startScan into a separate function to allow iterator to restart the scan
 func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
+	// ensure we do not call execute too frequently
+	h.throttle()
+
 	table := iterator.table
 	c := iterator.connection
 
@@ -624,4 +630,18 @@ func (h *Hub) ValidateCacheCommand(command string) error {
 		return fmt.Errorf("invalid command '%s' - supported commands are %s", command, strings.Join(validCommands, ","))
 	}
 	return nil
+}
+
+// ensure we do not call execute too frequently
+// NOTE: this is a workaround for legacy plugin - it is not necessary for plugins built with sdk > 0.8.0
+func (h *Hub) throttle() {
+	minScanInterval := 10 * time.Millisecond
+	h.timingLock.Lock()
+	defer h.timingLock.Unlock()
+	timeSince := time.Since(h.lastScanTime)
+	if timeSince < minScanInterval {
+		sleepTime := minScanInterval - timeSince
+		time.Sleep(sleepTime)
+	}
+	h.lastScanTime = time.Now()
 }

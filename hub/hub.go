@@ -459,7 +459,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		CallId:       callId,
 	}
 
-	log.Printf("[INFO] StartScan for table: %s, callId %s, iterator %p", table, callId, iterator)
+	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v,  iterator %p", table, callId, req.CacheEnabled, iterator)
 	stream, ctx, cancel, err := c.PluginClient.Execute(req)
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
 	err = grpc.HandleGrpcError(err, c.ConnectionName, "Execute")

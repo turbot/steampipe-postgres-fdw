@@ -19,8 +19,8 @@ require (
 
 replace github.com/c-bata/go-prompt => github.com/turbot/go-prompt v0.2.6-steampipe.0.20210830083819-c872df2bdcc9
 
-// plugin_manager_parallel
-replace github.com/turbot/steampipe => github.com/turbot/steampipe v1.7.0-rc.0.0.20211102105129-d260378a0047
+// main
+replace github.com/turbot/steampipe => github.com/turbot/steampipe v0.10.0-dev.0
 
-// plugin_manager
-replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk v1.7.2-0.20211102113014-c2388c376085
+// main
+replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk v1.7.3-0.20211108132648-aad452166788

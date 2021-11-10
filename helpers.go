@@ -31,7 +31,7 @@ import (
 func CStringListToGoArray(values *C.List) []string {
 	ensureUnique := map[string]bool{}
 	targets := []string{}
-	for it := values.head; it != nil; it = it.next {
+	for it := C.list_head(values); it != nil; it = C.lnext(values, it) {
 		val := C.cellGetValue(it)
 		s := C.GoString(C.valueString(val))
 		if !ensureUnique[s] {
@@ -67,7 +67,7 @@ func GetFTableOptions(id types.Oid) types.Options {
 
 func getOptions(opts *C.List) types.Options {
 	m := make(types.Options)
-	for it := opts.head; it != nil; it = it.next {
+	for it := C.list_head(opts); it != nil; it = C.lnext(opts, it) {
 		el := C.cellGetDef(it)
 		name := C.GoString(el.defname)
 		val := C.GoString(C.defGetString(el))

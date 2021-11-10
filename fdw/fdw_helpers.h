@@ -66,19 +66,19 @@ static inline unsigned char netmaskBits(inet *i) { return ip_bits(i); }
 static inline bool isIpV6(inet *i) { return ip_family(i) == PGSQL_AF_INET6; }
 
 // Loop helpers
-static inline RangeVar* cellGetRangeVar(ListCell *n) { return (RangeVar*)n->data.ptr_value; }
-static inline DefElem* cellGetDef(ListCell *n) { return (DefElem*)n->data.ptr_value; }
-static inline Expr* cellGetExpr(ListCell *n) { return (Expr*)n->data.ptr_value; }
-static inline Node* cellGetNode(ListCell *n) { return (Node*)n->data.ptr_value; }
-static inline Value* cellGetValue(ListCell *n) { return (Value*)n->data.ptr_value; }
-static inline Var* cellGetVar(ListCell *n) { return (Var*)n->data.ptr_value; }
-static inline OpExpr* cellGetOpExpr(ListCell *n) { return (OpExpr*)n->data.ptr_value; }
-static inline ScalarArrayOpExpr* cellGetScalarArrayOpExpr(ListCell *n) { return (ScalarArrayOpExpr*)n->data.ptr_value; }
-static inline NullTest* cellGetNullTest(ListCell *n) { return (NullTest*)n->data.ptr_value; }
-static inline BooleanTest* cellGetBooleanTest(ListCell *n) { return (BooleanTest*)n->data.ptr_value; }
-static inline BoolExpr* cellGetBoolExpr(ListCell *n) { return (BoolExpr*)n->data.ptr_value; }
+static inline RangeVar* cellGetRangeVar(ListCell *n) { return (RangeVar*)n->ptr_value; }
+static inline DefElem* cellGetDef(ListCell *n) { return (DefElem*)n->ptr_value; }
+static inline Expr* cellGetExpr(ListCell *n) { return (Expr*)n->ptr_value; }
+static inline Node* cellGetNode(ListCell *n) { return (Node*)n->ptr_value; }
+static inline Value* cellGetValue(ListCell *n) { return (Value*)n->ptr_value; }
+static inline Var* cellGetVar(ListCell *n) { return (Var*)n->ptr_value; }
+static inline OpExpr* cellGetOpExpr(ListCell *n) { return (OpExpr*)n->ptr_value; }
+static inline ScalarArrayOpExpr* cellGetScalarArrayOpExpr(ListCell *n) { return (ScalarArrayOpExpr*)n->ptr_value; }
+static inline NullTest* cellGetNullTest(ListCell *n) { return (NullTest*)n->ptr_value; }
+static inline BooleanTest* cellGetBooleanTest(ListCell *n) { return (BooleanTest*)n->ptr_value; }
+static inline BoolExpr* cellGetBoolExpr(ListCell *n) { return (BoolExpr*)n->ptr_value; }
 
-static inline RestrictInfo* cellGetRestrictInfo(ListCell *n) { return (RestrictInfo*)n->data.ptr_value; }
+static inline RestrictInfo* cellGetRestrictInfo(ListCell *n) { return (RestrictInfo*)n->ptr_value; }
 
 // logging
 char* tagTypeToString(NodeTag type);

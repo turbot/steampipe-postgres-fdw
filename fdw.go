@@ -1,7 +1,8 @@
 package main
 
 /*
-#cgo CFLAGS: -Ifdw -Ifdw/include/postgresql/server -Ifdw/include/postgresql/internal
+#cgo darwin CFLAGS: -I/usr/local/opt/postgresql@13/include/postgresql/server -I/usr/local/opt/postgresql@13/include/postgresql/internal
+#cgo linux CFLAGS: -I/usr/include/postgresql/13/server -I/usr/include/postgresql/internal
 #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
 #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 #include "fdw_helpers.h"

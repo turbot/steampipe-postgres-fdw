@@ -680,22 +680,22 @@ deserializeDeparsedSortGroup(List *items)
 		lc = list_head(lfirst(k));
 		key->attname = (Name) strdup(strVal(lfirst(lc)));
 
-		lc = lnext(lc);
+		lc = lnext(items, lc);
 		key->attnum = (int) intVal(lfirst(lc));
 
-		lc = lnext(lc);
+		lc = lnext(items, lc);
 		key->reversed = (bool) intVal(lfirst(lc));
 
-		lc = lnext(lc);
+		lc = lnext(items, lc);
 		key->nulls_first = (bool) intVal(lfirst(lc));
 
-		lc = lnext(lc);
+		lc = lnext(items, lc);
 		if(lfirst(lc) != NULL)
 			key->collate = (Name) strdup(strVal(lfirst(lc)));
 		else
 			key->collate = NULL;
 
-		lc = lnext(lc);
+		lc = lnext(items, lc);
 		key->key = (PathKey *) lfirst(lc);
 
 		result = lappend(result, key);

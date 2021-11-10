@@ -35,7 +35,7 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *pro
 		return qualsList
 	}
 
-	for it := restrictions.head; it != nil; it = it.next {
+	for it := C.list_head(restrictions); it != nil; it = C.lnext(restrictions, it) {
 		restriction := C.cellGetExpr(it)
 
 		log.Printf("[TRACE] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
@@ -255,13 +255,13 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 
 // convert a boolean expression into a qual
 // currently we only support simple expressions like column=true
-func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
-	arg := C.cellGetExpr(restriction.args.head)
+func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+	arg := C.cellGetExpr(C.list_head(restriction.args))
 	// NOTE currently we only handle boolean expression with a single argument and a NOT operato
 	if restriction.args.length == 1 || restriction.boolop == C.NOT_EXPR && C.fdw_nodeTag(arg) == C.T_Var {
 
 		// try to get the column from the variable
-		variable := C.cellGetVar(restriction.args.head)
+		variable := C.cellGetVar(C.list_head(restriction.args))
 		column := columnFromVar(variable, cinfos)
 		// if we failed to get a column we cannot create a qual
 		if column == "" {

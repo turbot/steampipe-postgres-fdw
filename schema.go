@@ -31,7 +31,7 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 	tables := []string{}
 	// iterate over table list
 	if stmt.table_list != nil {
-		for it := stmt.table_list.head; it != nil; it = it.next {
+		for it := C.list_head(stmt.table_list); it != nil; it = C.lnext(stmt.table_list, it) {
 			var rv *C.RangeVar = C.cellGetRangeVar(it)
 			t := C.GoString(rv.relname)
 			tables = append(tables, t)

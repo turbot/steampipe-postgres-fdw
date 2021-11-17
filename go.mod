@@ -14,4 +14,4 @@ require (
 )
 
 // main
-replace github.com/turbot/steampipe => github.com/turbot/steampipe v1.7.0-rc.0.0.20211117111351-7ce828b31ccc
+replace github.com/turbot/steampipe => github.com/turbot/steampipe v1.7.0-rc.0.0.20211117120608-405c3b32b4f9

@@ -46,8 +46,7 @@ type scanIterator struct {
 	cancel          context.CancelFunc
 }
 
-func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) *scanIterator {
-	cacheEnabled := hub.cacheEnabled(connection)
+func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool) *scanIterator {
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
 	return &scanIterator{
@@ -114,7 +113,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		// add row to cached rows
+		// if caching is enabled add row to cached rows
 		if i.cacheEnabled {
 			i.cachedRows.Append(res)
 		}

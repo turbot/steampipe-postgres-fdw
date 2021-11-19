@@ -49,7 +49,6 @@ func init() {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
-
 }
 
 //export goFdwGetRelSize

@@ -88,9 +88,6 @@ func newHub() (*Hub, error) {
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
-	if err := hub.createCache(); err != nil {
-		return nil, err
-	}
 
 	return hub, nil
 }
@@ -125,8 +122,10 @@ func (h *Hub) RemoveIterator(iterator Iterator) {
 func (h *Hub) Close() {
 	log.Println("[TRACE] hub: close")
 
-	log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
-	log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
+	if h.queryCache != nil {
+		log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
+		log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
+	}
 }
 
 // Abort shuts down currently running queries
@@ -243,6 +242,11 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	if connectionPlugin.SupportedOperations.QueryCache {
 		log.Printf("[TRACE] connection %s supports query cache so FDW cache is not being used", connectionPlugin.ConnectionName)
 		cacheEnabled = false
+	} else {
+		// create cache if necessary
+		if err := h.ensureCache(); err != nil {
+			return nil, err
+		}
 	}
 
 	if len(qualMap) > 0 {
@@ -265,7 +269,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	// cache not enabled - create a scan iterator
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit)
+	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled)
 
 	if err := h.startScan(iterator, queryContext); err != nil {
 		return nil, err
@@ -644,4 +648,11 @@ func (h *Hub) throttle() {
 		time.Sleep(sleepTime)
 	}
 	h.lastScanTime = time.Now()
+}
+
+func (h *Hub) ensureCache() error {
+	if h.queryCache == nil {
+		return h.createCache()
+	}
+	return nil
 }

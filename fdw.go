@@ -49,13 +49,10 @@ func init() {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
-	log.Printf("[WARN] INIT COMPLETE")
 }
 
 //export goFdwGetRelSize
 func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, width *C.int, baserel *C.RelOptInfo) {
-	log.Printf("[WARN] goFdwGetRelSize")
-	defer log.Printf("[WARN] DONE goFdwGetRelSize")
 	logging.ClearProfileData()
 
 	pluginHub, err := hub.GetHub()
@@ -95,9 +92,6 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 //export goFdwGetPathKeys
 func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
-	log.Printf("[WARN] goFdwGetPathKeys")
-	defer log.Printf("[WARN] DONE goFdwGetPathKeys")
-
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
@@ -148,9 +142,6 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 
 //export goFdwExplainForeignScan
 func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
-	log.Printf("[WARN] goFdwExplainForeignScan")
-	defer log.Printf("[WARN] DONE goFdwExplainForeignScan")
-
 	s := GetExecState(node.fdw_state)
 	if s == nil {
 		return
@@ -165,9 +156,6 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
-	log.Printf("[WARN] goFdwBeginForeignScan")
-	defer log.Printf("[WARN] DONE goFdwBeginForeignScan")
-
 	logging.LogTime("[fdw] BeginForeignScan start")
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)

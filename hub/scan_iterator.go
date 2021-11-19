@@ -255,10 +255,10 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 
 // called when all the data has been read from the stream
 func (i *scanIterator) writeToCache() {
-	log.Printf("[WARN] writeToCache %s, enabled; %v", i.ConnectionName(), i.cacheEnabled)
+	log.Printf("[TRACE] writeToCache %s", i.ConnectionName())
 
 	if !i.cacheEnabled {
-		log.Printf("[WARN] caching disabled - returning")
+		log.Printf("[TRACE] caching disabled - returning")
 		// nothing to do
 		return
 	}

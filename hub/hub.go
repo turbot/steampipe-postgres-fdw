@@ -122,8 +122,10 @@ func (h *Hub) RemoveIterator(iterator Iterator) {
 func (h *Hub) Close() {
 	log.Println("[TRACE] hub: close")
 
-	log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
-	log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
+	if h.queryCache != nil {
+		log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
+		log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
+	}
 }
 
 // Abort shuts down currently running queries
@@ -241,6 +243,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		log.Printf("[TRACE] connection %s supports query cache so FDW cache is not being used", connectionPlugin.ConnectionName)
 		cacheEnabled = false
 	} else {
+		// create cache if necessary
 		if err := h.ensureCache(); err != nil {
 			return nil, err
 		}

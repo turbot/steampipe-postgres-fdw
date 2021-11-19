@@ -30,7 +30,7 @@ func NewQueryCache() (*QueryCache, error) {
 	cache := &QueryCache{
 		Stats: &CacheStats{},
 	}
-	log.Printf("[WARN] CREATING QUERY CACHE")
+	log.Printf("[INFO] CREATING QUERY CACHE")
 	config := &ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
 		MaxCost:     1 << 30, // maximum cost of cache (1GB).

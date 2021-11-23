@@ -613,7 +613,11 @@ func (h *Hub) HandleCacheCommand(command string) error {
 	switch command {
 	case constants.CommandCacheClear:
 		log.Printf("[TRACE] commandCacheClear")
-		h.queryCache.Clear()
+		// if there is a local query cache, clear it
+		if h.queryCache != nil {
+			h.queryCache.Clear()
+		}
+		// set the cache clear time for the remote query cache
 		h.cacheClearTime = time.Now()
 	case constants.CommandCacheOn:
 		enabled := true

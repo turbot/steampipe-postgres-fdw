@@ -184,7 +184,9 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	var tupdesc C.TupleDesc = node.ss.ss_currentRelation.rd_att
 	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
 
-	quals := restrictionsToQuals(node, execState.cinfos)
+	// create a wrapper struct for cinfos
+	cinfos := newConversionInfos(execState)
+	quals := restrictionsToQuals(node, cinfos)
 
 	// start the plugin hub
 	var err error

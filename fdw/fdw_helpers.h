@@ -56,7 +56,6 @@ static inline char* fdw_datumGetString(Datum datum) { return text_to_cstring((te
 // Helpers
 List * extractColumns(List *reltargetlist, List *restrictinfolist);
 FdwExecState *initializeExecState(void *internalstate);
-FdwExecState *initializeExecState(void *internalstate);
 
 static inline ConversionInfo* getConversionInfo(ConversionInfo **cinfos, int i) { return cinfos[i]; }
 static inline char* valueString(Value *v) { return (((Value *)(v))->val.str); }

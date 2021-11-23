@@ -68,6 +68,7 @@ typedef struct FdwExecState
 	List	   *target_list;
 	Datum	   *values;
 	bool	   *nulls;
+	int       numattrs;
 	ConversionInfo **cinfos;
 	/* Common buffer to avoid repeated allocations */
 	StringInfo	buffer;

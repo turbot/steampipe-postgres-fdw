@@ -19,7 +19,13 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-func restrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Quals {
+func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *proto.Quals {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] restrictionsToQuals recovered from panic: %v", r)
+		}
+	}()
+
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
 
@@ -71,7 +77,7 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos **C.ConversionInfo) *p
 }
 
 // build a protobuf qual from an OpExpr
-func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
 	log.Printf("[TRACE] qualFromOpExpr")
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
@@ -91,8 +97,13 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 		return nil
 	}
 
-	arrayIndex := left.varattno - 1
-	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
+	var arrayIndex = int(left.varattno - 1)
+	ci := cinfos.get(arrayIndex)
+	if ci == nil {
+		log.Printf("[WARN] failed to convert qual value - could not get conversion info for attribute %d", arrayIndex)
+		return nil
+	}
+
 	qualValue, err := getQualValue(right, node, ci)
 	if err != nil {
 		log.Printf("[INFO] failed to convert qual value; %v", err)
@@ -112,7 +123,7 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos **C.
 }
 
 // build a protobuf qual from a Var - this converts to a simple boolean qual where column=true
-func qualFromVar(arg *C.Var, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromVar(arg *C.Var, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
 	column := columnFromVar(arg, cinfos)
 	// if we failed to get a column we cannot create a qual
 	if column == "" {
@@ -127,7 +138,7 @@ func qualFromVar(arg *C.Var, node *C.ForeignScanState, cinfos **C.ConversionInfo
 	}
 }
 
-func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	relids := C.bms_make_singleton(C.int(plan.scan.scanrelid))
 
@@ -147,8 +158,13 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 		return nil
 	}
 
-	arrayIndex := left.varattno - 1
-	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
+	var arrayIndex = int(left.varattno - 1)
+	ci := cinfos.get(arrayIndex)
+	if ci == nil {
+		log.Printf("[WARN]] failed to convert qual value - could not get conversion info for attribute %d", arrayIndex)
+		return nil
+	}
+
 	qualValue, err := getQualValue(right, node, ci)
 	if err != nil {
 		log.Printf("[WARN] failed to convert qual value; %v", err)
@@ -167,7 +183,7 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 }
 
 // build a protobuf qual from a NullTest
-func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
 	if C.fdw_nodeTag(restriction.arg) != C.T_Var {
 		return nil
 	}
@@ -201,7 +217,7 @@ func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos 
 }
 
 // build a protobuf qual from a BoolTest
-func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
 	arg := restriction.arg
 	if C.fdw_nodeTag(arg) != C.T_Var {
 		return nil
@@ -238,7 +254,7 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 
 // convert a boolean expression into a qual
 // currently we only support simple expressions like column=true
-func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
 	arg := C.cellGetExpr(restriction.args.head)
 	// NOTE currently we only handle boolean expression with a single argument and a NOT operato
 	if restriction.args.length == 1 || restriction.boolop == C.NOT_EXPR && C.fdw_nodeTag(arg) == C.T_Var {
@@ -262,15 +278,15 @@ func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos 
 	return nil
 }
 
-func columnFromVar(variable *C.Var, cinfos **C.ConversionInfo) string {
-	arrayIndex := variable.varattno - 1
-	ci := C.getConversionInfo(cinfos, C.int(arrayIndex))
-
-	var column string
-	if ci != nil && ci.attrname != nil {
-		column = C.GoString(ci.attrname)
+func columnFromVar(variable *C.Var, cinfos *conversionInfos) string {
+	var arrayIndex = int(variable.varattno - 1)
+	ci := cinfos.get(arrayIndex)
+	if ci == nil {
+		log.Printf("[WARN] columnFromVar failed - could not get conversion info for index %d", arrayIndex)
+		return ""
 	}
-	return column
+
+	return C.GoString(ci.attrname)
 }
 
 func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.ConversionInfo) (*proto.QualValue, error) {

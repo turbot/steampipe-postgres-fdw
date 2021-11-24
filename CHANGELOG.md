@@ -1,9 +1,11 @@
 ## v0.3.0 [2021-11-02]
 _What's new?_
 * Add support for plugin manager and plugin-level query caching. ([#111](https://github.com/turbot/steampipe-postgres-fdw/issues/111))
+* Only create query cache if needed. Do not add data to cache if plugin supports caching. ([#119](https://github.com/turbot/steampipe-postgres-fdw/issues/119))
 
 _Bug fixes_
 * Avoid concurrency error when calling execute multiple times in parallel. ([#114](https://github.com/turbot/steampipe-postgres-fdw/issues/114))
+* Fix intermittent crash when using boolean qual with ? operator and  jsonb column. ([#122](https://github.com/turbot/steampipe-postgres-fdw/issues/122))
 
 ## v0.2.6 [2021-10-18]
 _What's new?_

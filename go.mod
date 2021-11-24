@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-version v1.3.0
 	github.com/turbot/go-kit v0.3.0
 	// main
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20211119102729-b0aa9b62aa63
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20211124164827-1ed6eae515eb
 	github.com/turbot/steampipe-plugin-sdk v1.8.0
 	google.golang.org/protobuf v1.27.1
 )

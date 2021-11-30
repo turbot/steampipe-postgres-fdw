@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	TRACER_NAME     = "steampipe"
+	TRACER_NAME     = "fdw"
 	TRACER_ENDPOINT = "http://localhost:14268/api/traces"
 )
 

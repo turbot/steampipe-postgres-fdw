@@ -199,7 +199,7 @@ func (h *Hub) Scan(ctx context.Context, columns []string, quals *proto.Quals, li
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
 	if h.IsAggregatorConnection(connectionName) {
-		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
+		iterator, err = NewGroupIterator(ctx, connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
 		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
 
 	} else {

@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -21,7 +22,7 @@ type groupIterator struct {
 	childrenRunningWg sync.WaitGroup
 }
 
-func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionMap map[string]*modconfig.Connection, h *Hub) (Iterator, error) {
+func NewGroupIterator(ctx context.Context, name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionMap map[string]*modconfig.Connection, h *Hub) (Iterator, error) {
 	res := &groupIterator{
 		Name: name,
 		// create a buffered channel
@@ -29,7 +30,7 @@ func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals
 	}
 	var errors []error
 	for connectionName := range connectionMap {
-		iterator, err := h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+		iterator, err := h.startScanForConnection(ctx, connectionName, table, qualMap, columns, limit)
 		if err != nil {
 			errors = append(errors, err)
 		} else {

@@ -145,6 +145,7 @@ func (h *Hub) Abort() {
 
 // GetSchema returns the schema for a name. Load the plugin for the connection if needed
 func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema, error) {
+	log.Printf("[TRACE] Hub GetSchema %s %s", remoteSchema, localSchema)
 	pluginFQN := remoteSchema
 	connectionName := localSchema
 	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
@@ -155,25 +156,20 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 		connectionName = h.GetAggregateConnectionChild(connectionName)
 	}
 
-	c, err := h.connections.get(pluginFQN, connectionName)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.Schema, nil
+	return h.connections.getSchema(pluginFQN, connectionName)
 }
 
 // SetConnectionConfig sends the locally cached connection config to the plugin
 func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
-	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+	log.Printf("[TRACE] SetConnectionConfig remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
 	// we do NOT set connection config for aggregate connections
 	if h.IsAggregatorConnection(connectionName) {
 		return nil
 	}
-	c, err := h.connections.get(pluginFQN, connectionName)
+	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
 	if err != nil {
 		return err
 	}
@@ -490,7 +486,7 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	pluginFQN := connectionConfig.Plugin
 
 	// ask connection map to get or create this connection
-	c, err := h.connections.get(pluginFQN, connectionName)
+	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
 	if err != nil {
 		return nil, err
 	}

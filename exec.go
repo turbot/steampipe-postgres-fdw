@@ -25,6 +25,7 @@ import (
 
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type ExecState struct {
@@ -32,6 +33,7 @@ type ExecState struct {
 	Opts  map[string]string
 	Iter  hub.Iterator
 	State *C.FdwExecState
+	Span  trace.Span
 }
 
 var (

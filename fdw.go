@@ -11,6 +11,7 @@ package main
 import "C"
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -21,6 +22,7 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
+	"github.com/turbot/steampipe-postgres-fdw/instrument"
 )
 
 var logger hclog.Logger
@@ -155,7 +157,8 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 }
 
 //export goFdwBeginForeignScan
-func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
+func goFdwBeginForeignScan(ctx context.Context, node *C.ForeignScanState, eflags C.int) {
+	rootContext, rootSpan := instrument.StartRootSpan("rootSpan")
 	logging.LogTime("[fdw] BeginForeignScan start")
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
@@ -195,7 +198,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		FdwError(err)
 	}
 
-	iter, err := pluginHub.Scan(columns, quals, int64(execState.limit), opts)
+	iter, err := pluginHub.Scan(rootContext, columns, quals, int64(execState.limit), opts)
 	if err != nil {
 		log.Printf("[WARN] pluginHub.Scan FAILED: %s", err)
 		FdwError(err)
@@ -207,6 +210,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		Opts:  opts,
 		Iter:  iter,
 		State: execState,
+		Span:  rootSpan,
 	}
 
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
@@ -216,7 +220,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 }
 
 //export goFdwIterateForeignScan
-func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
+func goFdwIterateForeignScan(ctx context.Context, node *C.ForeignScanState) *C.TupleTableSlot {
+	baseCtx, span := instrument.StartSpan(ctx, "child span")
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwIterateForeignScan failed with panic: %v", r)
@@ -226,6 +231,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
+	s.Span = span
 
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
@@ -303,6 +309,7 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 
 		pluginHub.RemoveIterator(s.Iter)
 	}
+	s.Span.End()
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
 }

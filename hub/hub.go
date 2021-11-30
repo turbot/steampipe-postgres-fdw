@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -186,7 +187,7 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 }
 
 // Scan starts a table scan and returns an iterator
-func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types.Options) (Iterator, error) {
+func (h *Hub) Scan(ctx context.Context, columns []string, quals *proto.Quals, limit int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
@@ -202,7 +203,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
 
 	} else {
-		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+		iterator, err = h.startScanForConnection(ctx, connectionName, table, qualMap, columns, limit)
 		log.Printf("[TRACE] Hub Scan() created iterator (%p)", iterator)
 	}
 
@@ -217,7 +218,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 }
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator
-func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
+func (h *Hub) startScanForConnection(ctx context.Context, connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
 		return nil, err
@@ -271,7 +272,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled)
 
-	if err := h.startScan(iterator, queryContext); err != nil {
+	if err := h.startScan(ctx, iterator, queryContext); err != nil {
 		return nil, err
 	}
 
@@ -445,7 +446,7 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 //// internal implementation ////
 
 // split startScan into a separate function to allow iterator to restart the scan
-func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
+func (h *Hub) startScan(ctx context.Context, iterator *scanIterator, queryContext *proto.QueryContext) error {
 	// ensure we do not call execute too frequently
 	h.throttle()
 

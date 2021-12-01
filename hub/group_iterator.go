@@ -24,7 +24,7 @@ type groupIterator struct {
 }
 
 func NewGroupIterator(ctx context.Context, name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionMap map[string]*modconfig.Connection, h *Hub) (Iterator, error) {
-	tracingCtx, span := instrument.StartSpan(ctx, "Hub.NewGroupIterator:%s:%s", name, table)
+	_, span := instrument.StartSpan(ctx, "Hub.NewGroupIterator:%s:%s", name, table)
 	defer span.End()
 
 	res := &groupIterator{

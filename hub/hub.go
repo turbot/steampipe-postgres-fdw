@@ -471,7 +471,7 @@ func (h *Hub) startScan(ctx context.Context, iterator *scanIterator, queryContex
 		CacheEnabled: h.cacheEnabled(c),
 		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
 		CallId:       callId,
-		Tracer:       instrument.CreateCarrierFromContext(ctx),
+		TraceContext: instrument.CreateCarrierFromContext(ctx),
 	}
 
 	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v,  iterator %p", table, callId, req.CacheEnabled, iterator)

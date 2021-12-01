@@ -220,7 +220,6 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 //export goFdwIterateForeignScan
 func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
-	// baseCtx, span := instrument.StartSpan(ctx, "child span")
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwIterateForeignScan failed with panic: %v", r)
@@ -230,7 +229,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
-	// s.Span = span
 
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
@@ -248,7 +246,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms
-		//logging.DisplayProfileData(10*time.Millisecond, logger)
+		// logging.DisplayProfileData(10*time.Millisecond, logger)
 		return slot
 	}
 

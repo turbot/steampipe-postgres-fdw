@@ -11,7 +11,6 @@ package main
 import "C"
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -20,9 +19,9 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
+	"github.com/turbot/steampipe-postgres-fdw/instrument"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
-	"github.com/turbot/steampipe-postgres-fdw/instrument"
 )
 
 var logger hclog.Logger
@@ -157,7 +156,7 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 }
 
 //export goFdwBeginForeignScan
-func goFdwBeginForeignScan(ctx context.Context, node *C.ForeignScanState, eflags C.int) {
+func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	rootContext, rootSpan := instrument.StartRootSpan("rootSpan")
 	logging.LogTime("[fdw] BeginForeignScan start")
 	rel := BuildRelation(node.ss.ss_currentRelation)
@@ -220,8 +219,8 @@ func goFdwBeginForeignScan(ctx context.Context, node *C.ForeignScanState, eflags
 }
 
 //export goFdwIterateForeignScan
-func goFdwIterateForeignScan(ctx context.Context, node *C.ForeignScanState) *C.TupleTableSlot {
-	baseCtx, span := instrument.StartSpan(ctx, "child span")
+func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
+	// baseCtx, span := instrument.StartSpan(ctx, "child span")
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwIterateForeignScan failed with panic: %v", r)
@@ -231,7 +230,7 @@ func goFdwIterateForeignScan(ctx context.Context, node *C.ForeignScanState) *C.T
 	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
-	s.Span = span
+	// s.Span = span
 
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)

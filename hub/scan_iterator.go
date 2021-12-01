@@ -82,7 +82,7 @@ func (i *scanIterator) Error() error {
 // Next implements Iterator
 // return the next row. Nil row means there are no more rows to scan.
 func (i *scanIterator) Next(ctx context.Context) (map[string]interface{}, error) {
-	_, span := instrument.StartSpan(ctx, "Hub.Scan")
+	_, span := instrument.StartSpan(ctx, "ScanIterator.Next")
 	defer span.End()
 
 	// check the iterator state - has an error occurred
@@ -128,7 +128,7 @@ func (i *scanIterator) Next(ctx context.Context) (map[string]interface{}, error)
 }
 
 func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
-	_, span := instrument.StartSpan(ctx, "Hub.Scan")
+	_, span := instrument.StartSpan(ctx, "ScanIterator.Start")
 	defer span.End()
 	
 	logging.LogTime("[hub] start")

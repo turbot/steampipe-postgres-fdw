@@ -159,6 +159,10 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
+	if instrument.NeedsInit() {
+		instrument.InitTracing("FDW", "0.3.0")
+	}
+	
 	rootContext, rootSpan := instrument.StartRootSpan("rootSpan")
 	logging.LogTime("[fdw] BeginForeignScan start")
 	rel := BuildRelation(node.ss.ss_currentRelation)

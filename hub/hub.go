@@ -13,6 +13,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
@@ -20,6 +21,7 @@ import (
 	"github.com/turbot/steampipe/plugin_manager"
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -189,6 +191,13 @@ func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error
 // Scan starts a table scan and returns an iterator
 func (h *Hub) Scan(ctx context.Context, columns []string, quals *proto.Quals, limit int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("Scan start")
+
+	tracingCtx, span := instrument.StartSpan(ctx, "Hub.Scan")
+	span.SetAttributes(
+		attribute.StringSlice("columns", columns),
+	)
+	defer span.End()
+
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
 	table := opts["table"]
@@ -199,11 +208,11 @@ func (h *Hub) Scan(ctx context.Context, columns []string, quals *proto.Quals, li
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
 	if h.IsAggregatorConnection(connectionName) {
-		iterator, err = NewGroupIterator(ctx, connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
+		iterator, err = NewGroupIterator(tracingCtx, connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
 		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
 
 	} else {
-		iterator, err = h.startScanForConnection(ctx, connectionName, table, qualMap, columns, limit)
+		iterator, err = h.startScanForConnection(tracingCtx, connectionName, table, qualMap, columns, limit)
 		log.Printf("[TRACE] Hub Scan() created iterator (%p)", iterator)
 	}
 
@@ -462,6 +471,7 @@ func (h *Hub) startScan(ctx context.Context, iterator *scanIterator, queryContex
 		CacheEnabled: h.cacheEnabled(c),
 		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
 		CallId:       callId,
+		Tracer:       instrument.CreateCarrierFromContext(ctx),
 	}
 
 	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v,  iterator %p", table, callId, req.CacheEnabled, iterator)

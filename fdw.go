@@ -17,7 +17,7 @@ import (
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
-	instrument "github.com/turbot/steampipe-plugin-sdk/instrument"
+	"github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
@@ -50,6 +50,8 @@ func init() {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
+
+	instrument.InitTracing("FDW", "0.3.0")
 }
 
 //export goFdwGetRelSize
@@ -307,6 +309,7 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 		pluginHub.RemoveIterator(s.Iter)
 	}
 	s.Span.End()
+	go instrument.FlushTraces()
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
 }
@@ -317,6 +320,7 @@ func goFdwAbortCallback() {
 	if pluginHub, err := hub.GetHub(); err == nil {
 		pluginHub.Abort()
 	}
+	instrument.FlushTraces()
 }
 
 //export goFdwImportForeignSchema

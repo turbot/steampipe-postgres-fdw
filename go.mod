@@ -17,4 +17,4 @@ require (
 	google.golang.org/protobuf v1.27.1
 )
 
-replace github.com/turbot/steampipe-plugin-sdk => /Users/binaeksarkar/work/sources/steampipe-plugin-sdk
+replace github.com/turbot/steampipe-plugin-sdk => /Users/pskrbasu/turbot-delivery/Steampipe/steampipe-plugin-sdk

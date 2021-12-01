@@ -228,6 +228,9 @@ func (h *Hub) Scan(ctx context.Context, columns []string, quals *proto.Quals, li
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator
 func (h *Hub) startScanForConnection(ctx context.Context, connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
+	_, span := instrument.StartSpan(ctx, "Hub.Scan")
+	defer span.End()
+
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
 		return nil, err
@@ -269,6 +272,7 @@ func (h *Hub) startScanForConnection(ctx context.Context, connectionName string,
 
 	// do we have a cached query result
 	if cacheEnabled {
+		span.SetAttributes(attribute.Key("cache span").String(connectionName))
 		cachedResult := h.queryCache.Get(connectionPlugin, table, qualMap, columns, limit)
 		if cachedResult != nil {
 			// we have cache data - return a cache iterator
@@ -277,6 +281,7 @@ func (h *Hub) startScanForConnection(ctx context.Context, connectionName string,
 	}
 
 	// cache not enabled - create a scan iterator
+	span.SetAttributes(attribute.Key("query span").String(connectionName))
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled)

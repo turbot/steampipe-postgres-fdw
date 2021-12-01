@@ -407,7 +407,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 
 	// build path keys based on the table key columns
 	// NOTE: the schema data has changed in SDK version 1.3 - we must handle plugins using legacy sdk explicitly
-	// check for legacxy sdk versions
+	// check for legacy sdk versions
 	if schema.ListCallKeyColumns != nil {
 		log.Printf("[TRACE] schema response include ListCallKeyColumns, it is using legacy protobuff interface ")
 		pathKeys = types.LegacyKeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns, allColumns)

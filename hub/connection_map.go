@@ -113,7 +113,7 @@ func (f *connectionFactory) getSchema(pluginFQN, connectionName string) (*proto.
 			// if the schema mode is dynamic we cannot resuse the schema
 			if c.Schema.Mode == plugin.SchemaModeDynamic {
 				log.Printf("[TRACE] dynamic schema - cannot reuse")
-				return nil, nil
+				break
 			}
 			log.Printf("[TRACE] returning schema")
 			return c.Schema, nil

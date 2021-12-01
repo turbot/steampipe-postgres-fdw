@@ -12,7 +12,7 @@ require (
 	github.com/turbot/go-kit v0.3.0
 	// main
 	github.com/turbot/steampipe v1.7.0-rc.0.0.20211124164827-1ed6eae515eb
-	github.com/turbot/steampipe-plugin-sdk v1.8.0
+	github.com/turbot/steampipe-plugin-sdk v1.8.3-0.20211201054607-5d4d53229a45
 	go.opentelemetry.io/otel v1.2.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.2.0
 	go.opentelemetry.io/otel/sdk v1.2.0

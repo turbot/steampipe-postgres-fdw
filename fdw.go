@@ -17,9 +17,9 @@ import (
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
+	instrument "github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
-	"github.com/turbot/steampipe-postgres-fdw/instrument"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
 )

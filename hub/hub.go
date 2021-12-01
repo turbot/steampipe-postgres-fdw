@@ -228,7 +228,7 @@ func (h *Hub) Scan(ctx context.Context, columns []string, quals *proto.Quals, li
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator
 func (h *Hub) startScanForConnection(ctx context.Context, connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
-	_, span := instrument.StartSpan(ctx, "Hub.StartSpan")
+	_, span := instrument.StartSpan(ctx, "Hub.StartScanForConnection")
 	span.SetAttributes(attribute.Key("Start scan for connection").String(connectionName))
 	defer span.End()
 

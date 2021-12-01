@@ -228,7 +228,8 @@ func (h *Hub) Scan(ctx context.Context, columns []string, quals *proto.Quals, li
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator
 func (h *Hub) startScanForConnection(ctx context.Context, connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
-	_, span := instrument.StartSpan(ctx, "Hub.Scan")
+	_, span := instrument.StartSpan(ctx, "Start scan for connection")
+	span.SetAttributes(attribute.Key("Start scan for connection").String(connectionName))
 	defer span.End()
 
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
@@ -272,7 +273,7 @@ func (h *Hub) startScanForConnection(ctx context.Context, connectionName string,
 
 	// do we have a cached query result
 	if cacheEnabled {
-		span.SetAttributes(attribute.Key("cache span").String(connectionName))
+		span.SetAttributes(attribute.Key("iterator").String("cache"))
 		cachedResult := h.queryCache.Get(connectionPlugin, table, qualMap, columns, limit)
 		if cachedResult != nil {
 			// we have cache data - return a cache iterator
@@ -281,7 +282,7 @@ func (h *Hub) startScanForConnection(ctx context.Context, connectionName string,
 	}
 
 	// cache not enabled - create a scan iterator
-	span.SetAttributes(attribute.Key("query span").String(connectionName))
+	span.SetAttributes(attribute.Key("iterator").String("scan"))
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled)
@@ -461,6 +462,9 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 
 // split startScan into a separate function to allow iterator to restart the scan
 func (h *Hub) startScan(ctx context.Context, iterator *scanIterator, queryContext *proto.QueryContext) error {
+	_, span := instrument.StartSpan(ctx, "Hub.Scan")
+	defer span.End()
+	
 	// ensure we do not call execute too frequently
 	h.throttle()
 

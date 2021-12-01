@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
@@ -80,7 +81,10 @@ func (i *scanIterator) Error() error {
 
 // Next implements Iterator
 // return the next row. Nil row means there are no more rows to scan.
-func (i *scanIterator) Next() (map[string]interface{}, error) {
+func (i *scanIterator) Next(ctx context.Context) (map[string]interface{}, error) {
+	_, span := instrument.StartSpan(ctx, "Hub.Scan")
+	defer span.End()
+
 	// check the iterator state - has an error occurred
 	if i.status == QueryStatusError {
 		return nil, i.err
@@ -124,6 +128,9 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 }
 
 func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
+	_, span := instrument.StartSpan(ctx, "Hub.Scan")
+	defer span.End()
+	
 	logging.LogTime("[hub] start")
 	i.status = QueryStatusStarted
 	i.pluginRowStream = stream

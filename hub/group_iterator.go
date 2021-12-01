@@ -24,7 +24,7 @@ type groupIterator struct {
 }
 
 func NewGroupIterator(ctx context.Context, name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionMap map[string]*modconfig.Connection, h *Hub) (Iterator, error) {
-	_, span := instrument.StartSpan(ctx, "Hub.NewGroupIterator:%s:%s", name, table)
+	con, span := instrument.StartSpan(ctx, "Hub.NewGroupIterator:%s:%s", name, table)
 	defer span.End()
 
 	res := &groupIterator{
@@ -34,7 +34,7 @@ func NewGroupIterator(ctx context.Context, name string, table string, qualMap ma
 	}
 	var errors []error
 	for connectionName := range connectionMap {
-		iterator, err := h.startScanForConnection(ctx, connectionName, table, qualMap, columns, limit)
+		iterator, err := h.startScanForConnection(con, connectionName, table, qualMap, columns, limit)
 		if err != nil {
 			errors = append(errors, err)
 		} else {

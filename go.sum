@@ -670,6 +670,8 @@ github.com/mozillazg/go-httpheader v0.2.1/go.mod h1:jJ8xECTlalr6ValeXYdOF8fFUISe
 github.com/munnerz/goautoneg v0.0.0-20120707110453-a547fc61f48d/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+o7JKHSa8/e818NopupXU1YMK5fe1lsApnBw=
+github.com/mxschmitt/golang-combinations v1.1.0 h1:WlIZCnDm+Xlb2pRPf+R/qPKlGOU1w8lpN69/uy5z+Zg=
+github.com/mxschmitt/golang-combinations v1.1.0/go.mod h1:RbMhWvfCelHR6WROvT2bVfxJvZHoEvBj71SKe+H0MYU=
 github.com/ncw/swift v1.0.47/go.mod h1:23YIA4yWVnGwv2dQlN4bB7egfYX6YLn0Yo/S6zZO/ZM=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d/go.mod h1:YUTz3bUH2ZwIWBy3CJBeOBEugqcmXREj14T+iG/4k4U=
@@ -854,12 +856,6 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1
 github.com/tombuildsstuff/giovanni v0.15.1/go.mod h1:0TZugJPEtqzPlMpuJHYfXY6Dq2uLPrXf98D2XQSxNbA=
 github.com/turbot/go-kit v0.3.0 h1:o4zZIO1ovdmJ2bHWOdXnnt8jJMIDGqYSkZvBREzFeMQ=
 github.com/turbot/go-kit v0.3.0/go.mod h1:SBdPRngbEfYubiR81iAVtO43oPkg1+ASr+XxvgbH7/k=
-github.com/turbot/steampipe v1.7.0-rc.0.0.20211117111351-7ce828b31ccc h1:V+ZPwqoLzV/qDMCtiV8kAi815AFvqNdnarOS4BZmCkI=
-github.com/turbot/steampipe v1.7.0-rc.0.0.20211117111351-7ce828b31ccc/go.mod h1:G/WcuUwSIAZ9LtbaG/NasNqB/Fe9/fV2p5ZxNfrg6xE=
-github.com/turbot/steampipe v1.7.0-rc.0.0.20211117120608-405c3b32b4f9 h1:WbKMufZl0M2Lh/VPDsDG6mMxPFX/hwPyir1McQ+FD+c=
-github.com/turbot/steampipe v1.7.0-rc.0.0.20211117120608-405c3b32b4f9/go.mod h1:G/WcuUwSIAZ9LtbaG/NasNqB/Fe9/fV2p5ZxNfrg6xE=
-github.com/turbot/steampipe v1.7.0-rc.0.0.20211119102729-b0aa9b62aa63 h1:VpzN7KJ3KX11sn84D+xcKhr3wUyoJU/dPrRJUVloZ2Y=
-github.com/turbot/steampipe v1.7.0-rc.0.0.20211119102729-b0aa9b62aa63/go.mod h1:G/WcuUwSIAZ9LtbaG/NasNqB/Fe9/fV2p5ZxNfrg6xE=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20211124164827-1ed6eae515eb h1:MXWmu1L1XYdTDZpn4ZPioDG+o7h3FsRhTkoji4dUHhk=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20211124164827-1ed6eae515eb/go.mod h1:jqrY1xw5ALOec9GqFqwke53URm/ewPo8W6Srawts0wU=
 github.com/turbot/steampipe-plugin-sdk v1.8.0 h1:bPHlCnAg66UTMz7W7AwR8jCszOwwe6Bfmvpiko7VB2k=

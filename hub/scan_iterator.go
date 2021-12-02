@@ -10,7 +10,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
@@ -126,9 +125,6 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 }
 
 func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
-	_, span := instrument.StartSpan(ctx, "ScanIterator.Start")
-	defer span.End()
-
 	logging.LogTime("[hub] start")
 	i.status = QueryStatusStarted
 	i.pluginRowStream = stream

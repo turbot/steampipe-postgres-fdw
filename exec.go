@@ -20,6 +20,7 @@ static inline void freeState(GoFdwExecutionState * s){ if (s) free(s); }
 import "C"
 
 import (
+	"context"
 	"sync"
 	"unsafe"
 
@@ -29,11 +30,12 @@ import (
 )
 
 type ExecState struct {
-	Rel   *types.Relation
-	Opts  map[string]string
-	Iter  hub.Iterator
-	State *C.FdwExecState
-	Span  trace.Span
+	Rel      *types.Relation
+	Opts     map[string]string
+	Iter     hub.Iterator
+	State    *C.FdwExecState
+	Span     trace.Span
+	TraceCtx context.Context
 }
 
 var (

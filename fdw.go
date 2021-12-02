@@ -159,10 +159,6 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
-	if instrument.NeedsInit() {
-		instrument.InitTracing("FDW", "0.3.0")
-	}
-	
 	rootContext, rootSpan := instrument.StartRootSpan("rootSpan")
 	logging.LogTime("[fdw] BeginForeignScan start")
 	rel := BuildRelation(node.ss.ss_currentRelation)
@@ -211,11 +207,12 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	}
 
 	s := &ExecState{
-		Rel:   rel,
-		Opts:  opts,
-		Iter:  iter,
-		State: execState,
-		Span:  rootSpan,
+		Rel:      rel,
+		Opts:     opts,
+		Iter:     iter,
+		State:    execState,
+		Span:     rootSpan,
+		TraceCtx: rootContext,
 	}
 
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
@@ -235,6 +232,9 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	logging.LogTime("[fdw] IterateForeignScan start")
 
 	s := GetExecState(node.fdw_state)
+
+	_, span := instrument.StartSpan(s.TraceCtx, "iterate")
+	defer span.End()
 
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
@@ -296,6 +296,10 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
 	s := GetExecState(node.fdw_state)
+
+	_, sp := instrument.StartSpan(s.TraceCtx, "end scan")
+	defer sp.End()
+
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {
 		log.Printf("[TRACE] goFdwEndForeignScan, iterator: %p", s.Iter)
@@ -312,6 +316,7 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 
 		pluginHub.RemoveIterator(s.Iter)
 	}
+
 	s.Span.End()
 	go instrument.FlushTraces()
 	ClearExecState(node.fdw_state)

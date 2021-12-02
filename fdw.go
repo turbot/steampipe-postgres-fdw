@@ -11,9 +11,12 @@ package main
 import "C"
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"sync"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
@@ -22,9 +25,40 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var logger hclog.Logger
+
+var (
+	activeScans           int32           = 0
+	activeSpan            trace.Span      = nil
+	activeTraceCtx        context.Context = nil
+	activeTraceCreateLock *sync.Mutex     = &sync.Mutex{}
+)
+
+func getActiveRootSpan() (context.Context, trace.Span, int32) {
+	newValue := atomic.AddInt32(&activeScans, 1)
+	if newValue == 1 {
+		// this just came up from zero
+		activeTraceCreateLock.Lock()
+		defer activeTraceCreateLock.Unlock()
+
+		traceCtx, span := instrument.StartRootSpan("fdw_root_scan")
+		activeSpan = span
+		activeTraceCtx = traceCtx
+	}
+	return activeTraceCtx, activeSpan, newValue
+}
+func doneWithActiveSpan() {
+	newValue := atomic.AddInt32(&activeScans, -1)
+	if newValue < 1 {
+		activeSpan.End()
+		activeSpan = nil
+		activeTraceCtx = nil
+		instrument.FlushTraces()
+	}
+}
 
 // force loading of this module
 //export goInit
@@ -56,6 +90,7 @@ func init() {
 
 //export goFdwGetRelSize
 func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, width *C.int, baserel *C.RelOptInfo) {
+	log.Println("[WARN] goFdwGetRelSize")
 	logging.ClearProfileData()
 
 	pluginHub, err := hub.GetHub()
@@ -95,6 +130,7 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 //export goFdwGetPathKeys
 func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
+	log.Println("[WARN] goFdwGetPathKeys")
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
@@ -159,12 +195,17 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
-	rootContext, rootSpan := instrument.StartRootSpan("rootSpan")
+	stateCtx, _, idx := getActiveRootSpan()
+	rootContext, rootSpan := instrument.StartSpan(stateCtx, "new scan::%d", idx)
 	logging.LogTime("[fdw] BeginForeignScan start")
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = rel.Namespace
+
+	log.Println("[WARN] ForeignScanState")
+	// log.Printf("[WARN] %v",node.)
+	log.Println("[WARN] // ForeignScanState")
 
 	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
 
@@ -320,6 +361,7 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	s.Span.End()
 	go instrument.FlushTraces()
 	ClearExecState(node.fdw_state)
+	doneWithActiveSpan()
 	node.fdw_state = nil
 }
 
@@ -446,6 +488,8 @@ func goFdwShutdown() {
 		FdwError(err)
 	}
 	pluginHub.Close()
+	instrument.FlushTraces()
+	instrument.ShutdownTracing()
 }
 
 //export goFdwValidate

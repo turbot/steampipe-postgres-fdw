@@ -30,34 +30,54 @@ import (
 
 var logger hclog.Logger
 
+type TraceCtx struct {
+	ctx  context.Context
+	span trace.Span
+}
+
 var (
-	activeScans           int32           = 0
-	activeSpan            trace.Span      = nil
-	activeTraceCtx        context.Context = nil
-	activeTraceCreateLock *sync.Mutex     = &sync.Mutex{}
+	activeScans    int32 = 0
+	activeTraceCtx TraceCtx
+	// to keep track of all active trace contexts in case of an abort
+	allActiveScanTraceContexts []TraceCtx  = []TraceCtx{}
+	activeTraceLock            *sync.Mutex = &sync.Mutex{}
 )
 
-func getActiveRootSpan() (context.Context, trace.Span, int32) {
+func getActiveRootSpan() (TraceCtx, int32) {
 	newValue := atomic.AddInt32(&activeScans, 1)
 	if newValue == 1 {
 		// this just came up from zero
-		activeTraceCreateLock.Lock()
-		defer activeTraceCreateLock.Unlock()
+		activeTraceLock.Lock()
+		defer activeTraceLock.Unlock()
 
 		traceCtx, span := instrument.StartRootSpan("fdw_root_scan")
-		activeSpan = span
-		activeTraceCtx = traceCtx
+		activeTraceCtx = TraceCtx{
+			ctx:  traceCtx,
+			span: span,
+		}
 	}
-	return activeTraceCtx, activeSpan, newValue
+	return activeTraceCtx, newValue
 }
 func doneWithActiveSpan() {
 	newValue := atomic.AddInt32(&activeScans, -1)
 	if newValue < 1 {
-		activeSpan.End()
-		activeSpan = nil
-		activeTraceCtx = nil
+		activeTraceLock.Lock()
+		defer activeTraceLock.Unlock()
+		activeTraceCtx.span.End()
+
 		instrument.FlushTraces()
 	}
+}
+
+func abortActiveSpan() {
+	activeTraceLock.Lock()
+	defer activeTraceLock.Unlock()
+	atomic.StoreInt32(&activeScans, 0)
+	for _, x := range allActiveScanTraceContexts {
+		x.span.End()
+	}
+	activeTraceCtx.span.End()
+	instrument.FlushTraces()
 }
 
 // force loading of this module
@@ -90,7 +110,7 @@ func init() {
 
 //export goFdwGetRelSize
 func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, width *C.int, baserel *C.RelOptInfo) {
-	log.Println("[WARN] goFdwGetRelSize")
+	log.Println("[TRACE] goFdwGetRelSize")
 	logging.ClearProfileData()
 
 	pluginHub, err := hub.GetHub()
@@ -130,7 +150,7 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 //export goFdwGetPathKeys
 func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
-	log.Println("[WARN] goFdwGetPathKeys")
+	log.Println("[TRACE] goFdwGetPathKeys")
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
@@ -195,17 +215,15 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
-	stateCtx, _, idx := getActiveRootSpan()
-	rootContext, rootSpan := instrument.StartSpan(stateCtx, "new scan::%d", idx)
+	log.Println("[TRACE] goFdwBeginForeignScan")
+
+	trCtx, idx := getActiveRootSpan()
+	scanCtx, scanSpan := instrument.StartSpan(trCtx.ctx, "new scan::%d", idx)
 	logging.LogTime("[fdw] BeginForeignScan start")
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = rel.Namespace
-
-	log.Println("[WARN] ForeignScanState")
-	// log.Printf("[WARN] %v",node.)
-	log.Println("[WARN] // ForeignScanState")
 
 	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
 
@@ -240,7 +258,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		FdwError(err)
 	}
 
-	iter, err := pluginHub.Scan(rootContext, columns, quals, int64(execState.limit), opts)
+	iter, err := pluginHub.Scan(scanCtx, columns, quals, int64(execState.limit), opts)
 	if err != nil {
 		log.Printf("[WARN] pluginHub.Scan FAILED: %s", err)
 		FdwError(err)
@@ -252,18 +270,24 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		Opts:     opts,
 		Iter:     iter,
 		State:    execState,
-		Span:     rootSpan,
-		TraceCtx: rootContext,
+		Span:     scanSpan,
+		TraceCtx: scanCtx,
 	}
 
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
+
+	activeTraceLock.Lock()
+	allActiveScanTraceContexts = append(allActiveScanTraceContexts, TraceCtx{ctx: scanCtx, span: scanSpan})
+	activeTraceLock.Unlock()
 
 	logging.LogTime("[fdw] BeginForeignScan end")
 }
 
 //export goFdwIterateForeignScan
 func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
+	log.Println("[TRACE] goFdwIterateForeignScan")
+
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwIterateForeignScan failed with panic: %v", r)
@@ -336,6 +360,8 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
+	log.Println("[TRACE] goFdwEndForeignScan")
+
 	s := GetExecState(node.fdw_state)
 
 	_, sp := instrument.StartSpan(s.TraceCtx, "end scan")
@@ -371,6 +397,7 @@ func goFdwAbortCallback() {
 	if pluginHub, err := hub.GetHub(); err == nil {
 		pluginHub.Abort()
 	}
+	abortActiveSpan()
 	instrument.FlushTraces()
 }
 
@@ -483,6 +510,8 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 
 //export goFdwShutdown
 func goFdwShutdown() {
+	log.Println("[WARN] goFdwShutdown")
+
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)

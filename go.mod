@@ -15,4 +15,4 @@ require (
 	google.golang.org/protobuf v1.27.1
 )
 
-replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
+//replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe

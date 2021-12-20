@@ -321,7 +321,7 @@ func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals,
 	return true
 }
 
-// GetRelSize ::  Method called from the planner to estimate the resulting relation size for a scan.
+// GetRelSize is a method called from the planner to estimate the resulting relation size for a scan.
 //        It will help the planner in deciding between different types of plans,
 //        according to their costs.
 //        Args:
@@ -341,7 +341,7 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 	return result, nil
 }
 
-// GetPathKeys ::  Method called from the planner to add additional Path to the planner.
+// GetPathKeys Is a method called from the planner to add additional Path to the planner.
 //        By default, the planner generates an (unparameterized) path, which
 //        can be reasoned about like a SequentialScan, optionally filtered.
 //        This method allows the implementor to declare other Paths,
@@ -512,7 +512,7 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 	return res[connection.Name], nil
 }
 
-// LoadConnectionConfig :: load the connection config and return whether it has changed
+// LoadConnectionConfig loads the connection config and returns whether it has changed
 func (h *Hub) LoadConnectionConfig() (bool, error) {
 	// load connection conFig
 	connectionConfig, err := steampipeconfig.LoadConnectionConfig()

@@ -163,7 +163,7 @@ func columnPathsToPathKeys(columnPaths [][]string, allColumns []string, baseCost
 		}
 	}
 
-	log.Printf("[WARN] columnPathsToPathKeys %d column paths %d all columns, %d pathkeys", len(columnPaths), len(allColumns), len(res))
+	log.Printf("[TRACE] columnPathsToPathKeys %d column paths %d all columns, %d pathkeys", len(columnPaths), len(allColumns), len(res))
 
 	return res
 }

@@ -145,6 +145,7 @@ func (h *Hub) Abort() {
 
 // GetSchema returns the schema for a name. Load the plugin for the connection if needed
 func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema, error) {
+	log.Printf("[TRACE] Hub GetSchema %s %s", remoteSchema, localSchema)
 	pluginFQN := remoteSchema
 	connectionName := localSchema
 	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
@@ -155,25 +156,20 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 		connectionName = h.GetAggregateConnectionChild(connectionName)
 	}
 
-	c, err := h.connections.get(pluginFQN, connectionName)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.Schema, nil
+	return h.connections.getSchema(pluginFQN, connectionName)
 }
 
 // SetConnectionConfig sends the locally cached connection config to the plugin
 func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error {
 	pluginFQN := remoteSchema
 	connectionName := localSchema
-	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
+	log.Printf("[TRACE] SetConnectionConfig remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
 	// we do NOT set connection config for aggregate connections
 	if h.IsAggregatorConnection(connectionName) {
 		return nil
 	}
-	c, err := h.connections.get(pluginFQN, connectionName)
+	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
 	if err != nil {
 		return err
 	}
@@ -325,7 +321,7 @@ func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals,
 	return true
 }
 
-// GetRelSize ::  Method called from the planner to estimate the resulting relation size for a scan.
+// GetRelSize is a method called from the planner to estimate the resulting relation size for a scan.
 //        It will help the planner in deciding between different types of plans,
 //        according to their costs.
 //        Args:
@@ -345,7 +341,7 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 	return result, nil
 }
 
-// GetPathKeys ::  Method called from the planner to add additional Path to the planner.
+// GetPathKeys Is a method called from the planner to add additional Path to the planner.
 //        By default, the planner generates an (unparameterized) path, which
 //        can be reasoned about like a SequentialScan, optionally filtered.
 //        This method allows the implementor to declare other Paths,
@@ -411,7 +407,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 
 	// build path keys based on the table key columns
 	// NOTE: the schema data has changed in SDK version 1.3 - we must handle plugins using legacy sdk explicitly
-	// check for legacxy sdk versions
+	// check for legacy sdk versions
 	if schema.ListCallKeyColumns != nil {
 		log.Printf("[TRACE] schema response include ListCallKeyColumns, it is using legacy protobuff interface ")
 		pathKeys = types.LegacyKeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns, allColumns)
@@ -490,7 +486,7 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	pluginFQN := connectionConfig.Plugin
 
 	// ask connection map to get or create this connection
-	c, err := h.connections.get(pluginFQN, connectionName)
+	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -509,10 +505,14 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", plugin_manager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
-	return steampipeconfig.CreateConnectionPlugin(connection)
+	res, err := steampipeconfig.CreateConnectionPlugins(connection)
+	if err != nil {
+		return nil, err
+	}
+	return res[connection.Name], nil
 }
 
-// LoadConnectionConfig :: load the connection config and return whether it has changed
+// LoadConnectionConfig loads the connection config and returns whether it has changed
 func (h *Hub) LoadConnectionConfig() (bool, error) {
 	// load connection conFig
 	connectionConfig, err := steampipeconfig.LoadConnectionConfig()

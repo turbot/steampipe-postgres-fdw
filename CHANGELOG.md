@@ -1,3 +1,7 @@
+## v0.3.1 [2021-12-21]
+_What's new?_
+* Update PathKeys code to give required key columns a lower cost than optional key columns  ([#116](https://github.com/turbot/steampipe-postgres-fdw/issues/116),  [#117](https://github.com/turbot/steampipe-postgres-fdw/issues/117)
+
 ## v0.3.0 [2021-11-02]
 _What's new?_
 * Add support for plugin manager and plugin-level query caching. ([#111](https://github.com/turbot/steampipe-postgres-fdw/issues/111))

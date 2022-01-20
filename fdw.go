@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"time"
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
@@ -44,8 +45,11 @@ func init() {
 		// suppress logs
 		log.SetOutput(ioutil.Discard)
 	}
-
-	logger = logging.NewLogger(&hclog.LoggerOptions{Name: "hub"})
+	logger = logging.NewLogger(&hclog.LoggerOptions{
+		Name:       "hub",
+		TimeFn:     func() time.Time { return time.Now().UTC() },
+		TimeFormat: "2006-01-02 15:04:05.000 UTC",
+	})
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)

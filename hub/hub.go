@@ -16,7 +16,8 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
-	"github.com/turbot/steampipe/plugin_manager"
+	"github.com/turbot/steampipe/filepaths"
+	"github.com/turbot/steampipe/pluginmanager"
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
 )
@@ -83,7 +84,7 @@ func newHub() (*Hub, error) {
 	if err != nil {
 		return nil, err
 	}
-	constants.SteampipeDir = steampipeDir
+	filepaths.SteampipeDir = steampipeDir
 
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
@@ -503,13 +504,13 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 		return nil, fmt.Errorf("no config found for connection %s", connectionName)
 	}
 
-	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", plugin_manager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
+	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", pluginmanager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
-	res, err := steampipeconfig.CreateConnectionPlugins(connection)
-	if err != nil {
-		return nil, err
+	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins(connection)
+	if res.Error != nil {
+		return nil, res.Error
 	}
-	return res[connection.Name], nil
+	return connectionPlugins[connection.Name], nil
 }
 
 // LoadConnectionConfig loads the connection config and returns whether it has changed

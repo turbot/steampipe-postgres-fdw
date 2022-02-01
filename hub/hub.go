@@ -506,7 +506,7 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", pluginmanager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
-	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins(connection)
+	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins([]*modconfig.Connection{connection}, &steampipeconfig.CreateConnectionPluginOptions{SetConnectionConfig: false})
 	if res.Error != nil {
 		return nil, res.Error
 	}

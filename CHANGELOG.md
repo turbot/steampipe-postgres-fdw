@@ -1,3 +1,7 @@
+## v0.3.3 [2022-02-01]
+_Bug fixes_
+* Do not set connection config when creating connection plugin - as it will already have been set by Steampipe CLI. [#139](https://github.com/turbot/steampipe-postgres-fdw/issues/139)
+
 ## v0.3.2 [2021-12-21]
 _Bug fixes_
 * Fixes issue where FDW log entries were using a different format from Postgres. [#134](https://github.com/turbot/steampipe-postgres-fdw/issues/134)

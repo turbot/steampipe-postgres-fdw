@@ -496,7 +496,7 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 }
 
 // load the given plugin connection into the connection map and return the schema
-func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
+func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, opts *steampipeconfig.CreateConnectionPluginOptions) (*steampipeconfig.ConnectionPlugin, error) {
 	// load the config for this connection
 	connection, ok := h.steampipeConfig.Connections[connectionName]
 	if !ok {
@@ -506,7 +506,7 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampi
 
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", pluginmanager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
-	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins([]*modconfig.Connection{connection}, &steampipeconfig.CreateConnectionPluginOptions{SetConnectionConfig: false})
+	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins([]*modconfig.Connection{connection}, opts)
 	if res.Error != nil {
 		return nil, res.Error
 	}

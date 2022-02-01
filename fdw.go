@@ -346,30 +346,6 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		return sql
 	}
 
-	// reload connection config - the ImportSchema command may be called because the config has been changed
-	connectionConfigChanged, err := pluginHub.LoadConnectionConfig()
-	if err != nil {
-		FdwError(err)
-		return nil
-	}
-
-	log.Printf("[TRACE] loaded connection config")
-
-	// if the connection config has changed locally, send it to the plugin
-	// NOTE: this is redundant the first time a schema is imported as the hub will probably be freshly created
-	// so connection config will be up to date
-	// However if steampipe detects a connection config change and calls RefreshConnections later, the hub will alreayd exist
-	// TODO add a mechanism to prevent reloading the first time - we just need to know if the hub was created  in call to GetHub
-
-	if connectionConfigChanged {
-		log.Printf("[TRACE] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
-
-		err := pluginHub.SetConnectionConfig(remoteSchema, localSchema)
-		if err != nil {
-			FdwError(err)
-			return nil
-		}
-	}
 	schema, err := pluginHub.GetSchema(remoteSchema, localSchema)
 	if err != nil {
 		FdwError(err)

@@ -12,5 +12,3 @@ require (
 	github.com/turbot/steampipe-plugin-sdk v1.8.3
 	google.golang.org/protobuf v1.27.1
 )
-
-

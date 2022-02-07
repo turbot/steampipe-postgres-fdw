@@ -285,6 +285,9 @@ ExecEvalExpr(ExprState *state,
 			 ExprContext *econtext,
 			 bool *isNull)
 {
+    if (state->evalfunc == (ExprStateEvalFunc)0){
+        return (Datum)0;
+    }
 	return state->evalfunc(state, econtext, isNull);
 }
 #endif

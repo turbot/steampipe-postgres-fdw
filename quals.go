@@ -14,6 +14,8 @@ import (
 	"net"
 	"unsafe"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
@@ -37,7 +39,8 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *pro
 	for it := restrictions.head; it != nil; it = it.next {
 		restriction := C.cellGetExpr(it)
 
-		log.Printf("[TRACE] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
+		log.Printf("[WARN] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
+		spew.Dump(restriction)
 
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
@@ -313,8 +316,9 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		typeOid = opExprQual.opresulttype
 		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
 		econtext := node.ss.ps.ps_ExprContext
+		log.Printf("[WARN] getQualValue T_OpExpr qual, value %v, isNull %v", value, isNull)
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
-		log.Printf("[TRACE] getQualValue T_Param qual, value %v, isNull %v", value, isNull)
+		log.Printf("[TRACE] getQualValue T_OpExpr qual, value %v, isNull %v", value, isNull)
 	default:
 		return nil, fmt.Errorf("QualDefsToQuals: non-const qual value (type %s), skipping\n", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))))
 	}

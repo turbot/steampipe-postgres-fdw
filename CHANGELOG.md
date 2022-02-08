@@ -2,6 +2,14 @@
 _What's new?_
 * Add support for ltree column type. [#138](https://github.com/turbot/steampipe-postgres-fdw/issues/138)
 
+## v0.3.5 [tbd]
+_Bug fixes_
+* Fix FDW crash when failing to start a plugin because of a validation error. [#146](https://github.com/turbot/steampipe-postgres-fdw/issues/146)
+
+## v0.3.4 [2022-02-01]
+_Bug fixes_
+* Do not set connection config when creating connection plugin for a GetSchema call - but do set it otherwise
+
 ## v0.3.3 [2022-02-01]
 _Bug fixes_
 * Do not set connection config when creating connection plugin - as it will already have been set by Steampipe CLI. [#139](https://github.com/turbot/steampipe-postgres-fdw/issues/139)

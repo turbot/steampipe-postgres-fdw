@@ -1,3 +1,7 @@
+## v0.3.5 [tbd]
+_Bug fixes_
+* Fix FDW crash when failing to start a plugin because of a validation error. [#146](https://github.com/turbot/steampipe-postgres-fdw/issues/146)
+
 ## v0.3.4 [2022-02-01]
 _Bug fixes_
 * Do not set connection config when creating connection plugin for a GetSchema call - but do set it otherwise

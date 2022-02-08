@@ -504,11 +504,17 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, opts *ste
 		return nil, fmt.Errorf("no config found for connection %s", connectionName)
 	}
 
-	log.Printf("[TRACE] createConnectionPlugin plugin %s, conection %s, config: %s\n", pluginmanager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
+	log.Printf("[TRACE] createConnectionPlugin plugin %s, connection %s, config: %s\n", pluginmanager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
 	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins([]*modconfig.Connection{connection}, opts)
 	if res.Error != nil {
 		return nil, res.Error
+	}
+	if connectionPlugins[connection.Name] == nil {
+		if len(res.Warnings) > 0 {
+			return nil, fmt.Errorf("%s", strings.Join(res.Warnings, ","))
+		}
+		return nil, fmt.Errorf("unknown failure")
 	}
 	return connectionPlugins[connection.Name], nil
 }

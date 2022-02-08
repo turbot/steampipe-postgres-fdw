@@ -1,4 +1,4 @@
-## v0.4.0 [tbd]
+## v1.0.0 [tbd]
 _What's new?_
 * Add support for ltree column type. [#138](https://github.com/turbot/steampipe-postgres-fdw/issues/138)
 

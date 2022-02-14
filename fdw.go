@@ -18,7 +18,7 @@ import (
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"

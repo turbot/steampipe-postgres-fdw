@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"

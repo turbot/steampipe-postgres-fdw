@@ -10,8 +10,8 @@ import (
 	"github.com/dgraph-io/ristretto"
 	goVersion "github.com/hashicorp/go-version"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe/steampipeconfig"
 )
 

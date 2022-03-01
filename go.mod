@@ -14,4 +14,4 @@ require (
 )
 
 // sdk_version_3
-replace github.com/turbot/steampipe => github.com/turbot/steampipe v1.7.0-rc.0.0.20220214151300-53835e0dcb87
+replace github.com/turbot/steampipe => github.com/turbot/steampipe v1.7.0-rc.0.0.20220301170040-03d22bfaf020

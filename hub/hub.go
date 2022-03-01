@@ -155,31 +155,10 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 	// - we will use this to retrieve the schema
 	if h.IsAggregatorConnection(connectionName) {
 		connectionName = h.GetAggregateConnectionChild(connectionName)
+		log.Printf("[TRACE] getSchema %s is an aggregator - getting schema for first child %s\n", localSchema, connectionName)
 	}
 
 	return h.connections.getSchema(pluginFQN, connectionName)
-}
-
-// SetConnectionConfig sends the locally cached connection config to the plugin
-func (h *Hub) SetConnectionConfig(remoteSchema string, localSchema string) error {
-	pluginFQN := remoteSchema
-	connectionName := localSchema
-	log.Printf("[TRACE] SetConnectionConfig remoteSchema: %s, name %s\n", remoteSchema, connectionName)
-
-	// we do NOT set connection config for aggregate connections
-	if h.IsAggregatorConnection(connectionName) {
-		return nil
-	}
-	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
-	if err != nil {
-		return err
-	}
-
-	req := &proto.SetConnectionConfigRequest{
-		ConnectionName:   connectionName,
-		ConnectionConfig: c.ConnectionConfig,
-	}
-	return c.PluginClient.SetConnectionConfig(req)
 }
 
 // Scan starts a table scan and returns an iterator
@@ -592,12 +571,8 @@ func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
 		panic(fmt.Sprintf("GetAggregateConnectionChild called for connection %s which is not an aggregate", connectionName))
 	}
 	aggregateConnection := h.steampipeConfig.Connections[connectionName]
-	// get first key from the Connections map
-	var name string
-	for name = range aggregateConnection.Connections {
-		break
-	}
-	return name
+	// get first child
+	return aggregateConnection.FirstChild().Name
 }
 
 func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {

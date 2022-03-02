@@ -966,6 +966,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1
 github.com/tombuildsstuff/giovanni v0.15.1/go.mod h1:0TZugJPEtqzPlMpuJHYfXY6Dq2uLPrXf98D2XQSxNbA=
 github.com/turbot/go-kit v0.3.0 h1:o4zZIO1ovdmJ2bHWOdXnnt8jJMIDGqYSkZvBREzFeMQ=
 github.com/turbot/go-kit v0.3.0/go.mod h1:SBdPRngbEfYubiR81iAVtO43oPkg1+ASr+XxvgbH7/k=
+github.com/turbot/steampipe v0.13.0-alpha.15 h1:9y6RtyIAUHj/lqhltzlqIFJofoFmi6c76Ryer0pOT6M=
+github.com/turbot/steampipe v0.13.0-alpha.15/go.mod h1:Yn+86EXjws3vUWRbuymUxJoP5BvQm6U4A3fB/jNw724=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20220214151300-53835e0dcb87 h1:5MfX2A4urj+G6JFFumCiEU/pANF+jEJlln7UB403DvQ=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20220214151300-53835e0dcb87/go.mod h1:Yn+86EXjws3vUWRbuymUxJoP5BvQm6U4A3fB/jNw724=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20220301170040-03d22bfaf020 h1:vlU6ePI33gXtB3H1pI0K4gV9TuJbF56KWI/loAWTIEc=

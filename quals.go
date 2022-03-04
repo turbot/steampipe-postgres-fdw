@@ -17,6 +17,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
 )
 
 func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *proto.Quals {
@@ -193,14 +194,14 @@ func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos 
 		return nil
 	}
 
-	operatorName := ""
+	var operatorName string
 	if restriction.nulltesttype == C.IS_NULL {
-		operatorName = "="
+		operatorName = quals.QualOperatorIsNull
 	} else {
-		operatorName = "<>"
+		operatorName = quals.QualOperatorIsNotNull
 	}
 
-	// try to get th ecolumn
+	// try to get the column
 	column := columnFromVar(arg, cinfos)
 	// if we failed to get a column we cannot create a qual
 	if column == "" {
@@ -232,7 +233,7 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 		return nil
 	}
 
-	// now populate th eoperator
+	// now populate the operator
 	operatorName := ""
 	switch restriction.booltesttype {
 	case C.IS_TRUE:

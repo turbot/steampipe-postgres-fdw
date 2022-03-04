@@ -1,7 +1,10 @@
 ## v0.4.0 [tbd]
 _What's new?_
 * Add support for ltree column type. [#138](https://github.com/turbot/steampipe-postgres-fdw/issues/138)
+
+* _Bug fixes_
 * Fix refreshing an aggregate connection causing a plugin crash. [#152](https://github.com/turbot/steampipe-postgres-fdw/issues/152)
+* Fix 'is nil' qual causing a plugin NRE. [#154](https://github.com/turbot/steampipe-postgres-fdw/issues/154)
 
 ## v0.3.5 [tbd]
 _Bug fixes_

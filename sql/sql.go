@@ -55,7 +55,7 @@ func sqlTypeForColumnType(columnType proto.ColumnType) (string, error) {
 		return "double precision", nil
 	case proto.ColumnType_STRING:
 		return "text", nil
-	case proto.ColumnType_IPADDR:
+	case proto.ColumnType_IPADDR, proto.ColumnType_INET:
 		return "inet", nil
 	case proto.ColumnType_CIDR:
 		return "cidr", nil

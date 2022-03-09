@@ -1,6 +1,7 @@
 ## v0.4.0 [tbd]
 _What's new?_
 * Add support for ltree column type. [#138](https://github.com/turbot/steampipe-postgres-fdw/issues/138)
+* Add support for inet column type. [#156](https://github.com/turbot/steampipe-postgres-fdw/issues/156)
 
 * _Bug fixes_
 * Fix refreshing an aggregate connection causing a plugin crash. [#152](https://github.com/turbot/steampipe-postgres-fdw/issues/152)

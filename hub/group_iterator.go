@@ -77,9 +77,6 @@ func (i *groupIterator) Error() error {
 
 // Next implements Iterator
 func (i *groupIterator) Next() (map[string]interface{}, error) {
-	log.Printf("[TRACE] groupIterator Next() start (%p)", i)
-	defer log.Printf("[TRACE] groupIterator Next() end (%p) ", i)
-
 	row := <-i.rowChan
 	if len(row) == 0 {
 		log.Printf("[TRACE] groupIterator len(row) == 0 ")

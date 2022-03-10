@@ -1,4 +1,4 @@
-## v0.4.0 [tbd]
+## v0.4.0 [2022-03-10]
 _What's new?_
 * Add support for ltree column type. [#138](https://github.com/turbot/steampipe-postgres-fdw/issues/138)
 * Add support for inet column type. [#156](https://github.com/turbot/steampipe-postgres-fdw/issues/156)
@@ -7,7 +7,7 @@ _What's new?_
 * Fix refreshing an aggregate connection causing a plugin crash. [#152](https://github.com/turbot/steampipe-postgres-fdw/issues/152)
 * Fix 'is nil' qual causing a plugin NRE. [#154](https://github.com/turbot/steampipe-postgres-fdw/issues/154)
 
-## v0.3.5 [tbd]
+## v0.3.5 [2022-08-02]
 _Bug fixes_
 * Fix FDW crash when failing to start a plugin because of a validation error. [#146](https://github.com/turbot/steampipe-postgres-fdw/issues/146)
 

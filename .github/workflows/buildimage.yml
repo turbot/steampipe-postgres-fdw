@@ -17,11 +17,29 @@ jobs:
     name: Build for Darwin
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v2
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Golang
+      uses: actions/setup-go@v3
       with:
         go-version: '1.18'
-    - run: brew install --force postgresql@14
+
+    - name: Install PostgreSQL@14
+      run: brew install --force postgresql@14
+
+    - name: PGConfig
+      run: |-
+        which pg_config
+        ls -l $(which pg_config)
+        PG_CONFIG = pg_config
+        PGXS := $(shell $(PG_CONFIG) --pgxs)
+        SERVER_LIB = $(shell $(PG_CONFIG) --includedir)/server
+        INTERNAL_LIB = $(shell $(PG_CONFIG) --includedir)/internal
+        
+        ls -l $PGXS
+        ls -l $SERVER_LIB
+        ls -l $INTERNAL_LIB
 
     # - name: make clean
     #   run: make clean
@@ -208,7 +226,8 @@ jobs:
       - run: cat config.json
 
       # create the annotations file
-      - run: |-
+      - name: Create Annotations JSON
+        run: |-
           JSON_STRING=$( jq -n \
               --arg title "$IMAGE_NAME" \
               --arg desc "$ORG" \
@@ -226,8 +245,6 @@ jobs:
             }' )
 
             echo $JSON_STRING > annotations.json
-
-      - run: cat annotations.json
 
     # push to the registry
       - run: |-

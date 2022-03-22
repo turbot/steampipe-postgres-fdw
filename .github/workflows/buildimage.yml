@@ -32,10 +32,10 @@ jobs:
       run: |-
         which pg_config
         ls -l $(which pg_config)
-        PG_CONFIG = pg_config
-        PGXS := $(shell $(PG_CONFIG) --pgxs)
-        SERVER_LIB = $(shell $(PG_CONFIG) --includedir)/server
-        INTERNAL_LIB = $(shell $(PG_CONFIG) --includedir)/internal
+        PG_CONFIG=pg_config
+        PGXS=$(shell $(PG_CONFIG) --pgxs)
+        SERVER_LIB=$(shell $(PG_CONFIG) --includedir)/server
+        INTERNAL_LIB=$(shell $(PG_CONFIG) --includedir)/internal
         
         ls -l $PGXS
         ls -l $SERVER_LIB

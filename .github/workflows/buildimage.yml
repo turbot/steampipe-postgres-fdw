@@ -23,26 +23,29 @@ jobs:
         go-version: '1.18'
     - run: brew install --force postgresql@14
 
-    - name: make clean
-      run: make clean
-      working-directory: ./fdw
+    # - name: make clean
+    #   run: make clean
+    #   working-directory: ./fdw
 
-    - name: make go
-      run: make go
-      working-directory: ./fdw
+    # - name: make go
+    #   run: make go
+    #   working-directory: ./fdw
 
-    - name: make
+    # - name: make
+    #   run: |-
+    #     go version
+    #     export PATH="/usr/local/opt/postgresql@14/bin:$PATH"
+    #     export LDFLAGS="-L/usr/local/opt/postgresql@14/lib"
+    #     export CPPFLAGS="-I/usr/local/opt/postgresql@14/include"
+    #     export PKG_CONFIG_PATH="/usr/local/opt/postgresql@14/lib/pkgconfig"
+    #     export PG_LDFLAGS="-framework Foundation -framework AppKit -framework Security"
+    #     which pg_config
+    #     pg_config --version
+    #     make
+    #   working-directory: ./fdw
+    - name: Build
       run: |-
-        go version
-        export PATH="/usr/local/opt/postgresql@14/bin:$PATH"
-        export LDFLAGS="-L/usr/local/opt/postgresql@14/lib"
-        export CPPFLAGS="-I/usr/local/opt/postgresql@14/include"
-        export PKG_CONFIG_PATH="/usr/local/opt/postgresql@14/lib/pkgconfig"
-        export PG_LDFLAGS="-framework Foundation -framework AppKit -framework Security"
-        which pg_config
-        pg_config --version
-        make
-      working-directory: ./fdw
+        ./build.sh
 
     - name: gzip the steampipe_postgres_fdw.so
       run: |-
@@ -75,20 +78,28 @@ jobs:
     name: Build for Linux
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v2
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup GoLang
+      uses: actions/setup-go@v3
       with:
         go-version: '^1.16.0' # The Go version to download (if necessary) and use.
-    - run: |-
+
+    - name: Setup apt-get
+      run: |-
         sudo env ACCEPT_EULA=Y apt-get update
         sudo env ACCEPT_EULA=Y apt-get upgrade
-        sudo apt-get -y install postgresql-server-dev-14
 
-    - name: make clean
+    - name: Install PostgreSQL14 Dev
+      run: |-
+        sudo apt-get -y install postgresql-server-dev-14        
+
+    - name: Clean
       run: make clean
       working-directory: ./fdw
 
-    - name: make go
+    - name: Make Go
       run: make go
       working-directory: ./fdw
 

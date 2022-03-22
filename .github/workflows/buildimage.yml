@@ -25,8 +25,8 @@ jobs:
         which pg_config
         ls -l $(which pg_config)
         PGXS=$(pg_config --pgxs)
-        SERVER_LIB=$(pg_config --includedir)/server
-        INTERNAL_LIB=$(pg_config --includedir)/internal
+        SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
 
         echo $PGXS
         echo $SERVER_LIB
@@ -65,6 +65,7 @@ jobs:
     #     pg_config --version
     #     make
     #   working-directory: ./fdw
+
     - name: Build
       run: |-
         ./build.sh

@@ -255,7 +255,7 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 
 // convert a boolean expression into a qual
 // currently we only support simple expressions like column=true
-func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos **C.ConversionInfo) *proto.Qual {
+func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
 	arg := C.cellGetExpr(C.list_head(restriction.args))
 	// NOTE currently we only handle boolean expression with a single argument and a NOT operato
 	if restriction.args.length == 1 || restriction.boolop == C.NOT_EXPR && C.fdw_nodeTag(arg) == C.T_Var {

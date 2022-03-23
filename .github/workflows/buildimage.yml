@@ -66,7 +66,25 @@ jobs:
         
     - name: make clean
       working-directory: ./fdw
-      run: make clean
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH"
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+      
+        make clean
 
     # - name: make clean
     #   run: make clean
@@ -74,7 +92,25 @@ jobs:
 
     - name: make go
       working-directory: ./fdw
-      run: make go
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH"
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+      
+        make go
 
     - name: make
       working-directory: ./fdw

@@ -68,6 +68,9 @@ jobs:
 
     - name: Build
       run: |-
+        export PGXS=$(pg_config --pgxs)
+        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
         ./build.sh
 
     - name: gzip the steampipe_postgres_fdw.so

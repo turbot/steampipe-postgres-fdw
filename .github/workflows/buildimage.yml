@@ -44,7 +44,6 @@ jobs:
       with:
         go-version: '1.18'
 
-
     - name: Fetching Go Cache Paths
       id: go-cache-paths
       run: |
@@ -64,34 +63,40 @@ jobs:
       with:
         path: ${{ steps.go-cache-paths.outputs.go-mod }}
         key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+        
+    - name: make clean
+      working-directory: ./fdw
+      run: make clean
 
     # - name: make clean
     #   run: make clean
     #   working-directory: ./fdw
 
-    # - name: make go
-    #   run: make go
-    #   working-directory: ./fdw
+    - name: make go
+      working-directory: ./fdw
+      run: make go
 
-    # - name: make
-    #   run: |-
-    #     go version
-    #     export PATH="/usr/local/opt/postgresql@14/bin:$PATH"
-    #     export LDFLAGS="-L/usr/local/opt/postgresql@14/lib"
-    #     export CPPFLAGS="-I/usr/local/opt/postgresql@14/include"
-    #     export PKG_CONFIG_PATH="/usr/local/opt/postgresql@14/lib/pkgconfig"
-    #     export PG_LDFLAGS="-framework Foundation -framework AppKit -framework Security"
-    #     which pg_config
-    #     pg_config --version
-    #     make
-    #   working-directory: ./fdw
-
-    - name: Build
+    - name: make
+      working-directory: ./fdw
       run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH"
         export PGXS=$(pg_config --pgxs)
+    
         export SERVER_LIB=$(pg_config --includedir)/postgresql/server
         export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
-        ./build.sh
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+        
+        make
 
     - name: gzip the steampipe_postgres_fdw.so
       run: |-

@@ -1,7 +1,7 @@
 package main
 
 /*
-#cgo CFLAGS: -Ifdw -Ifdw/include/postgresql/server -Ifdw/include/postgresql/internal
+#cgo CFLAGS: -Ifdw -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -g
 #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
 #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 #include "fdw_helpers.h"
@@ -93,10 +93,10 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos *con
 	right := C.list_nth(restriction.args, 1)
 
 	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
-	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
-		log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
-		return nil
-	}
+	//if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
+	//	log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+	//	return nil
+	//}
 
 	var arrayIndex = int(left.varattno - 1)
 	ci := cinfos.get(arrayIndex)
@@ -154,10 +154,10 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 	right := C.list_nth(restriction.args, 1)
 
 	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
-	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
-		log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
-		return nil
-	}
+	//if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
+	//	log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+	//	return nil
+	//}
 
 	var arrayIndex = int(left.varattno - 1)
 	ci := cinfos.get(arrayIndex)

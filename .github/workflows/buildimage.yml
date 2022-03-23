@@ -72,7 +72,7 @@ jobs:
         which pg_config
         pg_config --version
         
-        export PATH=$(pg_config --bindir):$PATH"
+        export PATH=$(pg_config --bindir):$PATH
         export PGXS=$(pg_config --pgxs)
     
         export SERVER_LIB=$(pg_config --includedir)/postgresql/server
@@ -94,7 +94,7 @@ jobs:
         which pg_config
         pg_config --version
         
-        export PATH=$(pg_config --bindir):$PATH"
+        export PATH=$(pg_config --bindir):$PATH
         export PGXS=$(pg_config --pgxs)
     
         export SERVER_LIB=$(pg_config --includedir)/postgresql/server
@@ -116,7 +116,7 @@ jobs:
         which pg_config
         pg_config --version
         
-        export PATH=$(pg_config --bindir):$PATH"
+        export PATH=$(pg_config --bindir):$PATH
         export PGXS=$(pg_config --pgxs)
     
         export SERVER_LIB=$(pg_config --includedir)/postgresql/server

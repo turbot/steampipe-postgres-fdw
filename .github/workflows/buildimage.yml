@@ -105,6 +105,9 @@ jobs:
 
         export CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
         export PG_CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldflags)
+        export PG_LDFLAGS=$(pg_config --ldflags)
       
         make go
 

@@ -1,7 +1,6 @@
 package main
 
 /*
-#cgo CFLAGS:  -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -g
 #include "postgres.h"
 #include "common.h"
 

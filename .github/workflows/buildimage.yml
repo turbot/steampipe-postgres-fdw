@@ -164,55 +164,145 @@ jobs:
         path: ./fdw/steampipe_postgres_fdw--1.0.sql
         if-no-files-found: error
 
-  # build-linux:
-  #   name: Build for Linux
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Checkout
-  #     uses: actions/checkout@v2
+  build-linux:
+    name: Build for Linux
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
 
-  #   - name: Setup GoLang
-  #     uses: actions/setup-go@v2
-  #     with:
-  #       go-version: '^1.16.0' # The Go version to download (if necessary) and use.
+    - name: Setup GoLang
+      uses: actions/setup-go@v3
+      with:
+        go-version: '^1.16.0' # The Go version to download (if necessary) and use.
 
-  #   - name: Setup apt-get
-  #     run: |-
-  #       sudo env ACCEPT_EULA=Y apt-get update
-  #       sudo env ACCEPT_EULA=Y apt-get upgrade
+    - name: Setup apt-get
+      run: |-
+        sudo env ACCEPT_EULA=Y apt-get update
+        sudo env ACCEPT_EULA=Y apt-get upgrade
 
-  #   - name: Install PostgreSQL14 Dev
-  #     run: |-
-  #       sudo apt-get -y install postgresql-server-dev-14
+    - name: Install PostgreSQL14 Dev
+      run: |-
+        sudo apt-get -y install postgresql-server-dev-14
 
-  #   - name: Clean
-  #     run: make clean
-  #     working-directory: ./fdw
+    - name: Fetching Go Cache Paths
+      id: go-cache-paths
+      run: |
+        echo "::set-output name=go-build::$(go env GOCACHE)"
+        echo "::set-output name=go-mod::$(go env GOMODCACHE)"
 
-  #   - name: Make Go
-  #     run: make go
-  #     working-directory: ./fdw
+    - name: Go Build Cache
+      id: build-cache
+      uses: actions/cache@v2
+      with:
+        path: ${{ steps.go-cache-paths.outputs.go-build }}
+        key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 
-  #   - name: make
-  #     run: |-
-  #       export PATH="/usr/lib/postgresql/14/bin/:$PATH"
-  #       which pg_config
-  #       pg_config --version
-  #       make
-  #     working-directory: ./fdw
+    - name: Go Mod Cache
+      id: mod-cache
+      uses: actions/cache@v2
+      with:
+        path: ${{ steps.go-cache-paths.outputs.go-mod }}
+        key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
 
-  #   - name: gzip the steampipe_postgres_fdw.so
-  #     run: |-
-  #       gzip steampipe_postgres_fdw.so
-  #       mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_amd64.gz
-  #     working-directory: ./fdw
+    - name: Find stuff
+      run: |-
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
+        
+        ls -la $SERVER_LIB
+        ls -la $INTERNAL_LIB
+        
+        ls -la $(pg_config --includedir)
 
-  #   - name: Save MacOS Build Artifact - AMD64
-  #     uses: actions/upload-artifact@v2
-  #     with:
-  #       name: steampipe_postgres_fdw.so.linux_amd64
-  #       path: ./fdw/steampipe_postgres_fdw.so.linux_amd64.gz
-  #       if-no-files-found: error
+    - name: make clean
+      working-directory: ./fdw
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+      
+        make clean
+
+    - name: make go
+      working-directory: ./fdw
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+
+        export CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldflags)
+        export PG_LDFLAGS=$(pg_config --ldflags)
+      
+        make go
+
+    - name: make
+      working-directory: ./fdw
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+        
+        make
+
+    - name: gzip the steampipe_postgres_fdw.so
+      run: |-
+        gzip steampipe_postgres_fdw.so
+        mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_amd64.gz
+      working-directory: ./fdw
+
+    - name: Save MacOS Build Artifact - AMD64
+      uses: actions/upload-artifact@v2
+      with:
+        name: steampipe_postgres_fdw.so.linux_amd64
+        path: ./fdw/steampipe_postgres_fdw.so.linux_amd64.gz
+        if-no-files-found: error
 
   publish:
     runs-on: ubuntu-latest
@@ -264,10 +354,10 @@ jobs:
         with:
           name: steampipe_postgres_fdw.so.darwin_amd64
 
-      # - name: Download steampipe_postgres_fdw.so - linux_amd64
-      #   uses: actions/download-artifact@v2
-      #   with:
-      #     name: steampipe_postgres_fdw.so.linux_amd64
+      - name: Download steampipe_postgres_fdw.so - linux_amd64
+        uses: actions/download-artifact@v2
+        with:
+          name: steampipe_postgres_fdw.so.linux_amd64
 
       - name: Download steampipe_postgres_fdw.control
         uses: actions/download-artifact@v2
@@ -326,6 +416,7 @@ jobs:
               --manifest-config config.json:application/vnd.turbot.steampipe.config.v1+json \
               --manifest-annotations annotations.json \
                 steampipe_postgres_fdw.so.darwin_amd64.gz:application/vnd.turbot.steampipe.fdw.darwin-amd64.layer.v1+gzip \
+                steampipe_postgres_fdw.so.linux_amd64.gz:application/vnd.turbot.steampipe.fdw.linux-amd64.layer.v1+gzip \
                 steampipe_postgres_fdw.control:application/vnd.turbot.steampipe.fdw.control.layer.v1+text \
                 steampipe_postgres_fdw--1.0.sql:application/vnd.turbot.steampipe.fdw.sql.layer.v1+text
 

@@ -219,10 +219,10 @@ jobs:
         export SERVER_LIB=$(pg_config --includedir)/server
         export INTERNAL_LIB=$(pg_config --includedir)/internal
         
+        ls -la $(pg_config --includedir)
+        
         ls -la $SERVER_LIB
         ls -la $INTERNAL_LIB
-        
-        ls -la $(pg_config --includedir)
 
     - name: make clean
       working-directory: ./fdw
@@ -299,7 +299,7 @@ jobs:
         mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_amd64.gz
       working-directory: ./fdw
 
-    - name: Save MacOS Build Artifact - AMD64
+    - name: Save Linux Build Artifact - AMD64
       uses: actions/upload-artifact@v2
       with:
         name: steampipe_postgres_fdw.so.linux_amd64

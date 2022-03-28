@@ -212,15 +212,15 @@ jobs:
         
         which pg_config
         pg_config --version
-        
+
         export PATH=$(pg_config --bindir):$PATH
         export PGXS=$(pg_config --pgxs)
-    
+
         export SERVER_LIB=$(pg_config --includedir)/14/server
         export INTERNAL_LIB=$(pg_config --includedir)/internal
-        
+
         ls -la $(pg_config --includedir)
-        
+
         ls -la $SERVER_LIB
         ls -la $INTERNAL_LIB
 

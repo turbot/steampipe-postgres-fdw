@@ -45,6 +45,7 @@ jobs:
           route: POST /repos/{owner}/{repo}/releases
           owner: turbot
           repo: steampipe
+          mediaType: application/json
           tag_name: ${{ env.VERSION }}
           draft: true
         env:

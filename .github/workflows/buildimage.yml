@@ -14,45 +14,9 @@ env:
   VERSION: ${{ github.event.inputs.version }}
 
 jobs:
-  start:
-    name: Start
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get latest version tag
-        run: |-
-          echo "VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-
-      - name: Trim tag
-        run: |-
-          echo $VERSION
-          trim=${VERSION#"v"}
-          echo $trim
-          echo "VERSION=${trim}" >> $GITHUB_ENV
-
-      - name: Validate Version String
-        run: |-
-          if [[ $VERSION =~  ^[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
-            echo "Version OK: $VERSION"
-          else
-            echo "Invalid version: $VERSION"
-            exit 1
-          fi
-          
-      - name: Create a draft release
-        uses: softprops/action-gh-release@v1
-        id: create_draft_release
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: true
-          name: ${{ env.VERSION }}
-          tag_name: ${{ env.VERSION }}
-          repository: ${{ github.repository }}
-          
   build-osx:
     name: Build for Darwin
     runs-on: macos-latest
-    needs:
-    - start
     steps:
     - name: Install PostgreSQL@14
       run: brew install --force postgresql@14
@@ -200,8 +164,6 @@ jobs:
   build-linux:
     name: Build for Linux
     runs-on: ubuntu-latest
-    needs:
-    - start
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -387,28 +349,18 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: steampipe_postgres_fdw--1.0.sql
-
+          
       - name: Create a draft release
-        uses: octokit/request-action@v2.x
+        uses: softprops/action-gh-release@v1
         id: create_draft_release
         with:
-          route: POST /repos/{owner}/{repo}/releases
-          owner: turbot
-          repo: steampipe
-          tag_name: ${{ env.VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      # - name: Upload Release Asset - steampipe_postgres_fdw.control
-      #   uses: octokit/request-action@v2.x
-      #   with:
-      #     route: POST /repos/{owner}/{repo}/releases/{release_id}/assets
-      #     owner: turbot
-      #     repo: steampipe
-      #     release_id: ${{fromJson(steps.create_draft_release.outputs.data).id }}
-      #     name: steampipe_postgres_fdw.control
-      #     label: steampipe_postgres_fdw.control-label
-      #     body: 
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ env.VERSION }}
+          tag_name: ${{ env.VERSION }}
+          repository: ${{ github.repository }}
+          files: |-
+            steampipe_postgres_fdw--1.0.sql
+            steampipe_postgres_fdw.control
+            steampipe_postgres_fdw.so.linux_amd64
+            steampipe_postgres_fdw.so.darwin_amd64

@@ -39,17 +39,14 @@ jobs:
           fi
           
       - name: Create a draft release
-        uses: octokit/request-action@v2.x
+        uses: softprops/action-gh-release@v1
         id: create_draft_release
         with:
-          method: POST
-          route: /repos/{owner}/{repo}/releases
-          owner: turbot
-          repo: steampipe
-          tag_name: ${{ env.VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ env.VERSION }}
+          tag_name: ${{ env.VERSION }}
+          repository: ${{ github.repository }}
           
   build-osx:
     name: Build for Darwin

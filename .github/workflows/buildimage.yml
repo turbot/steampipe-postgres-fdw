@@ -48,8 +48,6 @@ jobs:
           repo: steampipe
           tag_name: ${{ env.VERSION }}
           draft: true
-          mediaType:
-            format: application/json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           

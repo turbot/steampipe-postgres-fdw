@@ -49,3 +49,5 @@ inst:
 	
 	rm ./*.o
 	
+release:
+	./upload_asset.sh

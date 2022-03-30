@@ -16,6 +16,7 @@ env:
 jobs:
   start:
     name: Start
+    runs-on: ubuntu-latest
     steps:
       - name: Get latest version tag
         run: |-
@@ -52,6 +53,8 @@ jobs:
   build-osx:
     name: Build for Darwin
     runs-on: macos-latest
+    needs:
+    - start
     steps:
     - name: Install PostgreSQL@14
       run: brew install --force postgresql@14
@@ -203,6 +206,8 @@ jobs:
   build-linux:
     name: Build for Linux
     runs-on: ubuntu-latest
+    needs:
+    - start
     steps:
     - name: Checkout
       uses: actions/checkout@v3

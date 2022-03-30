@@ -14,6 +14,41 @@ env:
   VERSION: ${{ github.event.inputs.version }}
 
 jobs:
+  start:
+    name: Start
+    steps:
+      - name: Get latest version tag
+        run: |-
+          echo "VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Trim tag
+        run: |-
+          echo $VERSION
+          trim=${VERSION#"v"}
+          echo $trim
+          echo "VERSION=${trim}" >> $GITHUB_ENV
+
+      - name: Validate Version String
+        run: |-
+          if [[ $VERSION =~  ^[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
+            echo "Version OK: $VERSION"
+          else
+            echo "Invalid version: $VERSION"
+            exit 1
+          fi
+          
+      - name: Create a draft release
+        uses: octokit/request-action@v2.x
+        id: create_draft_release
+        with:
+          route: POST /repos/{owner}/{repo}/releases
+          owner: turbot
+          repo: steampipe
+          tag_name: ${{ env.VERSION }}
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
   build-osx:
     name: Build for Darwin
     runs-on: macos-latest

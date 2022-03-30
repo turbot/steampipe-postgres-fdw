@@ -4,14 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: "The branch that will be built"
-        required: true
-      version:
-        description: "The version to release (must be prefixed with 'v')"
-        required: true
 
 env:
   PROJECT_ID: steampipe
@@ -362,26 +354,27 @@ jobs:
         with:
           name: steampipe_postgres_fdw--1.0.sql
 
-      - name: List files
-        run: ls -l
-
-      - run: oras version   # oras is pre-installed on the image...
-
       - name: Create a draft release
         uses: octokit/request-action@v2.x
         id: create_draft_release
         with:
           route: POST /repos/{owner}/{repo}/releases
-          name: "Create draft release"
+          owner: turbot
+          repo: steampipe
+          tag_name: ${{ env.VERSION }}
           draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set version tags
-        uses: ./.github/actions/semver-tags
-        id: semver
-        with:
-          image-to-tag: "${{ env.CORE_REPO }}/${{ env.IMAGE_NAME }}:${{ github.run_id  }}"
-          image-version: ${{ env.VERSION }}
+      # - name: Upload Release Asset - steampipe_postgres_fdw.control
+      #   uses: octokit/request-action@v2.x
+      #   with:
+      #     route: POST /repos/{owner}/{repo}/releases/{release_id}/assets
+      #     owner: turbot
+      #     repo: steampipe
+      #     release_id: ${{fromJson(steps.create_draft_release.outputs.data).id }}
+      #     name: steampipe_postgres_fdw.control
+      #     label: steampipe_postgres_fdw.control-label
+      #     body:
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

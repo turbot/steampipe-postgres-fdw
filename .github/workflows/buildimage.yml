@@ -42,12 +42,14 @@ jobs:
         uses: octokit/request-action@v2.x
         id: create_draft_release
         with:
-          route: POST /repos/{owner}/{repo}/releases
+          method: POST
+          route: /repos/{owner}/{repo}/releases
           owner: turbot
           repo: steampipe
-          mediaType: application/json
           tag_name: ${{ env.VERSION }}
           draft: true
+          mediaType:
+            format: application/json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           

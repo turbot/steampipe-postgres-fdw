@@ -4,6 +4,14 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "The branch that will be built"
+        required: true
+      version:
+        description: "The version to release (must be prefixed with 'v')"
+        required: true
 
 env:
   PROJECT_ID: steampipe
@@ -11,6 +19,7 @@ env:
   CORE_REPO: us-docker.pkg.dev/steampipe/steampipe
   ORG: turbot
   CONFIG_SCHEMA_VERSION: "2020-11-18"
+  VERSION: ${{ github.event.inputs.version }}
 
 jobs:
   build-osx:
@@ -312,24 +321,6 @@ jobs:
       - build-linux
       - build-osx
     steps:
-      # Setup gcloud CLI
-      - name: Setup GCloud CLI
-        uses: google-github-actions/setup-gcloud@v0.2.0
-        with:
-          service_account_key: ${{ secrets.STEAMPIPE_REGISTRY_SA_KEY }}
-          project_id: ${{ env.PROJECT_ID }}
-
-      - name: Setup GCloud Config
-        run: |-
-          gcloud config list
-          gcloud components install beta
-          gcloud components install alpha --quiet
-
-      # Configure Docker to use the gcloud command-line tool as a credential
-      # helper for authentication
-      - name: GCloud Docker config
-        run: |-
-          gcloud beta auth configure-docker us-docker.pkg.dev
 
       - name: Get latest version tag
         run: |-
@@ -376,48 +367,14 @@ jobs:
 
       - run: oras version   # oras is pre-installed on the image...
 
-      # create the config file
-      - run: |-
-          JSON_STRING=$( jq -n \
-            --arg name "$IMAGE_NAME" \
-            --arg organization "$ORG" \
-            --arg version "$VERSION" \
-            --arg schemaVersion "$CONFIG_SCHEMA_VERSION" \
-            '{schemaVersion: $schemaVersion, fdw: { name: $name, organization: $organization, version: $version} }' )
+      - name: Create a draft release
+        uses: octokit/request-action@v2.x
+        id: create_draft_release
+        with:
+          route: POST /repos/{owner}/{repo}/releases
+          name: "Create draft release"
+          draft: true
 
-          echo $JSON_STRING > config.json
-
-      - name: Create Annotations JSON
-        run: |-
-          JSON_STRING=$( jq -n \
-              --arg title "$IMAGE_NAME" \
-              --arg desc "$ORG" \
-              --arg version "$VERSION" \
-              --arg timestamp "$(date +%FT%T%z)" \
-              --arg vendor "Turbot HQ, Inc." \
-            '{
-                "$manifest": {
-                    "org.opencontainers.image.title": $title,
-                    "org.opencontainers.image.description": $desc,
-                    "org.opencontainers.image.version": $version,
-                    "org.opencontainers.image.created": $timestamp,
-                    "org.opencontainers.image.vendor":  $vendor
-                }
-            }' )
-
-            echo $JSON_STRING > annotations.json
-
-      - name: Push to registry
-        run: |-
-          REF="$CORE_REPO/$IMAGE_NAME:$GITHUB_RUN_ID"
-
-          oras push $REF \
-              --manifest-config config.json:application/vnd.turbot.steampipe.config.v1+json \
-              --manifest-annotations annotations.json \
-                steampipe_postgres_fdw.so.darwin_amd64.gz:application/vnd.turbot.steampipe.fdw.darwin-amd64.layer.v1+gzip \
-                steampipe_postgres_fdw.so.linux_amd64.gz:application/vnd.turbot.steampipe.fdw.linux-amd64.layer.v1+gzip \
-                steampipe_postgres_fdw.control:application/vnd.turbot.steampipe.fdw.control.layer.v1+text \
-                steampipe_postgres_fdw--1.0.sql:application/vnd.turbot.steampipe.fdw.sql.layer.v1+text
 
       - name: Checkout
         uses: actions/checkout@v3

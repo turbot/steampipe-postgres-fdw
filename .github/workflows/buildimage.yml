@@ -368,7 +368,7 @@ jobs:
           tag_name: ${{ env.VERSION }}
           repository: ${{ github.repository }}
           files: |-
-            ${{steps.download_fdw_sql.outputs.download-path}}
-            ${{steps.download_fdw_control.outputs.download-path}}
-            ${{steps.download_fdw_so_linux_amd64.outputs.download-path}}
-            ${{steps.download_fdw_so_darwin_amd64.outputs.download-path}}
+            ${{steps.download_fdw_sql.outputs.download-path}}/ steampipe_postgres_fdw--1.0.sql
+            ${{steps.download_fdw_control.outputs.download-path}}/steampipe_postgres_fdw.control
+            ${{steps.download_fdw_so_linux_amd64.outputs.download-path}}/steampipe_postgres_fdw.so.linux_amd64
+            ${{steps.download_fdw_so_darwin_amd64.outputs.download-path}}/steampipe_postgres_fdw.so.darwin_amd64

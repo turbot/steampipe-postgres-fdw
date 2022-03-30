@@ -335,21 +335,25 @@ jobs:
           fi
 
       - name: Download steampipe_postgres_fdw.so - darwin_amd64
+        id: download_fdw_so_darwin_amd64
         uses: actions/download-artifact@v2
         with:
           name: steampipe_postgres_fdw.so.darwin_amd64
 
       - name: Download steampipe_postgres_fdw.so - linux_amd64
+        id: download_fdw_so_linux_amd64
         uses: actions/download-artifact@v2
         with:
           name: steampipe_postgres_fdw.so.linux_amd64
 
       - name: Download steampipe_postgres_fdw.control
+        id: download_fdw_control
         uses: actions/download-artifact@v2
         with:
           name: steampipe_postgres_fdw.control
 
       - name: Download steampipe_postgres_fdw--1.0.sql
+        id: download_fdw_sql
         uses: actions/download-artifact@v2
         with:
           name: steampipe_postgres_fdw--1.0.sql
@@ -364,7 +368,7 @@ jobs:
           tag_name: ${{ env.VERSION }}
           repository: ${{ github.repository }}
           files: |-
-            steampipe_postgres_fdw--1.0.sql
-            steampipe_postgres_fdw.control
-            steampipe_postgres_fdw.so.linux_amd64
-            steampipe_postgres_fdw.so.darwin_amd64
+            ${{steps.download_fdw_sql.outputs.download-path}}
+            ${{steps.download_fdw_control.outputs.download-path}}
+            ${{steps.download_fdw_so_linux_amd64.outputs.download-path}}
+            ${{steps.download_fdw_so_darwin_amd64.outputs.download-path}}

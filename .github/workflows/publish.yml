@@ -1,0 +1,25 @@
+name: Publish FDW Image
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "The published release to package as an image"
+        required: true
+
+env:
+  PROJECT_ID: steampipe
+  IMAGE_NAME: fdw
+  CORE_REPO: us-docker.pkg.dev/steampipe/steampipe
+  ORG: turbot
+  CONFIG_SCHEMA_VERSION: "2020-11-18"
+  RELEASE: ${{ github.event.inputs.release }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Release assets
+        run: |- 
+          gh release download ${{ github.event.inputs.release }} --dir . --repo ${{ github.repository }})

@@ -57,11 +57,11 @@ jobs:
           gcloud config list
           gcloud components install beta
           gcloud components install alpha --quiet
-          gcloud beta auth configure-docker $CORE_REPO
+          gcloud beta auth configure-docker us-docker.pkg.dev
 
       - name: Verify ORAS installations
-        run: oras version      
-        
+        run: oras version
+
       - name: Create Config JSON
         run: |-
           JSON_STRING=$( jq -n \
@@ -95,7 +95,7 @@ jobs:
 
       - name: Push to registry
         run: |-
-          REF="$CORE_REPO/$IMAGE_NAME:$GITHUB_RUN_ID"
+          REF="${{ env.CORE_REPO }}/${{ env.IMAGE_NAME }}:${{ env.GITHUB_RUN_ID }}"
           oras push $REF \
               --manifest-config config.json:application/vnd.turbot.steampipe.config.v1+json \
               --manifest-annotations annotations.json \

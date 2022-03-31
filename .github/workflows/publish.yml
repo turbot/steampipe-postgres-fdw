@@ -22,4 +22,21 @@ jobs:
     steps:
       - name: Get Release assets
         run: |- 
-          gh release download ${{ github.event.inputs.release }} --dir . --repo ${{ github.repository }})
+          gh release download ${{ github.event.inputs.release }} --dir . --repo ${{ github.repository }}
+
+      - name: Release assets downloaded
+        run: |- 
+          ls -la .
+      
+      - name: Install GCloud CLI
+        uses: google-github-actions/setup-gcloud@v0.2.0
+        with:
+          service_account_key: ${{ secrets.STEAMPIPE_REGISTRY_SA_KEY }}
+          project_id: ${{ env.PROJECT_ID }}
+      
+      - name: Setup GCloud CLI
+        run: |-
+          gcloud config list
+          gcloud components install beta
+          gcloud components install alpha --quiet
+          gcloud beta auth configure-docker $CORE_REPO

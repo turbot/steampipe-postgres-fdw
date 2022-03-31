@@ -12,6 +12,7 @@ env:
   CORE_REPO: us-docker.pkg.dev/steampipe/steampipe
   ORG: turbot
   CONFIG_SCHEMA_VERSION: "2020-11-18"
+  VERSION: ${{ github.event.inputs.release }}
 
 jobs:
   publish:
@@ -28,9 +29,8 @@ jobs:
         run: |- 
           ls -la .
 
-      - name: Get version tag
+      - name: Sanitize Version
         run: |-
-          echo "VERSION=${{ github.event.inputs.release }}" >> $GITHUB_ENV
           echo $VERSION
           trim=${VERSION#"v"}
           echo $trim

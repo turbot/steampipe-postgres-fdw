@@ -44,12 +44,13 @@ jobs:
             echo "Invalid version: $VERSION"
             exit 1
           fi
-      
-      - name: Install GCloud CLI
-        uses: google-github-actions/setup-gcloud@v0.2.0
+
+      - name: Get GCloud CLI
+        uses: google-github-actions/setup-gcloud@v0.6.0
         with:
-          service_account_key: ${{ secrets.STEAMPIPE_REGISTRY_SA_KEY }}
+          service_account_key: ${{ secrets.GCP_GITHUB_ACTION_PUSH_ARTIFACTS }}
           project_id: ${{ env.PROJECT_ID }}
+          export_default_credentials: true
       
       - name: Setup GCloud CLI
         run: |-

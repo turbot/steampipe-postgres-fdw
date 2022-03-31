@@ -95,7 +95,7 @@ jobs:
 
       - name: Push to registry
         run: |-
-          REF="${{ env.CORE_REPO }}/${{ env.IMAGE_NAME }}:${{ env.GITHUB_RUN_ID }}"
+          REF="$CORE_REPO/$IMAGE_NAME:$GITHUB_RUN_ID"
           oras push $REF \
               --manifest-config config.json:application/vnd.turbot.steampipe.config.v1+json \
               --manifest-annotations annotations.json \

@@ -1,6 +1,8 @@
 # intermediate files
 *.a
 *.o
+# zipped files
+*.gz
 # generated header
 steampipe_postgres_fdw.h
 
@@ -19,3 +21,6 @@ steampipe_postgres_fdw.h
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+build-*/
+# intermediate files from clang
+*.bc

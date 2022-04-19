@@ -1,7 +1,6 @@
 package main
 
 /*
-#cgo CFLAGS: -Ifdw -Ifdw/include/postgresql/server -Ifdw/include/postgresql/internal
 #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
 #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 #include "fdw_helpers.h"
@@ -35,7 +34,7 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *pro
 		return qualsList
 	}
 
-	for it := restrictions.head; it != nil; it = it.next {
+	for it := C.list_head(restrictions); it != nil; it = C.lnext(restrictions, it) {
 		restriction := C.cellGetExpr(it)
 
 		log.Printf("[TRACE] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
@@ -93,10 +92,13 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos *con
 	right := C.list_nth(restriction.args, 1)
 
 	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
-	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
-		log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
-		return nil
-	}
+	// TODO pull_varnos signature has changed in PG14 - we also need a *PlannerInfo which is not available to us
+	//  at this point
+	// https://github.com/turbot/steampipe-postgres-fdw/issues/177
+	//if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
+	//	log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+	//	return nil
+	//}
 
 	var arrayIndex = int(left.varattno - 1)
 	ci := cinfos.get(arrayIndex)
@@ -154,10 +156,13 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 	right := C.list_nth(restriction.args, 1)
 
 	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
-	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
-		log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
-		return nil
-	}
+	// TODO pull_varnos signature has changed in PG14 - we also need a *PlannerInfo which is not available to us
+	//  at this point
+	// https://github.com/turbot/steampipe-postgres-fdw/issues/177
+	//if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
+	//	log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+	//	return nil
+	//}
 
 	var arrayIndex = int(left.varattno - 1)
 	ci := cinfos.get(arrayIndex)
@@ -256,12 +261,12 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 // convert a boolean expression into a qual
 // currently we only support simple expressions like column=true
 func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
-	arg := C.cellGetExpr(restriction.args.head)
+	arg := C.cellGetExpr(C.list_head(restriction.args))
 	// NOTE currently we only handle boolean expression with a single argument and a NOT operato
 	if restriction.args.length == 1 || restriction.boolop == C.NOT_EXPR && C.fdw_nodeTag(arg) == C.T_Var {
 
 		// try to get the column from the variable
-		variable := C.cellGetVar(restriction.args.head)
+		variable := C.cellGetVar(C.list_head(restriction.args))
 		column := columnFromVar(variable, cinfos)
 		// if we failed to get a column we cannot create a qual
 		if column == "" {

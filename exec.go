@@ -1,7 +1,6 @@
 package main
 
 /*
-#cgo CFLAGS:  -I../fdw -I../fdw/include/postgresql/server -I../fdw/include/postgresql/internal
 #include "postgres.h"
 #include "common.h"
 

@@ -11,40 +11,132 @@ env:
   CORE_REPO: us-docker.pkg.dev/steampipe/steampipe
   ORG: turbot
   CONFIG_SCHEMA_VERSION: "2020-11-18"
+  VERSION: ${{ github.event.inputs.version }}
 
 jobs:
   build-osx:
+    name: Build for Darwin
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v2
+    - name: Install PostgreSQL@14
+      run: brew install --force postgresql@14
+
+    - name: PGConfig
+      run: |-
+        which pg_config
+        ls -l $(which pg_config)
+        PGXS=$(pg_config --pgxs)
+        SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+
+        echo $PGXS
+        echo $SERVER_LIB
+        echo $INTERNAL_LIB
+        
+        ls -l $PGXS
+        ls -l $SERVER_LIB
+        ls -l $INTERNAL_LIB
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Golang
+      uses: actions/setup-go@v3
       with:
-        go-version: 1.18
-    - run: brew install --force postgresql@12
+        go-version: '1.18'
 
-    - name: Hook private repo
-      run: git config --global url."https://${{ secrets.GH_ACCESS_TOKEN }}:x-oauth-basic@github.com".insteadOf "https://github.com"
+    - name: Fetching Go Cache Paths
+      id: go-cache-paths
+      run: |
+        echo "::set-output name=go-build::$(go env GOCACHE)"
+        echo "::set-output name=go-mod::$(go env GOMODCACHE)"
 
+    - name: Go Build Cache
+      id: build-cache
+      uses: actions/cache@v2
+      with:
+        path: ${{ steps.go-cache-paths.outputs.go-build }}
+        key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+
+    - name: Go Mod Cache
+      id: mod-cache
+      uses: actions/cache@v2
+      with:
+        path: ${{ steps.go-cache-paths.outputs.go-mod }}
+        key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+        
     - name: make clean
-      run: make clean
       working-directory: ./fdw
-
-    - name: make go
-      run: make go
-      working-directory: ./fdw
-
-    - name: make
       run: |-
         go version
-        export PATH="/usr/local/opt/postgresql@12/bin:$PATH"
-        export LDFLAGS="-L/usr/local/opt/postgresql@12/lib"
-        export CPPFLAGS="-I/usr/local/opt/postgresql@12/include"
-        export PKG_CONFIG_PATH="/usr/local/opt/postgresql@12/lib/pkgconfig"
-        export PG_LDFLAGS="-framework Foundation -framework AppKit -framework Security"
+        
         which pg_config
         pg_config --version
-        make
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+      
+        make clean
+
+    # - name: make clean
+    #   run: make clean
+    #   working-directory: ./fdw
+
+    - name: make go
       working-directory: ./fdw
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+
+        export CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldflags)
+        export PG_LDFLAGS=$(pg_config --ldflags)
+      
+        make go
+
+    - name: make
+      working-directory: ./fdw
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+        
+        make
 
     - name: gzip the steampipe_postgres_fdw.so
       run: |-
@@ -74,35 +166,133 @@ jobs:
         if-no-files-found: error
 
   build-linux:
+    name: Build for Linux
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v2
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup GoLang
+      uses: actions/setup-go@v3
       with:
         go-version: '^1.16.0' # The Go version to download (if necessary) and use.
-    - run: |-
+
+    - name: Fetching Go Cache Paths
+      id: go-cache-paths
+      run: |
+        echo "::set-output name=go-build::$(go env GOCACHE)"
+        echo "::set-output name=go-mod::$(go env GOMODCACHE)"
+
+    - name: Go Build Cache
+      id: build-cache
+      uses: actions/cache@v2
+      with:
+        path: ${{ steps.go-cache-paths.outputs.go-build }}
+        key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+
+    - name: Go Mod Cache
+      id: mod-cache
+      uses: actions/cache@v2
+      with:
+        path: ${{ steps.go-cache-paths.outputs.go-mod }}
+        key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+    - name: Setup apt-get
+      run: |-
+        sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
         sudo env ACCEPT_EULA=Y apt-get update
         sudo env ACCEPT_EULA=Y apt-get upgrade
-        sudo apt-get -y install postgresql-server-dev-12
 
-    - name: Hook private repo
-      run: git config --global url."https://${{ secrets.GH_ACCESS_TOKEN }}:x-oauth-basic@github.com".insteadOf "https://github.com"
-
-    - name: make clean
-      run: make clean
-      working-directory: ./fdw
-
-    - name: make go
-      run: make go
-      working-directory: ./fdw
-
-    - name: make
+    - name: Install PostgreSQL14 Dev
       run: |-
-        export PATH="/usr/lib/postgresql/12/bin/:$PATH"
+        sudo apt-get -y install postgresql-server-dev-14
+
+    - name: Find stuff
+      run: |-
+        
         which pg_config
         pg_config --version
-        make
+
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+
+        export SERVER_LIB=$(pg_config --includedir)/14/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+        ls -la $(pg_config --includedir)
+
+        ls -la $SERVER_LIB
+        ls -la $INTERNAL_LIB
+
+    - name: make clean
       working-directory: ./fdw
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+      
+        make clean
+
+    - name: make go
+      working-directory: ./fdw
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+
+        export CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldflags)
+        export PG_LDFLAGS=$(pg_config --ldflags)
+      
+        make go
+
+    - name: make
+      working-directory: ./fdw
+      run: |-
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+        
+        make
 
     - name: gzip the steampipe_postgres_fdw.so
       run: |-
@@ -110,7 +300,7 @@ jobs:
         mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_amd64.gz
       working-directory: ./fdw
 
-    - name: Save MacOS Build Artifact - AMD64
+    - name: Save Linux Build Artifact - AMD64
       uses: actions/upload-artifact@v2
       with:
         name: steampipe_postgres_fdw.so.linux_amd64
@@ -123,24 +313,6 @@ jobs:
       - build-linux
       - build-osx
     steps:
-
-      # Setup gcloud CLI
-      - uses: google-github-actions/setup-gcloud@v0.2.0
-        with:
-          service_account_key: ${{ secrets.STEAMPIPE_REGISTRY_SA_KEY }}
-          project_id: ${{ env.PROJECT_ID }}
-
-      - run: gcloud config list
-
-      - run: gcloud components install beta
-
-      - run: gcloud components install alpha --quiet
-
-
-      # Configure Docker to use the gcloud command-line tool as a credential
-      # helper for authentication
-      - run: |-
-          gcloud beta auth configure-docker us-docker.pkg.dev
 
       - name: Get latest version tag
         run: |-
@@ -163,83 +335,44 @@ jobs:
           fi
 
       - name: Download steampipe_postgres_fdw.so - darwin_amd64
+        id: download_fdw_so_darwin_amd64
         uses: actions/download-artifact@v2
         with:
           name: steampipe_postgres_fdw.so.darwin_amd64
 
       - name: Download steampipe_postgres_fdw.so - linux_amd64
+        id: download_fdw_so_linux_amd64
         uses: actions/download-artifact@v2
         with:
           name: steampipe_postgres_fdw.so.linux_amd64
 
       - name: Download steampipe_postgres_fdw.control
+        id: download_fdw_control
         uses: actions/download-artifact@v2
         with:
           name: steampipe_postgres_fdw.control
 
       - name: Download steampipe_postgres_fdw--1.0.sql
+        id: download_fdw_sql
         uses: actions/download-artifact@v2
         with:
           name: steampipe_postgres_fdw--1.0.sql
 
-      - name: List files
-        run: ls -l
+      - name: Check Path
+        run: |-
+          ls -la
 
-      - run: oras version   # oras is pre-installed on the image...
-
-      # create the config file
-      - run: |-
-          JSON_STRING=$( jq -n \
-            --arg name "$IMAGE_NAME" \
-            --arg organization "$ORG" \
-            --arg version "$VERSION" \
-            --arg schemaVersion "$CONFIG_SCHEMA_VERSION" \
-            '{schemaVersion: $schemaVersion, fdw: { name: $name, organization: $organization, version: $version} }' )
-
-          echo $JSON_STRING > config.json
-
-      - run: cat config.json
-
-      # create the annotations file
-      - run: |-
-          JSON_STRING=$( jq -n \
-              --arg title "$IMAGE_NAME" \
-              --arg desc "$ORG" \
-              --arg version "$VERSION" \
-              --arg timestamp "$(date +%FT%T%z)" \
-              --arg vendor "Turbot HQ, Inc." \
-            '{
-                "$manifest": {
-                    "org.opencontainers.image.title": $title,
-                    "org.opencontainers.image.description": $desc,
-                    "org.opencontainers.image.version": $version,
-                    "org.opencontainers.image.created": $timestamp,
-                    "org.opencontainers.image.vendor":  $vendor
-                }
-            }' )
-
-            echo $JSON_STRING > annotations.json
-
-      - run: cat annotations.json
-
-    # push to the registry
-      - run: |-
-          REF="$CORE_REPO/$IMAGE_NAME:$GITHUB_RUN_ID"
-
-          oras push $REF \
-              --manifest-config config.json:application/vnd.turbot.steampipe.config.v1+json \
-              --manifest-annotations annotations.json \
-                steampipe_postgres_fdw.so.darwin_amd64.gz:application/vnd.turbot.steampipe.fdw.darwin-amd64.layer.v1+gzip \
-                steampipe_postgres_fdw.so.linux_amd64.gz:application/vnd.turbot.steampipe.fdw.linux-amd64.layer.v1+gzip \
-                steampipe_postgres_fdw.control:application/vnd.turbot.steampipe.fdw.control.layer.v1+text \
-                steampipe_postgres_fdw--1.0.sql:application/vnd.turbot.steampipe.fdw.sql.layer.v1+text
-
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set version tags
-        uses: ./.github/actions/semver-tags
-        id: semver
+      - name: Create a draft release
+        uses: softprops/action-gh-release@v1
+        id: create_draft_release
         with:
-          image-to-tag: "${{ env.CORE_REPO }}/${{ env.IMAGE_NAME }}:${{ github.run_id  }}"
-          image-version: ${{ env.VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
+          name: ${{ env.VERSION }}
+          tag_name: ${{ env.VERSION }}
+          repository: ${{ github.repository }}
+          files: |-
+            ${{ steps.download_fdw_sql.outputs.download-path }}/steampipe_postgres_fdw--1.0.sql
+            ${{ steps.download_fdw_control.outputs.download-path }}/steampipe_postgres_fdw.control
+            ${{ steps.download_fdw_so_linux_amd64.outputs.download-path }}/steampipe_postgres_fdw.so.linux_amd64.gz
+            ${{ steps.download_fdw_so_darwin_amd64.outputs.download-path }}/steampipe_postgres_fdw.so.darwin_amd64.gz

@@ -36,7 +36,29 @@ var testCasesgetSQLForTable = map[string]getSQLForTableTest{
   "c1" text,
   "c2" text
 )
-server "steampipe" OPTIONS (table $$t1$$)`},
+server "steampipe" OPTIONS (table $steampipe_escape$t1$steampipe_escape$)`},
+	"quotes in names": {
+		table: "t1",
+		tableSchema: &proto.TableSchema{
+			Columns: []*proto.ColumnDefinition{
+				{
+					Name: `"c1"`,
+					Type: proto.ColumnType_STRING,
+				},
+				{
+					Name: `c2 "is" partially quoted`,
+					Type: proto.ColumnType_STRING,
+				},
+			},
+		},
+		localSchema: "aws",
+		serverName:  "steampipe",
+		expected: `create foreign table "aws"."t1"
+(
+  """c1""" text,
+  "c2 ""is"" partially quoted" text
+)
+server "steampipe" OPTIONS (table $steampipe_escape$t1$steampipe_escape$)`},
 }
 
 func TestGetSQLForTable(t *testing.T) {

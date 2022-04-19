@@ -92,6 +92,9 @@ func qualFromOpExpr(restriction *C.OpExpr, node *C.ForeignScanState, cinfos *con
 	right := C.list_nth(restriction.args, 1)
 
 	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
+	// TODO pull_varnos signature has changed in PG14 - we also need a *PlannerInfo which is not available to us
+	//  at this point
+	// https://github.com/turbot/steampipe-postgres-fdw/issues/177
 	//if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
 	//	log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
 	//	return nil
@@ -153,6 +156,9 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 	right := C.list_nth(restriction.args, 1)
 
 	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
+	// TODO pull_varnos signature has changed in PG14 - we also need a *PlannerInfo which is not available to us
+	//  at this point
+	// https://github.com/turbot/steampipe-postgres-fdw/issues/177
 	//if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
 	//	log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
 	//	return nil

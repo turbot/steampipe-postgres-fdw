@@ -8,8 +8,7 @@ require (
 	github.com/hashicorp/go-hclog v1.2.0
 	github.com/hashicorp/go-version v1.4.0
 	github.com/turbot/go-kit v0.3.0
-	// 1893-escape-quotes-in-all-postgres-object-names
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20220419131255-1ef57c64bd20
+	github.com/turbot/steampipe v0.14.0-pgescape
 	github.com/turbot/steampipe-plugin-sdk/v3 v3.1.0
 	google.golang.org/protobuf v1.28.0
 )

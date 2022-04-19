@@ -145,21 +145,21 @@ jobs:
       working-directory: ./fdw
 
     - name: Save MacOS Build Artifact - AMD64
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: steampipe_postgres_fdw.so.darwin_amd64
         path: ./fdw/steampipe_postgres_fdw.so.darwin_amd64.gz
         if-no-files-found: error
 
     - name: Save steampipe_postgres_fdw.control    # only need this once for ALL platforms
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: steampipe_postgres_fdw.control
         path: ./fdw/steampipe_postgres_fdw.control
         if-no-files-found: error
 
     - name: Save steampipe_postgres_fdw--1.0.sql   # only need this once for ALL platforms
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: steampipe_postgres_fdw--1.0.sql
         path: ./fdw/steampipe_postgres_fdw--1.0.sql
@@ -301,7 +301,7 @@ jobs:
       working-directory: ./fdw
 
     - name: Save Linux Build Artifact - AMD64
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: steampipe_postgres_fdw.so.linux_amd64
         path: ./fdw/steampipe_postgres_fdw.so.linux_amd64.gz

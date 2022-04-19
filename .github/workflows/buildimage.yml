@@ -16,7 +16,7 @@ jobs:
   build-osx:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: actions/setup-go@v2
       with:
         go-version: 1.18
@@ -76,7 +76,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: actions/setup-go@v2
       with:
         go-version: '^1.16.0' # The Go version to download (if necessary) and use.
@@ -235,7 +235,7 @@ jobs:
                 steampipe_postgres_fdw--1.0.sql:application/vnd.turbot.steampipe.fdw.sql.layer.v1+text
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set version tags
         uses: ./.github/actions/semver-tags

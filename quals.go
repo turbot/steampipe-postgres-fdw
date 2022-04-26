@@ -405,7 +405,12 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (re
 		result.Value = &proto.QualValue_DoubleValue{DoubleValue: float64(C.datumDouble(datum, cinfo))}
 	case C.BOOLOID:
 		result.Value = &proto.QualValue_BoolValue{BoolValue: bool(C.datumBool(datum, cinfo))}
+	case C.JSONBOID:
+		jsonbQual := C.datumJsonb(datum, cinfo)
+		jsonbQualStr := C.JsonbToCStringIndent(nil, &(jsonbQual.root), -1)
+		result.Value = &proto.QualValue_JsonbValue{JsonbValue: C.GoString(jsonbQualStr)}
 	default:
+		log.Printf("[INFO] datumToQualValue unknown typeoid %v ", typeOid)
 		result, err = convertUnknown(datum, typeOid, cinfo)
 	}
 	return

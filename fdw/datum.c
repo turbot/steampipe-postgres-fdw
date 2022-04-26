@@ -30,6 +30,10 @@ bool datumBool(Datum datum, ConversionInfo *cinfo) {
     return DatumGetBool(datum);
 }
 
+Jsonb * datumJsonb(Datum datum, ConversionInfo *cinfo) {
+    return DatumGetJsonbP(datum);
+}
+
 Timestamp datumDate(Datum datum, ConversionInfo *cinfo) {
 	datum = DirectFunctionCall1(date_timestamp, datum);
     return DatumGetInt64(datum);

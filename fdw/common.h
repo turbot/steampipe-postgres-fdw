@@ -98,6 +98,7 @@ inet *datumInet(Datum datum, ConversionInfo *cinfo);
 inet *datumCIDR(Datum datum, ConversionInfo *cinfo);
 double  datumDouble(Datum datum, ConversionInfo *cinfo);
 bool  datumBool(Datum datum, ConversionInfo *cinfo);
+Jsonb *datumJsonb(Datum datum, ConversionInfo *cinfo);
 Timestamp datumDate(Datum datum, ConversionInfo *cinfo);
 Timestamp datumTimestamp(Datum datum, ConversionInfo *cinfo);
 

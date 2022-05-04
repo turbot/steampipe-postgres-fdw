@@ -1,9 +1,10 @@
 ## v1.0.0 [tbd]
 _What's new?_
-* Add support for Postgres 14 column type. [#179](https://github.com/turbot/steampipe-postgres-fdw/issues/179)
+* Add support for Postgres 14. [#179](https://github.com/turbot/steampipe-postgres-fdw/issues/179)
 * Update Go version to 1.18.  [#163](https://github.com/turbot/steampipe-postgres-fdw/issues/163)
 
 _Bug fixes_
+* Fix JSON data with \u0000 errors in Postgres with "unsupported Unicode escape sequence". [#118](https://github.com/turbot/steampipe-postgres-fdw/issues/118)
 * Escape quotes in all postgres object names. [#178](https://github.com/turbot/steampipe-postgres-fdw/issues/178)
 
 ## v0.4.0 [2022-03-10]

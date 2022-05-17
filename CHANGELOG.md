@@ -1,4 +1,8 @@
-## v1.0.0 [tbd]
+## v1.1.0 [tbd]
+_What's new?_
+* Add support for JSONB quals [#185](https://github.com/turbot/steampipe-postgres-fdw/issues/185)
+
+## v1.0.0 [2022-05-09]
 _What's new?_
 * Add support for Postgres 14. [#179](https://github.com/turbot/steampipe-postgres-fdw/issues/179)
 * Update Go version to 1.18.  [#163](https://github.com/turbot/steampipe-postgres-fdw/issues/163)

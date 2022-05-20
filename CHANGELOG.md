@@ -1,28 +1,31 @@
-## v1.1.0 [tbd]
+## v1.1.0 [2022-05-20]
 _What's new?_
-* Add support for JSONB quals [#185](https://github.com/turbot/steampipe-postgres-fdw/issues/185)
+* Add support for JSONB quals. ([#185](https://github.com/turbot/steampipe-postgres-fdw/issues/185))
+
+_Bug fixes_
+* Fix EOF errors and other query failures caused by invalid index in `columnFromVar`. ([#187](https://github.com/turbot/steampipe-postgres-fdw/issues/187))
 
 ## v1.0.0 [2022-05-09]
 _What's new?_
-* Add support for Postgres 14. [#179](https://github.com/turbot/steampipe-postgres-fdw/issues/179)
-* Update Go version to 1.18.  [#163](https://github.com/turbot/steampipe-postgres-fdw/issues/163)
+* Add support for Postgres 14. ([#179](https://github.com/turbot/steampipe-postgres-fdw/issues/179))
+* Update Go version to 1.18. ([#163](https://github.com/turbot/steampipe-postgres-fdw/issues/163))
 
 _Bug fixes_
-* Fix JSON data with \u0000 errors in Postgres with "unsupported Unicode escape sequence". [#118](https://github.com/turbot/steampipe-postgres-fdw/issues/118)
-* Escape quotes in all postgres object names. [#178](https://github.com/turbot/steampipe-postgres-fdw/issues/178)
+* Fix JSON data with \u0000 errors in Postgres with "unsupported Unicode escape sequence". ([#118](https://github.com/turbot/steampipe-postgres-fdw/issues/118))
+* Escape quotes in all postgres object names. ([#178](https://github.com/turbot/steampipe-postgres-fdw/issues/178))
 
 ## v0.4.0 [2022-03-10]
 _What's new?_
-* Add support for ltree column type. [#138](https://github.com/turbot/steampipe-postgres-fdw/issues/138)
-* Add support for inet column type. [#156](https://github.com/turbot/steampipe-postgres-fdw/issues/156)
+* Add support for ltree column type. ([#138](https://github.com/turbot/steampipe-postgres-fdw/issues/138))
+* Add support for inet column type. ([#156](https://github.com/turbot/steampipe-postgres-fdw/issues/156))
 
 * _Bug fixes_
-* Fix refreshing an aggregate connection causing a plugin crash. [#152](https://github.com/turbot/steampipe-postgres-fdw/issues/152)
-* Fix 'is nil' qual causing a plugin NRE. [#154](https://github.com/turbot/steampipe-postgres-fdw/issues/154)
+* Fix refreshing an aggregate connection causing a plugin crash. ([#152](https://github.com/turbot/steampipe-postgres-fdw/issues/152))
+* Fix 'is nil' qual causing a plugin NRE. ([#154](https://github.com/turbot/steampipe-postgres-fdw/issues/154))
 
 ## v0.3.5 [2022-08-02]
 _Bug fixes_
-* Fix FDW crash when failing to start a plugin because of a validation error. [#146](https://github.com/turbot/steampipe-postgres-fdw/issues/146)
+* Fix FDW crash when failing to start a plugin because of a validation error. ([#146](https://github.com/turbot/steampipe-postgres-fdw/issues/146))
 
 ## v0.3.4 [2022-02-01]
 _Bug fixes_
@@ -30,15 +33,15 @@ _Bug fixes_
 
 ## v0.3.3 [2022-02-01]
 _Bug fixes_
-* Do not set connection config when creating connection plugin - as it will already have been set by Steampipe CLI. [#139](https://github.com/turbot/steampipe-postgres-fdw/issues/139)
+* Do not set connection config when creating connection plugin - as it will already have been set by Steampipe CLI. ([#139](https://github.com/turbot/steampipe-postgres-fdw/issues/139))
 
 ## v0.3.2 [2021-12-21]
 _Bug fixes_
-* Fixes issue where FDW log entries were using a different format from Postgres. [#134](https://github.com/turbot/steampipe-postgres-fdw/issues/134)
+* Fixes issue where FDW log entries were using a different format from Postgres. ([#134](https://github.com/turbot/steampipe-postgres-fdw/issues/134))
 
 ## v0.3.1 [2021-12-21]
 _What's new?_
-* Update PathKeys code to give required key columns a lower cost than optional key columns  ([#116](https://github.com/turbot/steampipe-postgres-fdw/issues/116),  [#117](https://github.com/turbot/steampipe-postgres-fdw/issues/117)
+* Update PathKeys code to give required key columns a lower cost than optional key columns  ([#116](https://github.com/turbot/steampipe-postgres-fdw/issues/116), [#117](https://github.com/turbot/steampipe-postgres-fdw/issues/117))
 
 ## v0.3.0 [2021-11-02]
 _What's new?_

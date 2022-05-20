@@ -283,9 +283,17 @@ func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos 
 
 func columnFromVar(variable *C.Var, cinfos *conversionInfos) string {
 	var arrayIndex = int(variable.varattno - 1)
+	if arrayIndex < 0 {
+		log.Printf("[WARN] columnFromVar failed - index %d, returning empty string", arrayIndex)
+		return ""
+	}
 	ci := cinfos.get(arrayIndex)
 	if ci == nil {
-		log.Printf("[WARN] columnFromVar failed - could not get conversion info for index %d", arrayIndex)
+		log.Printf("[WARN] columnFromVar failed - could not get conversion info for index %d, returning empty string", arrayIndex)
+		return ""
+	}
+	if ci.attrname == nil {
+		log.Printf("[WARN] columnFromVar failed - conversion info for index %d has no attrname, returning empty string", arrayIndex)
 		return ""
 	}
 

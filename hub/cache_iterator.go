@@ -3,21 +3,25 @@ package hub
 import (
 	"log"
 
+	"github.com/turbot/steampipe/instrument"
+
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 )
 
 type cacheIterator struct {
-	name   string
-	rows   []map[string]interface{}
-	index  int
-	status queryStatus
+	name     string
+	rows     []map[string]interface{}
+	index    int
+	status   queryStatus
+	traceCtx *instrument.TraceCtx
 }
 
-func newCacheIterator(name string, cachedResult *cache.QueryResult) *cacheIterator {
+func newCacheIterator(name string, cachedResult *cache.QueryResult, traceCtx *instrument.TraceCtx) *cacheIterator {
 	return &cacheIterator{
-		name:   name,
-		rows:   cachedResult.Rows,
-		status: QueryStatusReady,
+		name:     name,
+		rows:     cachedResult.Rows,
+		status:   QueryStatusReady,
+		traceCtx: traceCtx,
 	}
 }
 

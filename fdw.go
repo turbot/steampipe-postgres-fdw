@@ -30,10 +30,10 @@ var logger hclog.Logger
 func goInit() {}
 
 func init() {
+	log.Printf("[INFO] \n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
 	if logger != nil {
 		return
 	}
-	log.Printf("[INFO] \n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
 
 	// HACK: env vars do not all get copied into the Go env vars so explicitly copy them
 	SetEnvVars()
@@ -403,6 +403,7 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 
 //export goFdwShutdown
 func goFdwShutdown() {
+	log.Printf("[INFO] \n\n******************************************************\n\n\t\tsteampipe postgres fdw shutdown\n\n******************************************************\n")
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)

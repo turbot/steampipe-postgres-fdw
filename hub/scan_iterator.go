@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/turbot/steampipe/instrument"
+	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"

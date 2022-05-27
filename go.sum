@@ -836,8 +836,10 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1
 github.com/tombuildsstuff/giovanni v0.15.1/go.mod h1:0TZugJPEtqzPlMpuJHYfXY6Dq2uLPrXf98D2XQSxNbA=
 github.com/turbot/go-kit v0.3.0 h1:o4zZIO1ovdmJ2bHWOdXnnt8jJMIDGqYSkZvBREzFeMQ=
 github.com/turbot/go-kit v0.3.0/go.mod h1:SBdPRngbEfYubiR81iAVtO43oPkg1+ASr+XxvgbH7/k=
-github.com/turbot/steampipe-plugin-sdk/v3 v3.2.0 h1:VICtDpl1rREemZ0hFOGW/hF3C6wXalHBJTFPPZf0Gy0=
-github.com/turbot/steampipe-plugin-sdk/v3 v3.2.0/go.mod h1:Urv1Eh7UWSLGA/CTWig1ReUWvYVsBX/35Fn2W6C6hZI=
+github.com/turbot/steampipe v0.14.6 h1:fbL9CZDSi4pFhqhWgK8OVX/Z/L11bdGHqDyDeb+Rsi8=
+github.com/turbot/steampipe v0.14.6/go.mod h1:TBS36Nq+olyMBSQgWPH4wN1dWmNlIwSQ05Su61BbI7o=
+github.com/turbot/steampipe-plugin-sdk/v3 v3.2.1-0.20220527143135-ba5289aa42cd h1:g5ImgSDJFvjsGdwtFw5Qc8wN/oCrlWicRKcy3au4zsw=
+github.com/turbot/steampipe-plugin-sdk/v3 v3.2.1-0.20220527143135-ba5289aa42cd/go.mod h1:RwZuy+6x6sdgr0sRP7g3ei+jQ5KFuUMFIJ8/8Rr8oDo=
 github.com/ugorji/go v0.0.0-20180813092308-00b869d2f4a5/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=

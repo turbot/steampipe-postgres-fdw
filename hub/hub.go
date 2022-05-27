@@ -10,13 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
-
-	"github.com/turbot/steampipe/instrument"
-
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
@@ -25,6 +22,7 @@ import (
 	"github.com/turbot/steampipe/pluginmanager"
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -120,7 +118,8 @@ func (h *Hub) initialiseTelemetry() error {
 	h.telemetryShutdownFunc = shutdownTelemetry
 	hubId := fmt.Sprintf("steampipe-postrgres-fdw-%p", h)
 	log.Printf("[WARN] create root span %s", hubId)
-	h.traceCtx = instrument.StartSpan(context.Background(), hubId)
+	ctx, span := instrument.StartSpan(context.Background(), hubId)
+	h.traceCtx = &instrument.TraceCtx{Ctx: ctx, Span: span}
 
 	return nil
 }
@@ -209,15 +208,15 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	table := opts["table"]
 	log.Printf("[TRACE] Hub Scan() table '%s'", table)
 
-	// create a spoan for this scan
-	scanTraceCtx := h.traceContextForScan(columns, limit, qualMap, connectionName)
+	// create a span for this scan
+	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
 
 	connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
 
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
 	if h.IsAggregatorConnection(connectionName) {
-		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h, scanTraceCtx)
+		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig, h, scanTraceCtx)
 		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
 
 	} else {
@@ -235,21 +234,18 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	return iterator, nil
 }
 
-func (h *Hub) traceContextForScan(columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *instrument.TraceCtx {
-	scanTraceCtx := instrument.StartSpan(h.traceCtx.Ctx, "scan")
-	scanTraceCtx.Span.SetAttributes(
+func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *instrument.TraceCtx {
+	ctx, span := instrument.StartSpan(h.traceCtx.Ctx, "Hub.Scan (%s)", table)
+	span.SetAttributes(
 		attribute.StringSlice("columns", columns),
-	)
-	scanTraceCtx.Span.SetAttributes(
-		attribute.Int64("limit", limit),
-	)
-	scanTraceCtx.Span.SetAttributes(
-		attribute.String("quals", grpc.QualMapToString(qualMap)),
-	)
-	scanTraceCtx.Span.SetAttributes(
+		attribute.String("table", table),
+		attribute.String("quals", grpc.QualMapToString(qualMap, false)),
 		attribute.String("connection", connectionName),
 	)
-	return scanTraceCtx
+	if limit != -1 {
+		span.SetAttributes(attribute.Int64("limit", limit))
+	}
+	return &instrument.TraceCtx{Ctx: ctx, Span: span}
 }
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator
@@ -295,7 +291,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	}
 
 	if len(qualMap) > 0 {
-		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap))
+		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap, true))
 	} else {
 		log.Println("[INFO] --------")
 		log.Println("[INFO] no quals")
@@ -316,7 +312,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
 	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled, scanTraceCtx)
 
-	if err := h.startScan(iterator, queryContext); err != nil {
+	if err := h.startScan(iterator, queryContext, scanTraceCtx); err != nil {
 		return nil, err
 	}
 
@@ -505,7 +501,7 @@ func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals,
 }
 
 // split startScan into a separate function to allow iterator to restart the scan
-func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
+func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext, traceCtx *instrument.TraceCtx) error {
 	// ensure we do not call execute too frequently
 	h.throttle()
 
@@ -521,6 +517,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		CacheEnabled: h.cacheEnabled(c),
 		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
 		CallId:       callId,
+		TraceContext: grpc.CreateCarrierFromContext(traceCtx.Ctx),
 	}
 
 	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v,  iterator %p", table, callId, req.CacheEnabled, iterator)

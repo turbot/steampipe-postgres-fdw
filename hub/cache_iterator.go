@@ -3,7 +3,7 @@ package hub
 import (
 	"log"
 
-	"github.com/turbot/steampipe/instrument"
+	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 )

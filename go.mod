@@ -8,7 +8,7 @@ require (
 	github.com/hashicorp/go-hclog v1.2.0
 	github.com/hashicorp/go-version v1.5.0
 	github.com/turbot/go-kit v0.3.0
-	github.com/turbot/steampipe v0.14.6
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20220526133748-6b773ccd432c
 	// telemetry
 	github.com/turbot/steampipe-plugin-sdk/v3 v3.2.1-0.20220527143135-ba5289aa42cd
 	go.opentelemetry.io/otel v1.7.0

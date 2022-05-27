@@ -8,7 +8,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 
-	"github.com/turbot/steampipe/instrument"
+	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 
 	"github.com/turbot/steampipe/utils"
 
@@ -26,20 +26,28 @@ type groupIterator struct {
 	traceCtx          *instrument.TraceCtx
 }
 
-func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionMap map[string]*modconfig.Connection, h *Hub, scanTraceCtx *instrument.TraceCtx) (Iterator, error) {
+func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionConfig *modconfig.Connection, h *Hub, scanTraceCtx *instrument.TraceCtx) (Iterator, error) {
 	res := &groupIterator{
 		Name: name,
 		// create a buffered channel
 		rowChan:  make(chan map[string]interface{}, rowBufferSize),
 		traceCtx: scanTraceCtx,
 	}
+
+	// add aggregator specific attributes to span
+	scanTraceCtx.Span.SetAttributes(
+		attribute.String("connection_type", "aggregator"),
+		attribute.StringSlice("connections", connectionConfig.ConnectionNames),
+	)
+
 	var errors []error
-	for connectionName := range connectionMap {
+	for connectionName := range connectionConfig.Connections {
 		// create a child span for this connection
-		connectionTraceCtx := instrument.StartSpan(scanTraceCtx.Ctx, "child-connection")
-		connectionTraceCtx.Span.SetAttributes(
+		ctx, span := instrument.StartSpan(scanTraceCtx.Ctx, "ChildConnection.Scan")
+		span.SetAttributes(
 			attribute.String("connection", connectionName),
 		)
+		connectionTraceCtx := &instrument.TraceCtx{Ctx: ctx, Span: span}
 
 		iterator, err := h.startScanForConnection(connectionName, table, qualMap, columns, limit, connectionTraceCtx)
 		if err != nil {

@@ -30,7 +30,6 @@ var logger hclog.Logger
 func goInit() {}
 
 func init() {
-	log.Printf("[INFO] \n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
 	if logger != nil {
 		return
 	}
@@ -39,7 +38,6 @@ func init() {
 	SetEnvVars()
 
 	level := logging.LogLevel()
-	log.Printf("[INFO] Log level %s\n", level)
 	if level != "TRACE" {
 		// suppress logs
 		log.SetOutput(ioutil.Discard)
@@ -52,6 +50,8 @@ func init() {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
+	log.Printf("[INFO] \n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
+	log.Printf("[INFO] Log level %s\n", level)
 }
 
 //export goFdwGetRelSize

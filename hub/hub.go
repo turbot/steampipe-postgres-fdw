@@ -107,19 +107,13 @@ func newHub() (*Hub, error) {
 }
 
 func (h *Hub) initialiseTelemetry() error {
-	// todo wrap telemetry in an obj
-
 	log.Printf("[WARN] init telemetry")
-	shutdownTelemetry, err := instrument.Init()
+	shutdownTelemetry, err := instrument.Init("steampipe-postgres-fdw")
 	if err != nil {
 		return fmt.Errorf("failed to initialise telemetry: %s", err.Error())
 	}
 
 	h.telemetryShutdownFunc = shutdownTelemetry
-	hubId := fmt.Sprintf("steampipe-postrgres-fdw-%p", h)
-	log.Printf("[WARN] create root span %s", hubId)
-	ctx, span := instrument.StartSpan(context.Background(), hubId)
-	h.traceCtx = &instrument.TraceCtx{Ctx: ctx, Span: span}
 
 	return nil
 }
@@ -153,10 +147,6 @@ func (h *Hub) RemoveIterator(iterator Iterator) {
 // Close shuts down all plugin clients
 func (h *Hub) Close() {
 	log.Println("[WARN] hub: close")
-	if h.traceCtx != nil {
-		log.Println("[WARN] END ROOT SPAN")
-		h.traceCtx.Span.End()
-	}
 
 	if h.telemetryShutdownFunc != nil {
 		log.Println("[WARN] shutdown telemetry")
@@ -235,7 +225,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 }
 
 func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *instrument.TraceCtx {
-	ctx, span := instrument.StartSpan(h.traceCtx.Ctx, "Hub.Scan (%s)", table)
+	ctx, span := instrument.StartSpan(context.Background(), "Hub.Scan (%s)", table)
 	span.SetAttributes(
 		attribute.StringSlice("columns", columns),
 		attribute.String("table", table),
@@ -454,7 +444,7 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 //// internal implementation ////
 
 // determine whether to include the limit, based on the quals
-// we ONLY pushgdown the limit is all quals have corresponding key columns,
+// we ONLY pushdown the limit is all quals have corresponding key columns,
 // and if the qual operator is supported by the key column
 func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionPlugin *steampipeconfig.ConnectionPlugin) bool {
 	// build a map of all key columns

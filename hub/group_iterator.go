@@ -6,10 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	"go.opentelemetry.io/otel/attribute"
-
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
-
 	"github.com/turbot/steampipe/utils"
 
 	"github.com/turbot/go-kit/helpers"
@@ -23,33 +19,17 @@ type groupIterator struct {
 	Iterators         []Iterator
 	rowChan           chan map[string]interface{}
 	childrenRunningWg sync.WaitGroup
-	traceCtx          *instrument.TraceCtx
 }
 
-func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionConfig *modconfig.Connection, h *Hub, scanTraceCtx *instrument.TraceCtx) (Iterator, error) {
+func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionMap map[string]*modconfig.Connection, h *Hub) (Iterator, error) {
 	res := &groupIterator{
 		Name: name,
 		// create a buffered channel
-		rowChan:  make(chan map[string]interface{}, rowBufferSize),
-		traceCtx: scanTraceCtx,
+		rowChan: make(chan map[string]interface{}, rowBufferSize),
 	}
-
-	// add aggregator specific attributes to span
-	scanTraceCtx.Span.SetAttributes(
-		attribute.String("connection_type", "aggregator"),
-		attribute.StringSlice("connections", connectionConfig.ConnectionNames),
-	)
-
 	var errors []error
-	for connectionName := range connectionConfig.Connections {
-		// create a child span for this connection
-		ctx, span := instrument.StartSpan(scanTraceCtx.Ctx, "ChildConnection.Scan")
-		span.SetAttributes(
-			attribute.String("connection", connectionName),
-		)
-		connectionTraceCtx := &instrument.TraceCtx{Ctx: ctx, Span: span}
-
-		iterator, err := h.startScanForConnection(connectionName, table, qualMap, columns, limit, connectionTraceCtx)
+	for connectionName := range connectionMap {
+		iterator, err := h.startScanForConnection(connectionName, table, qualMap, columns, limit)
 		if err != nil {
 			errors = append(errors, err)
 		} else {
@@ -100,11 +80,6 @@ func (i *groupIterator) Next() (map[string]interface{}, error) {
 	row := <-i.rowChan
 	if len(row) == 0 {
 		log.Printf("[TRACE] groupIterator len(row) == 0 ")
-
-		// TODO check not already closed? NEED A LOCK??
-		// close the span
-		i.traceCtx.Span.End()
-
 		return nil, i.aggregateIteratorErrors()
 	}
 	return row, nil
@@ -172,9 +147,6 @@ func (i *groupIterator) Close(writeToCache bool) {
 			log.Printf("[TRACE] groupIterator.Close iterator %s not running (%s), so not closing", it.ConnectionName(), it.Status())
 		}
 	}
-	// TODO check not already closed?
-	// close the span
-	i.traceCtx.Span.End()
 }
 
 func (i *groupIterator) CanIterate() bool {

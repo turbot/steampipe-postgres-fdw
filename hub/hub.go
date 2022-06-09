@@ -1,7 +1,6 @@
 package hub
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
@@ -22,7 +20,6 @@ import (
 	"github.com/turbot/steampipe/pluginmanager"
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -45,11 +42,6 @@ type Hub struct {
 
 	timingLock   sync.Mutex
 	lastScanTime time.Time
-
-	// telemetry properties
-	// callback function to shutdown telemetry
-	telemetryShutdownFunc func()
-	traceCtx              *instrument.TraceCtx
 }
 
 // global hub instance
@@ -85,11 +77,6 @@ func newHub() (*Hub, error) {
 	hub := &Hub{}
 	hub.connections = newConnectionFactory(hub)
 
-	// TODO CHECK TELEMETRY ENABLED?
-	if err := hub.initialiseTelemetry(); err != nil {
-		return nil, err
-	}
-
 	// NOTE: Steampipe determine it's install directory from the input arguments (with a default)
 	// as we are using shared Steampipe code we must set the install directory.
 	// we can derive it from the working directory (which is underneath the install directectory)
@@ -106,20 +93,8 @@ func newHub() (*Hub, error) {
 	return hub, nil
 }
 
-func (h *Hub) initialiseTelemetry() error {
-	log.Printf("[WARN] init telemetry")
-	shutdownTelemetry, err := instrument.Init("steampipe-postgres-fdw")
-	if err != nil {
-		return fmt.Errorf("failed to initialise telemetry: %s", err.Error())
-	}
-
-	h.telemetryShutdownFunc = shutdownTelemetry
-
-	return nil
-}
-
-// get the install folder - derive from our working folder
 func getInstallDirectory() (string, error) {
+	// set the install folder - derive from our working folder
 	// we need to do this as we are sharing steampipe code to read the config
 	// and steampipe may set the install folder from a cmd line arg, so it cannot be hard coded
 	wd, err := os.Getwd()
@@ -146,12 +121,8 @@ func (h *Hub) RemoveIterator(iterator Iterator) {
 
 // Close shuts down all plugin clients
 func (h *Hub) Close() {
-	log.Println("[WARN] hub: close")
+	log.Println("[TRACE] hub: close")
 
-	if h.telemetryShutdownFunc != nil {
-		log.Println("[WARN] shutdown telemetry")
-		h.telemetryShutdownFunc()
-	}
 	if h.queryCache != nil {
 		log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
 		log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
@@ -198,19 +169,16 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	table := opts["table"]
 	log.Printf("[TRACE] Hub Scan() table '%s'", table)
 
-	// create a span for this scan
-	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
-
 	connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
 
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
 	if h.IsAggregatorConnection(connectionName) {
-		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig, h, scanTraceCtx)
+		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
 		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
 
 	} else {
-		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit, scanTraceCtx)
+		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
 		log.Printf("[TRACE] Hub Scan() created iterator (%p)", iterator)
 	}
 
@@ -224,29 +192,8 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	return iterator, nil
 }
 
-func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *instrument.TraceCtx {
-	ctx, span := instrument.StartSpan(context.Background(), "Hub.Scan (%s)", table)
-	span.SetAttributes(
-		attribute.StringSlice("columns", columns),
-		attribute.String("table", table),
-		attribute.String("quals", grpc.QualMapToString(qualMap, false)),
-		attribute.String("connection", connectionName),
-	)
-	if limit != -1 {
-		span.SetAttributes(attribute.Int64("limit", limit))
-	}
-	return &instrument.TraceCtx{Ctx: ctx, Span: span}
-}
-
 // startScanForConnection starts a scan for a single connection, using a scanIterator
-func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *instrument.TraceCtx) (_ Iterator, err error) {
-	defer func() {
-		if err != nil {
-			// close the span in case of errir
-			scanTraceCtx.Span.End()
-		}
-	}()
-
+func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
 		return nil, err
@@ -274,14 +221,12 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	} else {
 		// create cache if necessary
 		if err := h.ensureCache(); err != nil {
-			// close the span
-			scanTraceCtx.Span.End()
 			return nil, err
 		}
 	}
 
 	if len(qualMap) > 0 {
-		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap, true))
+		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap))
 	} else {
 		log.Println("[INFO] --------")
 		log.Println("[INFO] no quals")
@@ -293,35 +238,67 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		cachedResult := h.queryCache.Get(connectionPlugin, table, qualMap, columns, limit)
 		if cachedResult != nil {
 			// we have cache data - return a cache iterator
-			return newCacheIterator(connectionName, cachedResult, scanTraceCtx), nil
+			return newCacheIterator(connectionName, cachedResult), nil
 		}
 	}
 
 	// cache not enabled - create a scan iterator
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled, scanTraceCtx)
+	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled)
 
-	if err := h.startScan(iterator, queryContext, scanTraceCtx); err != nil {
+	if err := h.startScan(iterator, queryContext); err != nil {
 		return nil, err
 	}
 
 	return iterator, nil
 }
 
-// LoadConnectionConfig loads the connection config and returns whether it has changed
-func (h *Hub) LoadConnectionConfig() (bool, error) {
-	// load connection conFig
-	connectionConfig, err := steampipeconfig.LoadConnectionConfig()
-	if err != nil {
-		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
-		return false, err
+// determine whether to include the limit, based on the quals
+// we ONLY pushgdown the limit is all quals have corresponding key columns,
+// and if the qual operator is supported by the key column
+func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionPlugin *steampipeconfig.ConnectionPlugin) bool {
+	// build a map of all key columns
+	tableSchema, ok := connectionPlugin.Schema.Schema[table]
+	if !ok {
+		// any errors, just default to NOT pushing down the limit
+		return false
+	}
+	var keyColumnMap = make(map[string]*proto.KeyColumn)
+	for _, k := range tableSchema.ListCallKeyColumnList {
+		keyColumnMap[k.Name] = k
+	}
+	for _, k := range tableSchema.GetCallKeyColumnList {
+		keyColumnMap[k.Name] = k
 	}
 
-	configChanged := h.steampipeConfig == connectionConfig
-	h.steampipeConfig = connectionConfig
+	// for every qual, determine if it has a key column and if the operator is supported
+	// if NOT, we cannot push down the limit
 
-	return configChanged, nil
+	for col, quals := range qualMap {
+		// check whether this qual is declared as a key column for this table
+		if k, ok := keyColumnMap[col]; ok {
+			log.Printf("[TRACE] shouldPushdownLimit found key column for column %s: %v", col, k)
+
+			// check whether every qual for this column has a supported operator
+			for _, q := range quals.Quals {
+				operator := q.GetStringValue()
+				if !helpers.StringSliceContains(k.Operators, operator) {
+					log.Printf("[INFO] operator '%s' not supported for column '%s'. NOT pushing down limit", operator, col)
+					return false
+				}
+				log.Printf("[TRACE] shouldPushdownLimit operator '%s' is supported for column '%s'.", operator, col)
+			}
+		} else {
+			// no key column defined for this qual - DO NOT push down the limit
+			log.Printf("[INFO] shouldPushdownLimit no key column found for column %s. NOT pushing down limit", col)
+			return false
+		}
+	}
+
+	// all quals are supported - push down limit
+	log.Printf("[INFO] shouldPushdownLimit all quals are supported - pushing down limit")
+	return true
 }
 
 // GetRelSize is a method called from the planner to estimate the resulting relation size for a scan.
@@ -443,55 +420,8 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 
 //// internal implementation ////
 
-// determine whether to include the limit, based on the quals
-// we ONLY pushdown the limit is all quals have corresponding key columns,
-// and if the qual operator is supported by the key column
-func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionPlugin *steampipeconfig.ConnectionPlugin) bool {
-	// build a map of all key columns
-	tableSchema, ok := connectionPlugin.Schema.Schema[table]
-	if !ok {
-		// any errors, just default to NOT pushing down the limit
-		return false
-	}
-	var keyColumnMap = make(map[string]*proto.KeyColumn)
-	for _, k := range tableSchema.ListCallKeyColumnList {
-		keyColumnMap[k.Name] = k
-	}
-	for _, k := range tableSchema.GetCallKeyColumnList {
-		keyColumnMap[k.Name] = k
-	}
-
-	// for every qual, determine if it has a key column and if the operator is supported
-	// if NOT, we cannot push down the limit
-
-	for col, quals := range qualMap {
-		// check whether this qual is declared as a key column for this table
-		if k, ok := keyColumnMap[col]; ok {
-			log.Printf("[TRACE] shouldPushdownLimit found key column for column %s: %v", col, k)
-
-			// check whether every qual for this column has a supported operator
-			for _, q := range quals.Quals {
-				operator := q.GetStringValue()
-				if !helpers.StringSliceContains(k.Operators, operator) {
-					log.Printf("[INFO] operator '%s' not supported for column '%s'. NOT pushing down limit", operator, col)
-					return false
-				}
-				log.Printf("[TRACE] shouldPushdownLimit operator '%s' is supported for column '%s'.", operator, col)
-			}
-		} else {
-			// no key column defined for this qual - DO NOT push down the limit
-			log.Printf("[INFO] shouldPushdownLimit no key column found for column %s. NOT pushing down limit", col)
-			return false
-		}
-	}
-
-	// all quals are supported - push down limit
-	log.Printf("[INFO] shouldPushdownLimit all quals are supported - pushing down limit")
-	return true
-}
-
 // split startScan into a separate function to allow iterator to restart the scan
-func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext, traceCtx *instrument.TraceCtx) error {
+func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
 	// ensure we do not call execute too frequently
 	h.throttle()
 
@@ -507,7 +437,6 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		CacheEnabled: h.cacheEnabled(c),
 		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
 		CallId:       callId,
-		TraceContext: grpc.CreateCarrierFromContext(traceCtx.Ctx),
 	}
 
 	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v,  iterator %p", table, callId, req.CacheEnabled, iterator)
@@ -567,6 +496,21 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, opts *ste
 		return nil, fmt.Errorf("unknown failure")
 	}
 	return connectionPlugins[connection.Name], nil
+}
+
+// LoadConnectionConfig loads the connection config and returns whether it has changed
+func (h *Hub) LoadConnectionConfig() (bool, error) {
+	// load connection conFig
+	connectionConfig, err := steampipeconfig.LoadConnectionConfig()
+	if err != nil {
+		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
+		return false, err
+	}
+
+	configChanged := h.steampipeConfig == connectionConfig
+	h.steampipeConfig = connectionConfig
+
+	return configChanged, nil
 }
 
 // create the query cache

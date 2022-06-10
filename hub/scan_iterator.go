@@ -7,6 +7,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
@@ -44,9 +46,10 @@ type scanIterator struct {
 	table           string
 	connection      *steampipeconfig.ConnectionPlugin
 	cancel          context.CancelFunc
+	traceCtx        *instrument.TraceCtx
 }
 
-func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool) *scanIterator {
+func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool, traceCtx *instrument.TraceCtx) *scanIterator {
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
 	return &scanIterator{
@@ -61,6 +64,7 @@ func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, tab
 		cacheTTL:     cacheTTL,
 		table:        table,
 		connection:   connection,
+		traceCtx:     traceCtx,
 	}
 }
 
@@ -98,6 +102,10 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
+		// close the span
+		// TODO check not already closed? NEED A LOCK??
+		i.traceCtx.Span.End()
+
 		// if iterator is in error, return the error
 		if i.Status() == QueryStatusError {
 			// return error
@@ -143,6 +151,11 @@ func (i *scanIterator) Close(writeToCache bool) {
 	if i.status != QueryStatusError {
 		i.status = QueryStatusComplete
 	}
+
+	// TODO check not already closed? NEED A LOCK??
+	// close the span
+	i.traceCtx.Span.End()
+
 }
 
 // CanIterate returns true if this iterator has results available to iterate

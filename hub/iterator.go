@@ -12,4 +12,5 @@ type Iterator interface {
 	Status() queryStatus
 	Error() error
 	CanIterate() bool
+	GetScanMetadata() []ScanMetadata
 }

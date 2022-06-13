@@ -185,3 +185,11 @@ func (i *groupIterator) CanIterate() bool {
 		return true
 	}
 }
+
+func (i *groupIterator) GetScanMetadata() []ScanMetadata {
+	var res []ScanMetadata
+	for _, iter := range i.Iterators {
+		res = append(res, iter.GetScanMetadata()...)
+	}
+	return res
+}

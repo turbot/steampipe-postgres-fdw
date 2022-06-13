@@ -48,6 +48,7 @@ type scanIterator struct {
 	connection      *steampipeconfig.ConnectionPlugin
 	cancel          context.CancelFunc
 	traceCtx        *instrument.TraceCtx
+	startTime       time.Time
 }
 
 func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool, traceCtx *instrument.TraceCtx) *scanIterator {
@@ -66,6 +67,7 @@ func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, tab
 		table:        table,
 		connection:   connection,
 		traceCtx:     traceCtx,
+		startTime:    time.Now(),
 	}
 }
 
@@ -174,6 +176,10 @@ func (i *scanIterator) CanIterate() bool {
 }
 
 func (i *scanIterator) GetScanMetadata() []ScanMetadata {
+	// scan metadata will only be populated for plugins using latest sdk
+	if i.scanMetadata == nil {
+		return nil
+	}
 	return []ScanMetadata{{
 		Table:        i.table,
 		CacheHit:     i.scanMetadata.CacheHit,
@@ -182,6 +188,8 @@ func (i *scanIterator) GetScanMetadata() []ScanMetadata {
 		Columns:      i.columns,
 		Quals:        i.qualMap,
 		Limit:        i.limit,
+		StartTime:    i.startTime,
+		Duration:     time.Since(i.startTime),
 	}}
 }
 

@@ -170,10 +170,31 @@ func (h *Hub) EndScan(iter Iterator, limit int64) {
 // we append to this every time a scan completes (either due to end of data, or Postgres terminating)
 // the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
 func (h *Hub) AddScanMetadata(iter Iterator) {
+	// get the id of the last metadata item we currently have
+	// (id starts at 1)
+	id := 1
+	metadataLen := len(h.scanMetadata)
+	if metadataLen > 0 {
+		id = h.scanMetadata[metadataLen-1].Id + 1
+	}
+
+	// get list of scan metadata from iterator (may be more than 1 for group_iterator)
 	scanMetadata := iter.GetScanMetadata()
-	log.Printf("[WARN] AddScanMetadata %v %p", scanMetadata, iter)
-	// read the scan metadata from the iterator and add to our stack
-	h.scanMetadata = append(h.scanMetadata, scanMetadata...)
+	for _, m := range scanMetadata {
+		// set ID
+		m.Id = id
+		id++
+		log.Printf("[WARN] AddScanMetadata %v %p, %v", scanMetadata, iter, m)
+		// read the scan metadata from the iterator and add to our stack
+		h.scanMetadata = append(h.scanMetadata, m)
+	}
+
+	// now trim scan metadata - max 1000 items
+	const maxMetadataItems = 1000
+	if metadataLen > maxMetadataItems {
+		startOffset := maxMetadataItems - 1000
+		h.scanMetadata = h.scanMetadata[startOffset:]
+	}
 }
 
 // ClearScanMetadata deletes all stored scan metadata. It is called by steampipe after retrieving timing information
@@ -684,13 +705,16 @@ func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
 		},
 		constants.CommandTableScanMetadata: {
 			Columns: []*proto.ColumnDefinition{
+				{Name: "id", Type: proto.ColumnType_INT},
 				{Name: "table", Type: proto.ColumnType_STRING},
 				{Name: "cache_hit", Type: proto.ColumnType_BOOL},
 				{Name: "rows_fetched", Type: proto.ColumnType_INT},
 				{Name: "hydrate_calls", Type: proto.ColumnType_INT},
-				{Name: "quals", Type: proto.ColumnType_STRING},
+				{Name: "start_time", Type: proto.ColumnType_TIMESTAMP},
+				{Name: "duration", Type: proto.ColumnType_DOUBLE},
 				{Name: "columns", Type: proto.ColumnType_JSON},
 				{Name: "limit", Type: proto.ColumnType_INT},
+				{Name: "quals", Type: proto.ColumnType_STRING},
 			},
 		},
 	}

@@ -46,7 +46,6 @@ func SetEnvVars() {
 	var penv **C.char = C.environ
 	s := C.GoString(*C.environ)
 
-	log.Printf("[WARN] env %s", s)
 	for s != "" {
 		idx := strings.Index(s, "=")
 		key := s[:idx]

@@ -34,6 +34,7 @@ type scanIterator struct {
 	status          queryStatus
 	err             error
 	rows            chan *proto.Row
+	scanMetadata    *proto.QueryMetadata
 	columns         []string
 	limit           int64
 	pluginRowStream proto.WrapperPlugin_ExecuteClient
@@ -114,7 +115,9 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 		// otherwise mark iterator complete, caching result
 		i.status = QueryStatusComplete
 		i.writeToCache()
+
 	} else {
+
 		// so we got a row
 		var err error
 		res, err = i.populateRow(row)
@@ -168,6 +171,18 @@ func (i *scanIterator) CanIterate() bool {
 		return true
 	}
 
+}
+
+func (i *scanIterator) GetScanMetadata() []ScanMetadata {
+	return []ScanMetadata{{
+		Table:        i.table,
+		CacheHit:     i.scanMetadata.CacheHit,
+		RowsFetched:  i.scanMetadata.RowsFetched,
+		HydrateCalls: i.scanMetadata.HydrateCalls,
+		Columns:      i.columns,
+		Quals:        i.qualMap,
+		Limit:        i.limit,
+	}}
 }
 
 func (i *scanIterator) populateRow(row *proto.Row) (map[string]interface{}, error) {
@@ -250,6 +265,9 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 			// stop reading
 			continueReading = false
 		} else {
+			i.scanMetadata = rowResult.Metadata
+			// update the scan metadata (this will overwrite any existing from the previous row)
+			log.Printf("[WARN] rowResult.Metadata %v %p", i.scanMetadata, i)
 			// so we have a row
 			i.rows <- rowResult.Row
 		}

@@ -3,25 +3,21 @@ package hub
 import (
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
-
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 )
 
 type cacheIterator struct {
-	name     string
-	rows     []map[string]interface{}
-	index    int
-	status   queryStatus
-	traceCtx *instrument.TraceCtx
+	name   string
+	rows   []map[string]interface{}
+	index  int
+	status queryStatus
 }
 
-func newCacheIterator(name string, cachedResult *cache.QueryResult, traceCtx *instrument.TraceCtx) *cacheIterator {
+func newCacheIterator(name string, cachedResult *cache.QueryResult) *cacheIterator {
 	return &cacheIterator{
-		name:     name,
-		rows:     cachedResult.Rows,
-		status:   QueryStatusReady,
-		traceCtx: traceCtx,
+		name:   name,
+		rows:   cachedResult.Rows,
+		status: QueryStatusReady,
 	}
 }
 
@@ -70,4 +66,8 @@ func (i *cacheIterator) CanIterate() bool {
 	default:
 		return true
 	}
+}
+
+func (i *cacheIterator) GetScanMetadata() []ScanMetadata {
+	return nil
 }

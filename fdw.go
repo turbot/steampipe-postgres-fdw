@@ -50,7 +50,7 @@ func init() {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
-	log.Printf("[INFO] \n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
+	log.Printf("[INFO] .\n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
 	log.Printf("[INFO] Log level %s\n", level)
 }
 
@@ -108,8 +108,7 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	opts["connection"] = getNamespace(rel)
 
 	if opts["connection"] == constants.CommandSchema {
-		FdwError(fmt.Errorf("cannot select from command schema"))
-		return nil
+		return result
 	}
 
 	// ask the hub for path keys - it will use the table schema to create path keys for all key columns
@@ -244,6 +243,11 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	if len(row) == 0 {
 		log.Printf("[TRACE] goFdwIterateForeignScan returned empty row - this scan complete (%p)", s.Iter)
 
+		// add scan metadata to hub
+		pluginHub, _ := hub.GetHub()
+		pluginHub.AddScanMetadata(s.Iter)
+
+		log.Printf("[WARN] AddScanMetadata done")
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms
 		//logging.DisplayProfileData(10*time.Millisecond, logger)
@@ -293,18 +297,8 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {
 		log.Printf("[TRACE] goFdwEndForeignScan, iterator: %p", s.Iter)
-		// is the iterator still running? If so it means postgres is stopping a scan before all rows have been read
-		if s.Iter.Status() == hub.QueryStatusStarted {
-			// if we have identified a limit from the query (i.e. it is an ungrouped, unordered query from a single table)
-			// then we can cache the result, using the limit in teh
-			// but if we have NOT extracted a limit, w e cannot cache the results as we are not certain they are complete
-			writeToCache := s.State.limit != -1
-			log.Printf("[TRACE] ending scan before iterator complete - limit: %v, writeToCache: %v, iterator: %p", s.State.limit, writeToCache, s.Iter)
-			s.Iter.Close(writeToCache)
+		pluginHub.EndScan(s.Iter, int64(s.State.limit))
 
-		}
-
-		pluginHub.RemoveIterator(s.Iter)
 	}
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
@@ -342,6 +336,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	if remoteSchema == constants.CommandSchema {
 		commandSchema := pluginHub.GetCommandSchema()
 		sql := SchemaToSql(commandSchema, stmt, serverOid)
+		log.Printf("[WARN] command schema SQL %s", sql)
 		return sql
 	}
 
@@ -368,12 +363,27 @@ func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.Tu
 	return nil
 }
 
+//export goFdwExecForeignDelete
+func goFdwExecForeignDelete(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, planSlot *C.TupleTableSlot) *C.TupleTableSlot {
+	// get the connection from the relation namespace
+	relid := rinfo.ri_RelationDesc.rd_id
+	rel := C.RelationIdGetRelation(relid)
+	defer C.RelationClose(rel)
+	connection := getNamespace(rel)
+	// if this is a command insert, handle it
+	if connection == constants.CommandSchema {
+		return handleCommandDelete(rinfo, slot, rel)
+	}
+
+	return nil
+}
+
 func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.Relation) *C.TupleTableSlot {
 	relid := rinfo.ri_RelationDesc.rd_id
 	opts := GetFTableOptions(types.Oid(relid))
 
 	switch opts["table"] {
-	case constants.CacheCommandTable:
+	case constants.CommandTableCache:
 		// we know there is just a single column - operation
 		var isNull C.bool
 		datum := C.slot_getattr(slot, 1, &isNull)
@@ -401,9 +411,28 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 		}*/
 }
 
+func handleCommandDelete(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.Relation) *C.TupleTableSlot {
+	relid := rinfo.ri_RelationDesc.rd_id
+	opts := GetFTableOptions(types.Oid(relid))
+
+	switch opts["table"] {
+	case constants.CommandTableScanMetadata:
+		hub, err := hub.GetHub()
+		if err != nil {
+			FdwError(err)
+			return nil
+		}
+		hub.ClearScanMetadata()
+	default:
+		FdwError(fmt.Errorf("cannot delete from table '%s'", opts["table"]))
+	}
+
+	return nil
+}
+
 //export goFdwShutdown
 func goFdwShutdown() {
-	log.Printf("[INFO] \n\n******************************************************\n\n\t\tsteampipe postgres fdw shutdown\n\n******************************************************\n")
+	log.Printf("[INFO] .\n******************************************************\n\n\t\tsteampipe postgres fdw shutdown\n\n******************************************************\n")
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)

@@ -50,6 +50,11 @@ type Hub struct {
 	// callback function to shutdown telemetry
 	telemetryShutdownFunc func()
 	traceCtx              *instrument.TraceCtx
+
+	// array of scan metadata
+	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
+	// the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
+	scanMetadata []ScanMetadata
 }
 
 // global hub instance
@@ -144,6 +149,39 @@ func (h *Hub) RemoveIterator(iterator Iterator) {
 	}
 }
 
+// EndScan is called when Postgres terminates the scan (because it has received enough rows of data)
+func (h *Hub) EndScan(iter Iterator, limit int64) {
+	// is the iterator still running? If so it means postgres is stopping a scan before all rows have been read
+	if iter.Status() == QueryStatusStarted {
+		h.AddScanMetadata(iter)
+
+		// if we have identified a limit from the query (i.e. it is an ungrouped, unordered query from a single table)
+		// then we can cache the result, using the limit in teh
+		// but if we have NOT extracted a limit, w e cannot cache the results as we are not certain they are complete
+		writeToCache := limit != -1
+		log.Printf("[TRACE] ending scan before iterator complete - limit: %v, writeToCache: %v, iterator: %p", limit, writeToCache, iter)
+		iter.Close(writeToCache)
+	}
+
+	h.RemoveIterator(iter)
+}
+
+// AddScanMetadata adds the scan metadata from the given iterator to the hubs array
+// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
+// the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
+func (h *Hub) AddScanMetadata(iter Iterator) {
+	scanMetadata := iter.GetScanMetadata()
+	log.Printf("[WARN] AddScanMetadata %v %p", scanMetadata, iter)
+	// read the scan metadata from the iterator and add to our stack
+	h.scanMetadata = append(h.scanMetadata, scanMetadata...)
+}
+
+// ClearScanMetadata deletes all stored scan metadata. It is called by steampipe after retrieving timing information
+// for the previous query
+func (h *Hub) ClearScanMetadata() {
+	h.scanMetadata = nil
+}
+
 // Close shuts down all plugin clients
 func (h *Hub) Close() {
 	log.Println("[WARN] hub: close")
@@ -162,12 +200,14 @@ func (h *Hub) Close() {
 func (h *Hub) Abort() {
 	log.Printf("[TRACE] Hub Abort")
 	// for all running iterators
-	for _, iterator := range h.runningIterators {
+	for _, iter := range h.runningIterators {
+		// read the scan metadata from the iterator and add to our stack
+		h.AddScanMetadata(iter)
 		// close the iterator, telling it NOT to cache its results
-		iterator.Close(false)
+		iter.Close(false)
 
 		// remove it from the saved list of iterators
-		h.RemoveIterator(iterator)
+		h.RemoveIterator(iter)
 	}
 }
 
@@ -198,6 +238,10 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	table := opts["table"]
 	log.Printf("[TRACE] Hub Scan() table '%s'", table)
 
+	if connectionName == constants.CommandSchema {
+		return h.executeCommandScan(table)
+	}
+
 	// create a span for this scan
 	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
 
@@ -221,91 +265,6 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 
 	// store the iterator
 	h.addIterator(iterator)
-	return iterator, nil
-}
-
-func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *instrument.TraceCtx {
-	ctx, span := instrument.StartSpan(context.Background(), "Hub.Scan (%s)", table)
-	span.SetAttributes(
-		attribute.StringSlice("columns", columns),
-		attribute.String("table", table),
-		attribute.String("quals", grpc.QualMapToString(qualMap, false)),
-		attribute.String("connection", connectionName),
-	)
-	if limit != -1 {
-		span.SetAttributes(attribute.Int64("limit", limit))
-	}
-	return &instrument.TraceCtx{Ctx: ctx, Span: span}
-}
-
-// startScanForConnection starts a scan for a single connection, using a scanIterator
-func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *instrument.TraceCtx) (_ Iterator, err error) {
-	defer func() {
-		if err != nil {
-			// close the span in case of errir
-			scanTraceCtx.Span.End()
-		}
-	}()
-
-	connectionPlugin, err := h.getConnectionPlugin(connectionName)
-	if err != nil {
-		return nil, err
-	}
-
-	// determine whether to include the limit, based on the quals
-	// we ONLY pushgdown the limit is all quals have corresponding key columns,
-	// and if the qual operator is supported by the key column
-	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionPlugin) {
-		limit = -1
-	}
-
-	cacheEnabled := h.cacheEnabled(connectionPlugin)
-	cacheTTL := h.cacheTTL(connectionName)
-	var cacheString = "caching DISABLED"
-	if cacheEnabled {
-		cacheString = fmt.Sprintf("caching ENABLED with TTL %d seconds", int(cacheTTL.Seconds()))
-	}
-	log.Printf("[INFO] executing query for connection %s, %s", connectionName, cacheString)
-
-	// AFTER printing the logging, override the enabled flag if the plugin supports caching internally
-	if connectionPlugin.SupportedOperations.QueryCache {
-		log.Printf("[TRACE] connection %s supports query cache so FDW cache is not being used", connectionPlugin.ConnectionName)
-		cacheEnabled = false
-	} else {
-		// create cache if necessary
-		if err := h.ensureCache(); err != nil {
-			// close the span
-			scanTraceCtx.Span.End()
-			return nil, err
-		}
-	}
-
-	if len(qualMap) > 0 {
-		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap, true))
-	} else {
-		log.Println("[INFO] --------")
-		log.Println("[INFO] no quals")
-		log.Println("[INFO] --------")
-	}
-
-	// do we have a cached query result
-	if cacheEnabled {
-		cachedResult := h.queryCache.Get(connectionPlugin, table, qualMap, columns, limit)
-		if cachedResult != nil {
-			// we have cache data - return a cache iterator
-			return newCacheIterator(connectionName, cachedResult, scanTraceCtx), nil
-		}
-	}
-
-	// cache not enabled - create a scan iterator
-	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled, scanTraceCtx)
-
-	if err := h.startScan(iterator, queryContext, scanTraceCtx); err != nil {
-		return nil, err
-	}
-
 	return iterator, nil
 }
 
@@ -443,6 +402,91 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 
 //// internal implementation ////
 
+func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *instrument.TraceCtx {
+	ctx, span := instrument.StartSpan(context.Background(), "Hub.Scan (%s)", table)
+	span.SetAttributes(
+		attribute.StringSlice("columns", columns),
+		attribute.String("table", table),
+		attribute.String("quals", grpc.QualMapToString(qualMap, false)),
+		attribute.String("connection", connectionName),
+	)
+	if limit != -1 {
+		span.SetAttributes(attribute.Int64("limit", limit))
+	}
+	return &instrument.TraceCtx{Ctx: ctx, Span: span}
+}
+
+// startScanForConnection starts a scan for a single connection, using a scanIterator
+func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *instrument.TraceCtx) (_ Iterator, err error) {
+	defer func() {
+		if err != nil {
+			// close the span in case of errir
+			scanTraceCtx.Span.End()
+		}
+	}()
+
+	connectionPlugin, err := h.getConnectionPlugin(connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	// determine whether to include the limit, based on the quals
+	// we ONLY pushgdown the limit is all quals have corresponding key columns,
+	// and if the qual operator is supported by the key column
+	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionPlugin) {
+		limit = -1
+	}
+
+	cacheEnabled := h.cacheEnabled(connectionPlugin)
+	cacheTTL := h.cacheTTL(connectionName)
+	var cacheString = "caching DISABLED"
+	if cacheEnabled {
+		cacheString = fmt.Sprintf("caching ENABLED with TTL %d seconds", int(cacheTTL.Seconds()))
+	}
+	log.Printf("[INFO] executing query for connection %s, %s", connectionName, cacheString)
+
+	// AFTER printing the logging, override the enabled flag if the plugin supports caching internally
+	if connectionPlugin.SupportedOperations.QueryCache {
+		log.Printf("[TRACE] connection %s supports query cache so FDW cache is not being used", connectionPlugin.ConnectionName)
+		cacheEnabled = false
+	} else {
+		// create cache if necessary
+		if err := h.ensureCache(); err != nil {
+			// close the span
+			scanTraceCtx.Span.End()
+			return nil, err
+		}
+	}
+
+	if len(qualMap) > 0 {
+		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap, true))
+	} else {
+		log.Println("[INFO] --------")
+		log.Println("[INFO] no quals")
+		log.Println("[INFO] --------")
+	}
+
+	// do we have a cached query result
+	if cacheEnabled {
+		cachedResult := h.queryCache.Get(connectionPlugin, table, qualMap, columns, limit)
+		if cachedResult != nil {
+			// we have cache data - return a cache iterator
+			return newCacheIterator(connectionName, cachedResult), nil
+		}
+	}
+
+	// cache not enabled - create a scan iterator
+	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
+	queryContext := proto.NewQueryContext(columns, qualMap, limit)
+	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled, scanTraceCtx)
+
+	if err := h.startScan(iterator, queryContext, scanTraceCtx); err != nil {
+		return nil, err
+	}
+
+	return iterator, nil
+}
+
 // determine whether to include the limit, based on the quals
 // we ONLY pushdown the limit is all quals have corresponding key columns,
 // and if the qual operator is supported by the key column
@@ -510,7 +554,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		TraceContext: grpc.CreateCarrierFromContext(traceCtx.Ctx),
 	}
 
-	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v,  iterator %p", table, callId, req.CacheEnabled, iterator)
+	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v, iterator %p", table, callId, req.CacheEnabled, iterator)
 	stream, ctx, cancel, err := c.PluginClient.Execute(req)
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
 	err = grpc.HandleGrpcError(err, c.ConnectionName, "Execute")
@@ -633,9 +677,20 @@ func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
 
 func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
 	return map[string]*proto.TableSchema{
-		constants.CacheCommandTable: {
+		constants.CommandTableCache: {
 			Columns: []*proto.ColumnDefinition{
-				{Name: constants.CacheCommandOperationColumn, Type: proto.ColumnType_STRING},
+				{Name: constants.CommandTableCacheOperationColumn, Type: proto.ColumnType_STRING},
+			},
+		},
+		constants.CommandTableScanMetadata: {
+			Columns: []*proto.ColumnDefinition{
+				{Name: "table", Type: proto.ColumnType_STRING},
+				{Name: "cache_hit", Type: proto.ColumnType_BOOL},
+				{Name: "rows_fetched", Type: proto.ColumnType_INT},
+				{Name: "hydrate_calls", Type: proto.ColumnType_INT},
+				{Name: "quals", Type: proto.ColumnType_STRING},
+				{Name: "columns", Type: proto.ColumnType_JSON},
+				{Name: "limit", Type: proto.ColumnType_INT},
 			},
 		},
 	}
@@ -697,4 +752,19 @@ func (h *Hub) ensureCache() error {
 		return h.createCache()
 	}
 	return nil
+}
+
+func (h *Hub) executeCommandScan(table string) (Iterator, error) {
+	switch table {
+	case constants.CommandTableScanMetadata:
+		res := &cache.QueryResult{
+			Rows: make([]map[string]interface{}, len(h.scanMetadata)),
+		}
+		for i, m := range h.scanMetadata {
+			res.Rows[i] = m.AsResultRow()
+		}
+		return newCacheIterator(constants.CommandSchema, res), nil
+	default:
+		return nil, fmt.Errorf("cannot select from command table '%s'", table)
+	}
 }

@@ -113,7 +113,7 @@ func newHub() (*Hub, error) {
 
 func (h *Hub) initialiseTelemetry() error {
 	log.Printf("[WARN] init telemetry")
-	shutdownTelemetry, err := instrument.Init("steampipe-postgres-fdw")
+	shutdownTelemetry, err := instrument.Init(constants.FdwName)
 	if err != nil {
 		return fmt.Errorf("failed to initialise telemetry: %s", err.Error())
 	}
@@ -424,7 +424,7 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 //// internal implementation ////
 
 func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *instrument.TraceCtx {
-	ctx, span := instrument.StartSpan(context.Background(), "Hub.Scan (%s)", table)
+	ctx, span := instrument.StartSpan(context.Background(), constants.FdwName, "Hub.Scan (%s)", table)
 	span.SetAttributes(
 		attribute.StringSlice("columns", columns),
 		attribute.String("table", table),

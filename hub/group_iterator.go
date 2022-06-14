@@ -6,15 +6,13 @@ import (
 	"strings"
 	"sync"
 
-	"go.opentelemetry.io/otel/attribute"
-
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
-
-	"github.com/turbot/steampipe/utils"
-
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
+	"github.com/turbot/steampipe/constants"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
+	"github.com/turbot/steampipe/utils"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // groupIterator is a struct which aggregates the results of as number of interators
@@ -43,7 +41,7 @@ func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals
 	var errors []error
 	for connectionName := range connectionConfig.Connections {
 		// create a child span for this connection
-		ctx, span := instrument.StartSpan(scanTraceCtx.Ctx, "ChildConnection.Scan")
+		ctx, span := instrument.StartSpan(scanTraceCtx.Ctx, constants.FdwName, "ChildConnection.Scan (%s)", table)
 		span.SetAttributes(
 			attribute.String("connection", connectionName),
 		)

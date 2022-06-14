@@ -8,9 +8,7 @@ import (
 )
 
 type ScanMetadata struct {
-	// populated by hub
-	Id int
-
+	Id           int
 	Table        string
 	CacheHit     bool
 	RowsFetched  uint64

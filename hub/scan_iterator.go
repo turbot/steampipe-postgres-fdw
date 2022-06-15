@@ -132,18 +132,20 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 			i.cachedRows.Append(res)
 		}
 	}
-
 	logging.LogTime("[hub] Next end")
 	return res, nil
 }
 
 func (i *scanIterator) closeSpan() {
+	// if we have scan metadata, add to span
+	if i.scanMetadata != nil {
+		i.traceCtx.Span.SetAttributes(
+			attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
+			attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
+			attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
+		)
+	}
 
-	i.traceCtx.Span.SetAttributes(
-		attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
-		attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
-		attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
-	)
 	i.traceCtx.Span.End()
 }
 

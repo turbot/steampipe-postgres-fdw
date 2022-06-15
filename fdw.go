@@ -247,7 +247,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	if len(row) == 0 {
 		log.Printf("[TRACE] goFdwIterateForeignScan returned empty row - this scan complete (%p)", s.Iter)
-
 		// add scan metadata to hub
 		pluginHub, _ := hub.GetHub()
 		pluginHub.AddScanMetadata(s.Iter)
@@ -339,7 +338,6 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	if remoteSchema == constants.CommandSchema {
 		commandSchema := pluginHub.GetCommandSchema()
 		sql := SchemaToSql(commandSchema, stmt, serverOid)
-		log.Printf("[TRACE] command schema SQL %s", sql)
 		return sql
 	}
 

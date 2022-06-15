@@ -361,21 +361,6 @@ func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.Tu
 	return nil
 }
 
-//export goFdwExecForeignDelete
-func goFdwExecForeignDelete(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, planSlot *C.TupleTableSlot) *C.TupleTableSlot {
-	// get the connection from the relation namespace
-	relid := rinfo.ri_RelationDesc.rd_id
-	rel := C.RelationIdGetRelation(relid)
-	defer C.RelationClose(rel)
-	connection := getNamespace(rel)
-	// if this is a command insert, handle it
-	if connection == constants.CommandSchema {
-		return handleCommandDelete(rinfo, slot, rel)
-	}
-
-	return nil
-}
-
 func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.Relation) *C.TupleTableSlot {
 	relid := rinfo.ri_RelationDesc.rd_id
 	opts := GetFTableOptions(types.Oid(relid))
@@ -407,25 +392,6 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 			var isNull C.bool
 			datum := C.slot_getattr(slot, C.int(i+1), &isNull)
 		}*/
-}
-
-func handleCommandDelete(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.Relation) *C.TupleTableSlot {
-	relid := rinfo.ri_RelationDesc.rd_id
-	opts := GetFTableOptions(types.Oid(relid))
-
-	switch opts["table"] {
-	case constants.CommandTableScanMetadata:
-		hub, err := hub.GetHub()
-		if err != nil {
-			FdwError(err)
-			return nil
-		}
-		hub.ClearScanMetadata()
-	default:
-		FdwError(fmt.Errorf("cannot delete from table '%s'", opts["table"]))
-	}
-
-	return nil
 }
 
 //export goFdwShutdown

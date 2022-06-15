@@ -84,7 +84,6 @@ Datum fdw_handler(PG_FUNCTION_ARGS) {
   fdw_routine->EndForeignScan = goFdwEndForeignScan;
   fdw_routine->ImportForeignSchema = goFdwImportForeignSchema;
   fdw_routine->ExecForeignInsert = goFdwExecForeignInsert;
-  fdw_routine->ExecForeignDelete = goFdwExecForeignDelete;
 
 PG_RETURN_POINTER(fdw_routine);
 }

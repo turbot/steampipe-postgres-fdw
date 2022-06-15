@@ -13,8 +13,8 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
@@ -49,7 +49,7 @@ type Hub struct {
 	// telemetry properties
 	// callback function to shutdown telemetry
 	telemetryShutdownFunc func()
-	traceCtx              *instrument.TraceCtx
+	traceCtx              *telemetry.TraceCtx
 
 	// array of scan metadata
 	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
@@ -113,7 +113,7 @@ func newHub() (*Hub, error) {
 
 func (h *Hub) initialiseTelemetry() error {
 	log.Printf("[WARN] init telemetry")
-	shutdownTelemetry, err := instrument.Init(constants.FdwName)
+	shutdownTelemetry, err := telemetry.Init(constants.FdwName)
 	if err != nil {
 		return fmt.Errorf("failed to initialise telemetry: %s", err.Error())
 	}
@@ -188,6 +188,13 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 		// read the scan metadata from the iterator and add to our stack
 		h.scanMetadata = append(h.scanMetadata, m)
 	}
+
+	//meter := global.Meter("demo-client-meter")
+	//
+	//hydrateCalls, err := meter.SyncInt64().Counter(
+	//	fmt.Sprintf("%s/hydrate_calls)",
+	//	instrument.WithDescription("The latency of requests processed"),
+	//)
 
 	// now trim scan metadata - max 1000 items
 	const maxMetadataItems = 1000
@@ -423,8 +430,8 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 
 //// internal implementation ////
 
-func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *instrument.TraceCtx {
-	ctx, span := instrument.StartSpan(context.Background(), constants.FdwName, "Hub.Scan (%s)", table)
+func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *telemetry.TraceCtx {
+	ctx, span := telemetry.StartSpan(context.Background(), constants.FdwName, "Hub.Scan (%s)", table)
 	span.SetAttributes(
 		attribute.StringSlice("columns", columns),
 		attribute.String("table", table),
@@ -434,11 +441,11 @@ func (h *Hub) traceContextForScan(table string, columns []string, limit int64, q
 	if limit != -1 {
 		span.SetAttributes(attribute.Int64("limit", limit))
 	}
-	return &instrument.TraceCtx{Ctx: ctx, Span: span}
+	return &telemetry.TraceCtx{Ctx: ctx, Span: span}
 }
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator
-func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *instrument.TraceCtx) (_ Iterator, err error) {
+func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {
 			// close the span in case of errir
@@ -556,7 +563,7 @@ func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals,
 }
 
 // split startScan into a separate function to allow iterator to restart the scan
-func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext, traceCtx *instrument.TraceCtx) error {
+func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext, traceCtx *telemetry.TraceCtx) error {
 	// ensure we do not call execute too frequently
 	h.throttle()
 

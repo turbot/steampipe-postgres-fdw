@@ -8,7 +8,7 @@ import (
 
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"github.com/turbot/steampipe/constants"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
 	"github.com/turbot/steampipe/utils"
@@ -21,10 +21,10 @@ type groupIterator struct {
 	Iterators         []Iterator
 	rowChan           chan map[string]interface{}
 	childrenRunningWg sync.WaitGroup
-	traceCtx          *instrument.TraceCtx
+	traceCtx          *telemetry.TraceCtx
 }
 
-func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionConfig *modconfig.Connection, h *Hub, scanTraceCtx *instrument.TraceCtx) (Iterator, error) {
+func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionConfig *modconfig.Connection, h *Hub, scanTraceCtx *telemetry.TraceCtx) (Iterator, error) {
 	res := &groupIterator{
 		Name: name,
 		// create a buffered channel
@@ -41,11 +41,11 @@ func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals
 	var errors []error
 	for connectionName := range connectionConfig.Connections {
 		// create a child span for this connection
-		ctx, span := instrument.StartSpan(scanTraceCtx.Ctx, constants.FdwName, "ChildConnection.Scan (%s)", table)
+		ctx, span := telemetry.StartSpan(scanTraceCtx.Ctx, constants.FdwName, "ChildConnection.Scan (%s)", table)
 		span.SetAttributes(
 			attribute.String("connection", connectionName),
 		)
-		connectionTraceCtx := &instrument.TraceCtx{Ctx: ctx, Span: span}
+		connectionTraceCtx := &telemetry.TraceCtx{Ctx: ctx, Span: span}
 
 		iterator, err := h.startScanForConnection(connectionName, table, qualMap, columns, limit, connectionTraceCtx)
 		if err != nil {

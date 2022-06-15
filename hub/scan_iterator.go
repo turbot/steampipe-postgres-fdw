@@ -7,12 +7,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/steampipeconfig"
@@ -47,11 +46,11 @@ type scanIterator struct {
 	table           string
 	connection      *steampipeconfig.ConnectionPlugin
 	cancel          context.CancelFunc
-	traceCtx        *instrument.TraceCtx
+	traceCtx        *telemetry.TraceCtx
 	startTime       time.Time
 }
 
-func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool, traceCtx *instrument.TraceCtx) *scanIterator {
+func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool, traceCtx *telemetry.TraceCtx) *scanIterator {
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
 	return &scanIterator{

@@ -7,6 +7,8 @@ import (
 	"log"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
@@ -47,7 +49,8 @@ type scanIterator struct {
 	connection      *steampipeconfig.ConnectionPlugin
 	cancel          context.CancelFunc
 	traceCtx        *telemetry.TraceCtx
-	startTime       time.Time
+
+	startTime time.Time
 }
 
 func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool, traceCtx *telemetry.TraceCtx) *scanIterator {
@@ -105,8 +108,7 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	var res map[string]interface{}
 	if row == nil {
 		// close the span
-		// TODO check not already closed? NEED A LOCK??
-		i.traceCtx.Span.End()
+		i.closeSpan()
 
 		// if iterator is in error, return the error
 		if i.Status() == QueryStatusError {
@@ -135,6 +137,16 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	return res, nil
 }
 
+func (i *scanIterator) closeSpan() {
+
+	i.traceCtx.Span.SetAttributes(
+		attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
+		attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
+		attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
+	)
+	i.traceCtx.Span.End()
+}
+
 func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
 	logging.LogTime("[hub] start")
 	i.status = QueryStatusStarted
@@ -156,9 +168,7 @@ func (i *scanIterator) Close(writeToCache bool) {
 		i.status = QueryStatusComplete
 	}
 
-	// TODO check not already closed? NEED A LOCK??
-	// close the span
-	i.traceCtx.Span.End()
+	i.closeSpan()
 
 }
 
@@ -190,6 +200,10 @@ func (i *scanIterator) GetScanMetadata() []ScanMetadata {
 		StartTime:    i.startTime,
 		Duration:     time.Since(i.startTime),
 	}}
+}
+
+func (i *scanIterator) GetTraceContext() *telemetry.TraceCtx {
+	return i.traceCtx
 }
 
 func (i *scanIterator) populateRow(row *proto.Row) (map[string]interface{}, error) {
@@ -272,9 +286,9 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 			// stop reading
 			continueReading = false
 		} else {
-			i.scanMetadata = rowResult.Metadata
 			// update the scan metadata (this will overwrite any existing from the previous row)
-			log.Printf("[WARN] rowResult.Metadata %v %p", i.scanMetadata, i)
+			i.scanMetadata = rowResult.Metadata
+
 			// so we have a row
 			i.rows <- rowResult.Row
 		}

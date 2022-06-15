@@ -251,8 +251,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		// add scan metadata to hub
 		pluginHub, _ := hub.GetHub()
 		pluginHub.AddScanMetadata(s.Iter)
-
-		log.Printf("[WARN] AddScanMetadata done")
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms
 		//logging.DisplayProfileData(10*time.Millisecond, logger)
@@ -341,7 +339,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	if remoteSchema == constants.CommandSchema {
 		commandSchema := pluginHub.GetCommandSchema()
 		sql := SchemaToSql(commandSchema, stmt, serverOid)
-		log.Printf("[WARN] command schema SQL %s", sql)
+		log.Printf("[TRACE] command schema SQL %s", sql)
 		return sql
 	}
 

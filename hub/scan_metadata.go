@@ -11,8 +11,8 @@ type ScanMetadata struct {
 	Id           int
 	Table        string
 	CacheHit     bool
-	RowsFetched  uint64
-	HydrateCalls uint64
+	RowsFetched  int64
+	HydrateCalls int64
 	Columns      []string
 	Quals        map[string]*proto.Quals
 	Limit        int64

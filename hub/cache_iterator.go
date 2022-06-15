@@ -1,8 +1,10 @@
 package hub
 
 import (
+	"context"
 	"log"
 
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 )
 
@@ -70,4 +72,7 @@ func (i *cacheIterator) CanIterate() bool {
 
 func (i *cacheIterator) GetScanMetadata() []ScanMetadata {
 	return nil
+}
+func (i *cacheIterator) GetTraceContext() *telemetry.TraceCtx {
+	return &telemetry.TraceCtx{Ctx: context.Background()}
 }

@@ -2,22 +2,20 @@ module github.com/turbot/steampipe-postgres-fdw
 
 go 1.18
 
-replace github.com/turbot/steampipe-plugin-sdk/v3 => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk
-
-replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
-
 require (
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/go-hclog v1.2.0
 	github.com/hashicorp/go-version v1.5.0
 	github.com/turbot/go-kit v0.3.0
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20220609205356-cfbb7a24c8c2
 	// telemetry
-	github.com/turbot/steampipe-plugin-sdk/v3 v3.2.1-0.20220527143135-ba5289aa42cd
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20220615152721-aaa8119e4e73
+	github.com/turbot/steampipe-plugin-sdk/v3 v3.3.0-rc.0
 	go.opentelemetry.io/otel v1.7.0
 	google.golang.org/protobuf v1.28.0
 )
+
+require go.opentelemetry.io/otel/metric v0.30.0
 
 require (
 	github.com/Machiel/slugify v1.0.1 // indirect
@@ -119,7 +117,6 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.30.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.7.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.7.0 // indirect
-	go.opentelemetry.io/otel/metric v0.30.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.7.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v0.30.0 // indirect
 	go.opentelemetry.io/otel/trace v1.7.0 // indirect

@@ -191,3 +191,7 @@ func (i *groupIterator) GetScanMetadata() []ScanMetadata {
 	}
 	return res
 }
+
+func (i *groupIterator) GetTraceContext() *telemetry.TraceCtx {
+	return i.traceCtx
+}

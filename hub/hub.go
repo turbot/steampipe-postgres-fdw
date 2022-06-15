@@ -23,6 +23,9 @@ import (
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 )
 
 const (
@@ -49,7 +52,7 @@ type Hub struct {
 	// telemetry properties
 	// callback function to shutdown telemetry
 	telemetryShutdownFunc func()
-	traceCtx              *telemetry.TraceCtx
+	hydrateCallsCounter   syncint64.Counter
 
 	// array of scan metadata
 	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
@@ -112,7 +115,7 @@ func newHub() (*Hub, error) {
 }
 
 func (h *Hub) initialiseTelemetry() error {
-	log.Printf("[WARN] init telemetry")
+	log.Printf("[TRACE] init telemetry")
 	shutdownTelemetry, err := telemetry.Init(constants.FdwName)
 	if err != nil {
 		return fmt.Errorf("failed to initialise telemetry: %s", err.Error())
@@ -120,6 +123,16 @@ func (h *Hub) initialiseTelemetry() error {
 
 	h.telemetryShutdownFunc = shutdownTelemetry
 
+	meter := global.Meter(constants.FdwName)
+	hydrateCalls, err := meter.SyncInt64().Counter(
+		fmt.Sprintf("%s/hydrate_calls_total", constants.FdwName),
+		instrument.WithDescription("The total number of hydrate calls"),
+	)
+	if err != nil {
+		log.Printf("[WARN] init telemetry failed to create hydrateCallsCounter")
+		return err
+	}
+	h.hydrateCallsCounter = hydrateCalls
 	return nil
 }
 
@@ -170,6 +183,7 @@ func (h *Hub) EndScan(iter Iterator, limit int64) {
 // we append to this every time a scan completes (either due to end of data, or Postgres terminating)
 // the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
 func (h *Hub) AddScanMetadata(iter Iterator) {
+	log.Printf("[TRACE] AddScanMetadata for iterator %p (%s)", iter, iter.ConnectionName())
 	// get the id of the last metadata item we currently have
 	// (id starts at 1)
 	id := 1
@@ -177,6 +191,10 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	if metadataLen > 0 {
 		id = h.scanMetadata[metadataLen-1].Id + 1
 	}
+	ctx := iter.GetTraceContext().Ctx
+
+	connectionName := iter.ConnectionName()
+	connectionPlugin, _ := h.getConnectionPlugin(connectionName)
 
 	// get list of scan metadata from iterator (may be more than 1 for group_iterator)
 	scanMetadata := iter.GetScanMetadata()
@@ -184,17 +202,20 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 		// set ID
 		m.Id = id
 		id++
-		log.Printf("[WARN] AddScanMetadata %v %p, %v", scanMetadata, iter, m)
+		log.Printf("[TRACE] got metadata table: %s cache hit: %v, rows fetched %d, hydrate calls: %d",
+			m.Table, m.CacheHit, m.RowsFetched, m.HydrateCalls)
 		// read the scan metadata from the iterator and add to our stack
 		h.scanMetadata = append(h.scanMetadata, m)
-	}
 
-	//meter := global.Meter("demo-client-meter")
-	//
-	//hydrateCalls, err := meter.SyncInt64().Counter(
-	//	fmt.Sprintf("%s/hydrate_calls)",
-	//	instrument.WithDescription("The latency of requests processed"),
-	//)
+		// hydrate metric labels
+		labels := []attribute.KeyValue{
+			attribute.String("table", m.Table),
+			attribute.String("connection", connectionName),
+			attribute.String("plugin", connectionPlugin.PluginName),
+		}
+		log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
+		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, labels...)
+	}
 
 	// now trim scan metadata - max 1000 items
 	const maxMetadataItems = 1000
@@ -212,10 +233,10 @@ func (h *Hub) ClearScanMetadata() {
 
 // Close shuts down all plugin clients
 func (h *Hub) Close() {
-	log.Println("[WARN] hub: close")
+	log.Println("[TRACE] hub: close")
 
 	if h.telemetryShutdownFunc != nil {
-		log.Println("[WARN] shutdown telemetry")
+		log.Println("[TRACE] shutdown telemetry")
 		h.telemetryShutdownFunc()
 	}
 	if h.queryCache != nil {

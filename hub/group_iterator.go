@@ -6,11 +6,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/turbot/steampipe/utils"
-
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
+	"github.com/turbot/steampipe/constants"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
+	"github.com/turbot/steampipe/utils"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // groupIterator is a struct which aggregates the results of as number of interators
@@ -19,17 +21,33 @@ type groupIterator struct {
 	Iterators         []Iterator
 	rowChan           chan map[string]interface{}
 	childrenRunningWg sync.WaitGroup
+	traceCtx          *telemetry.TraceCtx
 }
 
-func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionMap map[string]*modconfig.Connection, h *Hub) (Iterator, error) {
+func NewGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionConfig *modconfig.Connection, h *Hub, scanTraceCtx *telemetry.TraceCtx) (Iterator, error) {
 	res := &groupIterator{
 		Name: name,
 		// create a buffered channel
-		rowChan: make(chan map[string]interface{}, rowBufferSize),
+		rowChan:  make(chan map[string]interface{}, rowBufferSize),
+		traceCtx: scanTraceCtx,
 	}
+
+	// add aggregator specific attributes to span
+	scanTraceCtx.Span.SetAttributes(
+		attribute.String("connection_type", "aggregator"),
+		attribute.StringSlice("connections", connectionConfig.ConnectionNames),
+	)
+
 	var errors []error
-	for connectionName := range connectionMap {
-		iterator, err := h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+	for connectionName := range connectionConfig.Connections {
+		// create a child span for this connection
+		ctx, span := telemetry.StartSpan(scanTraceCtx.Ctx, constants.FdwName, "ChildConnection.Scan (%s)", table)
+		span.SetAttributes(
+			attribute.String("connection", connectionName),
+		)
+		connectionTraceCtx := &telemetry.TraceCtx{Ctx: ctx, Span: span}
+
+		iterator, err := h.startScanForConnection(connectionName, table, qualMap, columns, limit, connectionTraceCtx)
 		if err != nil {
 			errors = append(errors, err)
 		} else {
@@ -80,6 +98,11 @@ func (i *groupIterator) Next() (map[string]interface{}, error) {
 	row := <-i.rowChan
 	if len(row) == 0 {
 		log.Printf("[TRACE] groupIterator len(row) == 0 ")
+
+		// TODO check not already closed? NEED A LOCK??
+		// close the span
+		i.traceCtx.Span.End()
+
 		return nil, i.aggregateIteratorErrors()
 	}
 	return row, nil
@@ -147,6 +170,9 @@ func (i *groupIterator) Close(writeToCache bool) {
 			log.Printf("[TRACE] groupIterator.Close iterator %s not running (%s), so not closing", it.ConnectionName(), it.Status())
 		}
 	}
+	// TODO check not already closed?
+	// close the span
+	i.traceCtx.Span.End()
 }
 
 func (i *groupIterator) CanIterate() bool {
@@ -156,4 +182,16 @@ func (i *groupIterator) CanIterate() bool {
 	default:
 		return true
 	}
+}
+
+func (i *groupIterator) GetScanMetadata() []ScanMetadata {
+	var res []ScanMetadata
+	for _, iter := range i.Iterators {
+		res = append(res, iter.GetScanMetadata()...)
+	}
+	return res
+}
+
+func (i *groupIterator) GetTraceContext() *telemetry.TraceCtx {
+	return i.traceCtx
 }

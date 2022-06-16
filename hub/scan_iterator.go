@@ -7,10 +7,13 @@ import (
 	"log"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/steampipeconfig"
@@ -32,6 +35,7 @@ type scanIterator struct {
 	status          queryStatus
 	err             error
 	rows            chan *proto.Row
+	scanMetadata    *proto.QueryMetadata
 	columns         []string
 	limit           int64
 	pluginRowStream proto.WrapperPlugin_ExecuteClient
@@ -44,9 +48,12 @@ type scanIterator struct {
 	table           string
 	connection      *steampipeconfig.ConnectionPlugin
 	cancel          context.CancelFunc
+	traceCtx        *telemetry.TraceCtx
+
+	startTime time.Time
 }
 
-func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool) *scanIterator {
+func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool, traceCtx *telemetry.TraceCtx) *scanIterator {
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
 	return &scanIterator{
@@ -61,6 +68,8 @@ func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, tab
 		cacheTTL:     cacheTTL,
 		table:        table,
 		connection:   connection,
+		traceCtx:     traceCtx,
+		startTime:    time.Now(),
 	}
 }
 
@@ -98,6 +107,9 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
+		// close the span
+		i.closeSpan()
+
 		// if iterator is in error, return the error
 		if i.Status() == QueryStatusError {
 			// return error
@@ -106,7 +118,9 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 		// otherwise mark iterator complete, caching result
 		i.status = QueryStatusComplete
 		i.writeToCache()
+
 	} else {
+
 		// so we got a row
 		var err error
 		res, err = i.populateRow(row)
@@ -118,9 +132,21 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 			i.cachedRows.Append(res)
 		}
 	}
-
 	logging.LogTime("[hub] Next end")
 	return res, nil
+}
+
+func (i *scanIterator) closeSpan() {
+	// if we have scan metadata, add to span
+	if i.scanMetadata != nil {
+		i.traceCtx.Span.SetAttributes(
+			attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
+			attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
+			attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
+		)
+	}
+
+	i.traceCtx.Span.End()
 }
 
 func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
@@ -143,6 +169,9 @@ func (i *scanIterator) Close(writeToCache bool) {
 	if i.status != QueryStatusError {
 		i.status = QueryStatusComplete
 	}
+
+	i.closeSpan()
+
 }
 
 // CanIterate returns true if this iterator has results available to iterate
@@ -155,6 +184,28 @@ func (i *scanIterator) CanIterate() bool {
 		return true
 	}
 
+}
+
+func (i *scanIterator) GetScanMetadata() []ScanMetadata {
+	// scan metadata will only be populated for plugins using latest sdk
+	if i.scanMetadata == nil {
+		return nil
+	}
+	return []ScanMetadata{{
+		Table:        i.table,
+		CacheHit:     i.scanMetadata.CacheHit,
+		RowsFetched:  i.scanMetadata.RowsFetched,
+		HydrateCalls: i.scanMetadata.HydrateCalls,
+		Columns:      i.columns,
+		Quals:        i.qualMap,
+		Limit:        i.limit,
+		StartTime:    i.startTime,
+		Duration:     time.Since(i.startTime),
+	}}
+}
+
+func (i *scanIterator) GetTraceContext() *telemetry.TraceCtx {
+	return i.traceCtx
 }
 
 func (i *scanIterator) populateRow(row *proto.Row) (map[string]interface{}, error) {
@@ -237,6 +288,9 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 			// stop reading
 			continueReading = false
 		} else {
+			// update the scan metadata (this will overwrite any existing from the previous row)
+			i.scanMetadata = rowResult.Metadata
+
 			// so we have a row
 			i.rows <- rowResult.Row
 		}

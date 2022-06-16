@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/constants"
@@ -20,6 +22,10 @@ import (
 	"github.com/turbot/steampipe/pluginmanager"
 	"github.com/turbot/steampipe/steampipeconfig"
 	"github.com/turbot/steampipe/steampipeconfig/modconfig"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/metric/instrument/syncint64"
 )
 
 const (
@@ -42,6 +48,16 @@ type Hub struct {
 
 	timingLock   sync.Mutex
 	lastScanTime time.Time
+
+	// telemetry properties
+	// callback function to shutdown telemetry
+	telemetryShutdownFunc func()
+	hydrateCallsCounter   syncint64.Counter
+
+	// array of scan metadata
+	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
+	// the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
+	scanMetadata []ScanMetadata
 }
 
 // global hub instance
@@ -77,6 +93,11 @@ func newHub() (*Hub, error) {
 	hub := &Hub{}
 	hub.connections = newConnectionFactory(hub)
 
+	// TODO CHECK TELEMETRY ENABLED?
+	if err := hub.initialiseTelemetry(); err != nil {
+		return nil, err
+	}
+
 	// NOTE: Steampipe determine it's install directory from the input arguments (with a default)
 	// as we are using shared Steampipe code we must set the install directory.
 	// we can derive it from the working directory (which is underneath the install directectory)
@@ -93,8 +114,30 @@ func newHub() (*Hub, error) {
 	return hub, nil
 }
 
+func (h *Hub) initialiseTelemetry() error {
+	log.Printf("[TRACE] init telemetry")
+	shutdownTelemetry, err := telemetry.Init(constants.FdwName)
+	if err != nil {
+		return fmt.Errorf("failed to initialise telemetry: %s", err.Error())
+	}
+
+	h.telemetryShutdownFunc = shutdownTelemetry
+
+	meter := global.Meter(constants.FdwName)
+	hydrateCalls, err := meter.SyncInt64().Counter(
+		fmt.Sprintf("%s/hydrate_calls_total", constants.FdwName),
+		instrument.WithDescription("The total number of hydrate calls"),
+	)
+	if err != nil {
+		log.Printf("[WARN] init telemetry failed to create hydrateCallsCounter")
+		return err
+	}
+	h.hydrateCallsCounter = hydrateCalls
+	return nil
+}
+
+// get the install folder - derive from our working folder
 func getInstallDirectory() (string, error) {
-	// set the install folder - derive from our working folder
 	// we need to do this as we are sharing steampipe code to read the config
 	// and steampipe may set the install folder from a cmd line arg, so it cannot be hard coded
 	wd, err := os.Getwd()
@@ -119,10 +162,83 @@ func (h *Hub) RemoveIterator(iterator Iterator) {
 	}
 }
 
+// EndScan is called when Postgres terminates the scan (because it has received enough rows of data)
+func (h *Hub) EndScan(iter Iterator, limit int64) {
+	// is the iterator still running? If so it means postgres is stopping a scan before all rows have been read
+	if iter.Status() == QueryStatusStarted {
+		h.AddScanMetadata(iter)
+
+		// if we have identified a limit from the query (i.e. it is an ungrouped, unordered query from a single table)
+		// then we can cache the result, using the limit in teh
+		// but if we have NOT extracted a limit, w e cannot cache the results as we are not certain they are complete
+		writeToCache := limit != -1
+		log.Printf("[TRACE] ending scan before iterator complete - limit: %v, writeToCache: %v, iterator: %p", limit, writeToCache, iter)
+		iter.Close(writeToCache)
+	}
+
+	h.RemoveIterator(iter)
+}
+
+// AddScanMetadata adds the scan metadata from the given iterator to the hubs array
+// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
+// the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
+func (h *Hub) AddScanMetadata(iter Iterator) {
+	log.Printf("[TRACE] AddScanMetadata for iterator %p (%s)", iter, iter.ConnectionName())
+	// get the id of the last metadata item we currently have
+	// (id starts at 1)
+	id := 1
+	metadataLen := len(h.scanMetadata)
+	if metadataLen > 0 {
+		id = h.scanMetadata[metadataLen-1].Id + 1
+	}
+	ctx := iter.GetTraceContext().Ctx
+
+	connectionName := iter.ConnectionName()
+	connectionPlugin, _ := h.getConnectionPlugin(connectionName)
+
+	// get list of scan metadata from iterator (may be more than 1 for group_iterator)
+	scanMetadata := iter.GetScanMetadata()
+	for _, m := range scanMetadata {
+		// set ID
+		m.Id = id
+		id++
+		log.Printf("[TRACE] got metadata table: %s cache hit: %v, rows fetched %d, hydrate calls: %d",
+			m.Table, m.CacheHit, m.RowsFetched, m.HydrateCalls)
+		// read the scan metadata from the iterator and add to our stack
+		h.scanMetadata = append(h.scanMetadata, m)
+
+		// hydrate metric labels
+		labels := []attribute.KeyValue{
+			attribute.String("table", m.Table),
+			attribute.String("connection", connectionName),
+			attribute.String("plugin", connectionPlugin.PluginName),
+		}
+		log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
+		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, labels...)
+	}
+
+	// now trim scan metadata - max 1000 items
+	const maxMetadataItems = 1000
+	if metadataLen > maxMetadataItems {
+		startOffset := maxMetadataItems - 1000
+		h.scanMetadata = h.scanMetadata[startOffset:]
+	}
+}
+
+// ClearScanMetadata deletes all stored scan metadata. It is called by steampipe after retrieving timing information
+// for the previous query
+func (h *Hub) ClearScanMetadata() {
+	h.scanMetadata = nil
+}
+
 // Close shuts down all plugin clients
 func (h *Hub) Close() {
 	log.Println("[TRACE] hub: close")
 
+	if h.telemetryShutdownFunc != nil {
+		log.Println("[TRACE] shutdown telemetry")
+		h.telemetryShutdownFunc()
+	}
 	if h.queryCache != nil {
 		log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
 		log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
@@ -133,12 +249,14 @@ func (h *Hub) Close() {
 func (h *Hub) Abort() {
 	log.Printf("[TRACE] Hub Abort")
 	// for all running iterators
-	for _, iterator := range h.runningIterators {
+	for _, iter := range h.runningIterators {
+		// read the scan metadata from the iterator and add to our stack
+		h.AddScanMetadata(iter)
 		// close the iterator, telling it NOT to cache its results
-		iterator.Close(false)
+		iter.Close(false)
 
 		// remove it from the saved list of iterators
-		h.RemoveIterator(iterator)
+		h.RemoveIterator(iter)
 	}
 }
 
@@ -169,16 +287,23 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	table := opts["table"]
 	log.Printf("[TRACE] Hub Scan() table '%s'", table)
 
+	if connectionName == constants.CommandSchema {
+		return h.executeCommandScan(table)
+	}
+
+	// create a span for this scan
+	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
+
 	connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
 
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
 	if h.IsAggregatorConnection(connectionName) {
-		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig.Connections, h)
+		iterator, err = NewGroupIterator(connectionName, table, qualMap, columns, limit, connectionConfig, h, scanTraceCtx)
 		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
 
 	} else {
-		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit)
+		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit, scanTraceCtx)
 		log.Printf("[TRACE] Hub Scan() created iterator (%p)", iterator)
 	}
 
@@ -192,113 +317,19 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	return iterator, nil
 }
 
-// startScanForConnection starts a scan for a single connection, using a scanIterator
-func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) (Iterator, error) {
-	connectionPlugin, err := h.getConnectionPlugin(connectionName)
+// LoadConnectionConfig loads the connection config and returns whether it has changed
+func (h *Hub) LoadConnectionConfig() (bool, error) {
+	// load connection conFig
+	connectionConfig, err := steampipeconfig.LoadConnectionConfig()
 	if err != nil {
-		return nil, err
+		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
+		return false, err
 	}
 
-	// determine whether to include the limit, based on the quals
-	// we ONLY pushgdown the limit is all quals have corresponding key columns,
-	// and if the qual operator is supported by the key column
-	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionPlugin) {
-		limit = -1
-	}
+	configChanged := h.steampipeConfig == connectionConfig
+	h.steampipeConfig = connectionConfig
 
-	cacheEnabled := h.cacheEnabled(connectionPlugin)
-	cacheTTL := h.cacheTTL(connectionName)
-	var cacheString = "caching DISABLED"
-	if cacheEnabled {
-		cacheString = fmt.Sprintf("caching ENABLED with TTL %d seconds", int(cacheTTL.Seconds()))
-	}
-	log.Printf("[INFO] executing query for connection %s, %s", connectionName, cacheString)
-
-	// AFTER printing the logging, override the enabled flag if the plugin supports caching internally
-	if connectionPlugin.SupportedOperations.QueryCache {
-		log.Printf("[TRACE] connection %s supports query cache so FDW cache is not being used", connectionPlugin.ConnectionName)
-		cacheEnabled = false
-	} else {
-		// create cache if necessary
-		if err := h.ensureCache(); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(qualMap) > 0 {
-		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap))
-	} else {
-		log.Println("[INFO] --------")
-		log.Println("[INFO] no quals")
-		log.Println("[INFO] --------")
-	}
-
-	// do we have a cached query result
-	if cacheEnabled {
-		cachedResult := h.queryCache.Get(connectionPlugin, table, qualMap, columns, limit)
-		if cachedResult != nil {
-			// we have cache data - return a cache iterator
-			return newCacheIterator(connectionName, cachedResult), nil
-		}
-	}
-
-	// cache not enabled - create a scan iterator
-	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled)
-
-	if err := h.startScan(iterator, queryContext); err != nil {
-		return nil, err
-	}
-
-	return iterator, nil
-}
-
-// determine whether to include the limit, based on the quals
-// we ONLY pushgdown the limit is all quals have corresponding key columns,
-// and if the qual operator is supported by the key column
-func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionPlugin *steampipeconfig.ConnectionPlugin) bool {
-	// build a map of all key columns
-	tableSchema, ok := connectionPlugin.Schema.Schema[table]
-	if !ok {
-		// any errors, just default to NOT pushing down the limit
-		return false
-	}
-	var keyColumnMap = make(map[string]*proto.KeyColumn)
-	for _, k := range tableSchema.ListCallKeyColumnList {
-		keyColumnMap[k.Name] = k
-	}
-	for _, k := range tableSchema.GetCallKeyColumnList {
-		keyColumnMap[k.Name] = k
-	}
-
-	// for every qual, determine if it has a key column and if the operator is supported
-	// if NOT, we cannot push down the limit
-
-	for col, quals := range qualMap {
-		// check whether this qual is declared as a key column for this table
-		if k, ok := keyColumnMap[col]; ok {
-			log.Printf("[TRACE] shouldPushdownLimit found key column for column %s: %v", col, k)
-
-			// check whether every qual for this column has a supported operator
-			for _, q := range quals.Quals {
-				operator := q.GetStringValue()
-				if !helpers.StringSliceContains(k.Operators, operator) {
-					log.Printf("[INFO] operator '%s' not supported for column '%s'. NOT pushing down limit", operator, col)
-					return false
-				}
-				log.Printf("[TRACE] shouldPushdownLimit operator '%s' is supported for column '%s'.", operator, col)
-			}
-		} else {
-			// no key column defined for this qual - DO NOT push down the limit
-			log.Printf("[INFO] shouldPushdownLimit no key column found for column %s. NOT pushing down limit", col)
-			return false
-		}
-	}
-
-	// all quals are supported - push down limit
-	log.Printf("[INFO] shouldPushdownLimit all quals are supported - pushing down limit")
-	return true
+	return configChanged, nil
 }
 
 // GetRelSize is a method called from the planner to estimate the resulting relation size for a scan.
@@ -420,8 +451,140 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 
 //// internal implementation ////
 
+func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *telemetry.TraceCtx {
+	ctx, span := telemetry.StartSpan(context.Background(), constants.FdwName, "Hub.Scan (%s)", table)
+	span.SetAttributes(
+		attribute.StringSlice("columns", columns),
+		attribute.String("table", table),
+		attribute.String("quals", grpc.QualMapToString(qualMap, false)),
+		attribute.String("connection", connectionName),
+	)
+	if limit != -1 {
+		span.SetAttributes(attribute.Int64("limit", limit))
+	}
+	return &telemetry.TraceCtx{Ctx: ctx, Span: span}
+}
+
+// startScanForConnection starts a scan for a single connection, using a scanIterator
+func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
+	defer func() {
+		if err != nil {
+			// close the span in case of errir
+			scanTraceCtx.Span.End()
+		}
+	}()
+
+	connectionPlugin, err := h.getConnectionPlugin(connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	// determine whether to include the limit, based on the quals
+	// we ONLY pushgdown the limit is all quals have corresponding key columns,
+	// and if the qual operator is supported by the key column
+	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionPlugin) {
+		limit = -1
+	}
+
+	cacheEnabled := h.cacheEnabled(connectionPlugin)
+	cacheTTL := h.cacheTTL(connectionName)
+	var cacheString = "caching DISABLED"
+	if cacheEnabled {
+		cacheString = fmt.Sprintf("caching ENABLED with TTL %d seconds", int(cacheTTL.Seconds()))
+	}
+	log.Printf("[INFO] executing query for connection %s, %s", connectionName, cacheString)
+
+	// AFTER printing the logging, override the enabled flag if the plugin supports caching internally
+	if connectionPlugin.SupportedOperations.QueryCache {
+		log.Printf("[TRACE] connection %s supports query cache so FDW cache is not being used", connectionPlugin.ConnectionName)
+		cacheEnabled = false
+	} else {
+		// create cache if necessary
+		if err := h.ensureCache(); err != nil {
+			// close the span
+			scanTraceCtx.Span.End()
+			return nil, err
+		}
+	}
+
+	if len(qualMap) > 0 {
+		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap, true))
+	} else {
+		log.Println("[INFO] --------")
+		log.Println("[INFO] no quals")
+		log.Println("[INFO] --------")
+	}
+
+	// do we have a cached query result
+	if cacheEnabled {
+		cachedResult := h.queryCache.Get(connectionPlugin, table, qualMap, columns, limit)
+		if cachedResult != nil {
+			// we have cache data - return a cache iterator
+			return newCacheIterator(connectionName, cachedResult), nil
+		}
+	}
+
+	// cache not enabled - create a scan iterator
+	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
+	queryContext := proto.NewQueryContext(columns, qualMap, limit)
+	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled, scanTraceCtx)
+
+	if err := h.startScan(iterator, queryContext, scanTraceCtx); err != nil {
+		return nil, err
+	}
+
+	return iterator, nil
+}
+
+// determine whether to include the limit, based on the quals
+// we ONLY pushdown the limit is all quals have corresponding key columns,
+// and if the qual operator is supported by the key column
+func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionPlugin *steampipeconfig.ConnectionPlugin) bool {
+	// build a map of all key columns
+	tableSchema, ok := connectionPlugin.Schema.Schema[table]
+	if !ok {
+		// any errors, just default to NOT pushing down the limit
+		return false
+	}
+	var keyColumnMap = make(map[string]*proto.KeyColumn)
+	for _, k := range tableSchema.ListCallKeyColumnList {
+		keyColumnMap[k.Name] = k
+	}
+	for _, k := range tableSchema.GetCallKeyColumnList {
+		keyColumnMap[k.Name] = k
+	}
+
+	// for every qual, determine if it has a key column and if the operator is supported
+	// if NOT, we cannot push down the limit
+
+	for col, quals := range qualMap {
+		// check whether this qual is declared as a key column for this table
+		if k, ok := keyColumnMap[col]; ok {
+			log.Printf("[TRACE] shouldPushdownLimit found key column for column %s: %v", col, k)
+
+			// check whether every qual for this column has a supported operator
+			for _, q := range quals.Quals {
+				operator := q.GetStringValue()
+				if !helpers.StringSliceContains(k.Operators, operator) {
+					log.Printf("[INFO] operator '%s' not supported for column '%s'. NOT pushing down limit", operator, col)
+					return false
+				}
+				log.Printf("[TRACE] shouldPushdownLimit operator '%s' is supported for column '%s'.", operator, col)
+			}
+		} else {
+			// no key column defined for this qual - DO NOT push down the limit
+			log.Printf("[INFO] shouldPushdownLimit no key column found for column %s. NOT pushing down limit", col)
+			return false
+		}
+	}
+
+	// all quals are supported - push down limit
+	log.Printf("[INFO] shouldPushdownLimit all quals are supported - pushing down limit")
+	return true
+}
+
 // split startScan into a separate function to allow iterator to restart the scan
-func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext) error {
+func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext, traceCtx *telemetry.TraceCtx) error {
 	// ensure we do not call execute too frequently
 	h.throttle()
 
@@ -437,9 +600,10 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		CacheEnabled: h.cacheEnabled(c),
 		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
 		CallId:       callId,
+		TraceContext: grpc.CreateCarrierFromContext(traceCtx.Ctx),
 	}
 
-	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v,  iterator %p", table, callId, req.CacheEnabled, iterator)
+	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v, iterator %p", table, callId, req.CacheEnabled, iterator)
 	stream, ctx, cancel, err := c.PluginClient.Execute(req)
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
 	err = grpc.HandleGrpcError(err, c.ConnectionName, "Execute")
@@ -496,21 +660,6 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, opts *ste
 		return nil, fmt.Errorf("unknown failure")
 	}
 	return connectionPlugins[connection.Name], nil
-}
-
-// LoadConnectionConfig loads the connection config and returns whether it has changed
-func (h *Hub) LoadConnectionConfig() (bool, error) {
-	// load connection conFig
-	connectionConfig, err := steampipeconfig.LoadConnectionConfig()
-	if err != nil {
-		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
-		return false, err
-	}
-
-	configChanged := h.steampipeConfig == connectionConfig
-	h.steampipeConfig = connectionConfig
-
-	return configChanged, nil
 }
 
 // create the query cache
@@ -577,9 +726,23 @@ func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
 
 func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
 	return map[string]*proto.TableSchema{
-		constants.CacheCommandTable: {
+		constants.CommandTableCache: {
 			Columns: []*proto.ColumnDefinition{
-				{Name: constants.CacheCommandOperationColumn, Type: proto.ColumnType_STRING},
+				{Name: constants.CommandTableCacheOperationColumn, Type: proto.ColumnType_STRING},
+			},
+		},
+		constants.CommandTableScanMetadata: {
+			Columns: []*proto.ColumnDefinition{
+				{Name: "id", Type: proto.ColumnType_INT},
+				{Name: "table", Type: proto.ColumnType_STRING},
+				{Name: "cache_hit", Type: proto.ColumnType_BOOL},
+				{Name: "rows_fetched", Type: proto.ColumnType_INT},
+				{Name: "hydrate_calls", Type: proto.ColumnType_INT},
+				{Name: "start_time", Type: proto.ColumnType_TIMESTAMP},
+				{Name: "duration", Type: proto.ColumnType_DOUBLE},
+				{Name: "columns", Type: proto.ColumnType_JSON},
+				{Name: "limit", Type: proto.ColumnType_INT},
+				{Name: "quals", Type: proto.ColumnType_STRING},
 			},
 		},
 	}
@@ -641,4 +804,19 @@ func (h *Hub) ensureCache() error {
 		return h.createCache()
 	}
 	return nil
+}
+
+func (h *Hub) executeCommandScan(table string) (Iterator, error) {
+	switch table {
+	case constants.CommandTableScanMetadata:
+		res := &cache.QueryResult{
+			Rows: make([]map[string]interface{}, len(h.scanMetadata)),
+		}
+		for i, m := range h.scanMetadata {
+			res.Rows[i] = m.AsResultRow()
+		}
+		return newCacheIterator(constants.CommandSchema, res), nil
+	default:
+		return nil, fmt.Errorf("cannot select from command table '%s'", table)
+	}
 }

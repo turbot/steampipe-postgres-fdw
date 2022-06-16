@@ -16,6 +16,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/turbot/steampipe-postgres-fdw/version"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
@@ -39,6 +41,7 @@ func init() {
 	SetEnvVars()
 
 	level := logging.LogLevel()
+	log.Printf("[INFO] Version v%s\n", version.FdwVersion.String())
 	log.Printf("[INFO] Log level %s\n", level)
 	if level != "TRACE" {
 		// suppress logs

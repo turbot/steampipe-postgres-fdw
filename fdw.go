@@ -54,8 +54,8 @@ func init() {
 	log.SetPrefix("")
 	log.SetFlags(0)
 	log.Printf("[INFO] .\n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
-	log.Printf("[INFO] Version v%s\n", version.FdwVersion.String())
-	log.Printf("[INFO] Log level %s\n", level)
+	log.Printf("[INFO] Version:   v%s\n", version.FdwVersion.String())
+	log.Printf("[INFO] Log level: %s\n", level)
 
 }
 

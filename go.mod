@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/golang/protobuf v1.5.2
-	github.com/hashicorp/go-hclog v1.2.0
+	github.com/hashicorp/go-hclog v1.2.1
 	github.com/hashicorp/go-version v1.5.0
 	github.com/turbot/go-kit v0.3.0
 	// telemetry
@@ -15,11 +15,13 @@ require (
 	google.golang.org/protobuf v1.28.0
 )
 
-require go.opentelemetry.io/otel/metric v0.30.0
+require (
+	github.com/Masterminds/semver v1.5.0
+	go.opentelemetry.io/otel/metric v0.30.0
+)
 
 require (
 	github.com/Machiel/slugify v1.0.1 // indirect
-	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/Microsoft/hcsshim v0.8.22 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
@@ -133,6 +135,6 @@ require (
 	google.golang.org/grpc v1.46.2 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )

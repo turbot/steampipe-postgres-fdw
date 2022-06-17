@@ -193,6 +193,14 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	}
 	ctx := iter.GetTraceContext().Ctx
 
+	// if this is a group iterator, recurse into AddScanMetadata for each underlyinh iterator
+	if g, ok := iter.(*groupIterator); ok {
+		for _, i := range g.Iterators {
+			h.AddScanMetadata(i)
+			return
+		}
+	}
+
 	connectionName := iter.ConnectionName()
 	connectionPlugin, _ := h.getConnectionPlugin(connectionName)
 
@@ -438,7 +446,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	//}
 	//pathKeys := types.MergePathKeys(getCallPathKeys, listCallPathKeys)
 
-	log.Printf("[TRACE] GetPathKeys for connection '%s`, table `%s` returning \n%v", connectionName, table, pathKeys)
+	log.Printf("[TRACE] GetPathKeys for connection '%s`, table `%s` returning", connectionName, table)
 	return pathKeys, nil
 }
 

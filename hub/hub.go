@@ -197,8 +197,8 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	if g, ok := iter.(*groupIterator); ok {
 		for _, i := range g.Iterators {
 			h.AddScanMetadata(i)
-			return
 		}
+		return
 	}
 
 	connectionName := iter.ConnectionName()

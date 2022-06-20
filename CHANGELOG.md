@@ -1,3 +1,12 @@
+## v1.2.0 [tbd]
+_What's new?_
+* Add support for Open Telemetry. ([#195](https://github.com/turbot/steampipe-postgres-fdw/issues/195))
+* Update `.timing` output to return additional query metadata such as the number of hydrate functions called and the cache status. 
+* Print FDW version in the logs.
+
+_Bug fixes_
+* Add recover blocks to all callback functions. ([#199](https://github.com/turbot/steampipe-postgres-fdw/issues/199))
+
 ## v1.1.0 [2022-05-20]
 _What's new?_
 * Add support for JSONB quals. ([#185](https://github.com/turbot/steampipe-postgres-fdw/issues/185))

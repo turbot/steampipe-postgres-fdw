@@ -100,6 +100,13 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 //export goFdwGetPathKeys
 func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] goFdwGetPathKeys failed with panic: %v", r)
+			FdwError(fmt.Errorf("%v", r))
+		}
+	}()
+
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
@@ -149,6 +156,13 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 
 //export goFdwExplainForeignScan
 func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] goFdwExplainForeignScan failed with panic: %v", r)
+			FdwError(fmt.Errorf("%v", r))
+		}
+	}()
+
 	s := GetExecState(node.fdw_state)
 	if s == nil {
 		return
@@ -163,6 +177,13 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] goFdwExplainForeignScan failed with panic: %v", r)
+			FdwError(fmt.Errorf("%v", r))
+		}
+	}()
+
 	logging.LogTime("[fdw] BeginForeignScan start")
 	rel := BuildRelation(node.ss.ss_currentRelation)
 	opts := GetFTableOptions(rel.ID)
@@ -288,6 +309,12 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 //export goFdwReScanForeignScan
 func goFdwReScanForeignScan(node *C.ForeignScanState) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] goFdwReScanForeignScan failed with panic: %v", r)
+			FdwError(fmt.Errorf("%v", r))
+		}
+	}()
 	log.Printf("[TRACE] goFdwReScanForeignScan")
 	// restart the scan
 	goFdwBeginForeignScan(node, 0)
@@ -295,6 +322,12 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 
 //export goFdwEndForeignScan
 func goFdwEndForeignScan(node *C.ForeignScanState) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] goFdwEndForeignScan failed with panic: %v", r)
+			FdwError(fmt.Errorf("%v", r))
+		}
+	}()
 	s := GetExecState(node.fdw_state)
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {
@@ -308,6 +341,12 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 
 //export goFdwAbortCallback
 func goFdwAbortCallback() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] goFdwAbortCallback failed with panic: %v", r)
+			// DO NOT call FdwError or we will recurse
+		}
+	}()
 	log.Printf("[TRACE] goFdwAbortCallback")
 	if pluginHub, err := hub.GetHub(); err == nil {
 		pluginHub.Abort()
@@ -351,6 +390,13 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 
 //export goFdwExecForeignInsert
 func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, planSlot *C.TupleTableSlot) *C.TupleTableSlot {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] goFdwExecForeignInsert failed with panic: %v", r)
+			FdwError(fmt.Errorf("%v", r))
+		}
+	}()
+
 	// get the connection from the relation namespace
 	relid := rinfo.ri_RelationDesc.rd_id
 	rel := C.RelationIdGetRelation(relid)

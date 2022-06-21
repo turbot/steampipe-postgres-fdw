@@ -2,15 +2,18 @@ module github.com/turbot/steampipe-postgres-fdw
 
 go 1.18
 
+replace github.com/turbot/steampipe-plugin-sdk/v3 => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk
+
 require (
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/go-hclog v1.2.1
 	github.com/hashicorp/go-version v1.5.0
 	github.com/turbot/go-kit v0.3.0
-	// telemetry
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20220616124100-27feba1f2965
-	github.com/turbot/steampipe-plugin-sdk/v3 v3.3.0-rc.0
+	// show_password
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20220621094056-7e21c8dcfd6a
+	// env vars
+	github.com/turbot/steampipe-plugin-sdk/v3 v3.3.0-rc.2.0.20220621094227-c5b85df9744d
 	go.opentelemetry.io/otel v1.7.0
 	google.golang.org/protobuf v1.28.0
 )

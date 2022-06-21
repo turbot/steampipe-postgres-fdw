@@ -57,7 +57,7 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 				continue
 			}
 		}
-		log.Printf("[TRACE] Import table  %s", table)
+		log.Printf("[TRACE] Import table %s", table)
 
 		sql, err := sql.GetSQLForTable(table, tableSchema, localSchema, serverName)
 		if err != nil {

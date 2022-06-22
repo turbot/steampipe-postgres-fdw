@@ -7,9 +7,9 @@ require (
 	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/go-hclog v1.2.1
 	github.com/hashicorp/go-version v1.5.0
-	github.com/turbot/go-kit v0.3.0
+	github.com/turbot/go-kit v0.4.0
 	github.com/turbot/steampipe v0.15.0-rc.4
-	github.com/turbot/steampipe-plugin-sdk/v3 v3.3.0-rc.3
+	github.com/turbot/steampipe-plugin-sdk/v3 v3.3.0
 	go.opentelemetry.io/otel v1.7.0
 	google.golang.org/protobuf v1.28.0
 )

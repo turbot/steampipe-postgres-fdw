@@ -29,7 +29,7 @@ func (m ScanMetadata) AsResultRow() map[string]interface{} {
 		"rows_fetched":  m.RowsFetched,
 		"hydrate_calls": m.HydrateCalls,
 		"start_time":    m.StartTime,
-		"duration":      m.Duration.Seconds(),
+		"duration":      m.Duration.Milliseconds(),
 		"columns":       m.Columns,
 	}
 	if m.Limit != -1 {

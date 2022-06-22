@@ -8,8 +8,7 @@ require (
 	github.com/hashicorp/go-hclog v1.2.1
 	github.com/hashicorp/go-version v1.5.0
 	github.com/turbot/go-kit v0.3.0
-	// show_password
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20220621094056-7e21c8dcfd6a
+	github.com/turbot/steampipe v0.15.0-rc.3
 	github.com/turbot/steampipe-plugin-sdk/v3 v3.3.0-rc.3
 	go.opentelemetry.io/otel v1.7.0
 	google.golang.org/protobuf v1.28.0

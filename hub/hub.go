@@ -15,7 +15,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
-	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/pkg/constants"
 	"github.com/turbot/steampipe/pkg/filepaths"
@@ -36,7 +35,6 @@ const (
 type Hub struct {
 	connections      *connectionFactory
 	steampipeConfig  *steampipeconfig.SteampipeConfig
-	queryCache       *cache.QueryCache
 	runningIterators []Iterator
 
 	// if the cache is enabled/disabled by a metacommand, this will be non null
@@ -246,10 +244,6 @@ func (h *Hub) Close() {
 	if h.telemetryShutdownFunc != nil {
 		log.Println("[TRACE] shutdown telemetry")
 		h.telemetryShutdownFunc()
-	}
-	if h.queryCache != nil {
-		log.Printf("[INFO] %d CACHE HITS", h.queryCache.Stats.Hits)
-		log.Printf("[INFO] %d CACHE MISSES", h.queryCache.Stats.Misses)
 	}
 }
 
@@ -494,27 +488,6 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		limit = -1
 	}
 
-	cacheEnabled := h.cacheEnabled(connectionPlugin)
-	cacheTTL := h.cacheTTL(connectionName)
-	var cacheString = "caching DISABLED"
-	if cacheEnabled {
-		cacheString = fmt.Sprintf("caching ENABLED with TTL %d seconds", int(cacheTTL.Seconds()))
-	}
-	log.Printf("[INFO] executing query for connection %s, %s", connectionName, cacheString)
-
-	// AFTER printing the logging, override the enabled flag if the plugin supports caching internally
-	if connectionPlugin.SupportedOperations.QueryCache {
-		log.Printf("[TRACE] connection %s supports query cache so FDW cache is not being used", connectionPlugin.ConnectionName)
-		cacheEnabled = false
-	} else {
-		// create cache if necessary
-		if err := h.ensureCache(); err != nil {
-			// close the span
-			scanTraceCtx.Span.End()
-			return nil, err
-		}
-	}
-
 	if len(qualMap) > 0 {
 		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap, true))
 	} else {
@@ -523,19 +496,10 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		log.Println("[INFO] --------")
 	}
 
-	// do we have a cached query result
-	if cacheEnabled {
-		cachedResult := h.queryCache.Get(connectionPlugin, table, qualMap, columns, limit)
-		if cachedResult != nil {
-			// we have cache data - return a cache iterator
-			return newCacheIterator(connectionName, cachedResult), nil
-		}
-	}
-
 	// cache not enabled - create a scan iterator
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, cacheEnabled, scanTraceCtx)
+	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, scanTraceCtx)
 
 	if err := h.startScan(iterator, queryContext, scanTraceCtx); err != nil {
 		return nil, err
@@ -670,17 +634,6 @@ func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string, opts *ste
 	return connectionPlugins[connection.Name], nil
 }
 
-// create the query cache
-func (h *Hub) createCache() error {
-	queryCache, err := cache.NewQueryCache()
-	if err != nil {
-		return err
-	}
-	h.queryCache = queryCache
-
-	return nil
-}
-
 func (h *Hub) cacheEnabled(connection *steampipeconfig.ConnectionPlugin) bool {
 	if h.overrideCacheEnabled != nil {
 		res := *h.overrideCacheEnabled
@@ -766,10 +719,6 @@ func (h *Hub) HandleCacheCommand(command string) error {
 	switch command {
 	case constants.CommandCacheClear:
 		log.Printf("[TRACE] commandCacheClear")
-		// if there is a local query cache, clear it
-		if h.queryCache != nil {
-			h.queryCache.Clear()
-		}
 		// set the cache clear time for the remote query cache
 		h.cacheClearTime = time.Now()
 	case constants.CommandCacheOn:
@@ -807,23 +756,16 @@ func (h *Hub) throttle() {
 	h.lastScanTime = time.Now()
 }
 
-func (h *Hub) ensureCache() error {
-	if h.queryCache == nil {
-		return h.createCache()
-	}
-	return nil
-}
-
 func (h *Hub) executeCommandScan(table string) (Iterator, error) {
 	switch table {
 	case constants.CommandTableScanMetadata:
-		res := &cache.QueryResult{
+		res := &QueryResult{
 			Rows: make([]map[string]interface{}, len(h.scanMetadata)),
 		}
 		for i, m := range h.scanMetadata {
 			res.Rows[i] = m.AsResultRow()
 		}
-		return newCacheIterator(constants.CommandSchema, res), nil
+		return newInMemoryIterator(constants.CommandSchema, res), nil
 	default:
 		return nil, fmt.Errorf("cannot select from command table '%s'", table)
 	}

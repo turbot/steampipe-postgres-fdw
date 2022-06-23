@@ -14,7 +14,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
-	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -42,7 +41,6 @@ type scanIterator struct {
 	rel             *types.Relation
 	qualMap         map[string]*proto.Quals
 	hub             *Hub
-	cachedRows      *cache.QueryResult
 	cacheEnabled    bool
 	cacheTTL        time.Duration
 	table           string
@@ -53,23 +51,21 @@ type scanIterator struct {
 	startTime time.Time
 }
 
-func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, cacheEnabled bool, traceCtx *telemetry.TraceCtx) *scanIterator {
+func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx) *scanIterator {
 	cacheTTL := hub.cacheTTL(connection.ConnectionName)
 
 	return &scanIterator{
-		status:       QueryStatusReady,
-		rows:         make(chan *proto.Row, rowBufferSize),
-		hub:          hub,
-		columns:      columns,
-		limit:        limit,
-		qualMap:      qualMap,
-		cachedRows:   &cache.QueryResult{},
-		cacheEnabled: cacheEnabled,
-		cacheTTL:     cacheTTL,
-		table:        table,
-		connection:   connection,
-		traceCtx:     traceCtx,
-		startTime:    time.Now(),
+		status:     QueryStatusReady,
+		rows:       make(chan *proto.Row, rowBufferSize),
+		hub:        hub,
+		columns:    columns,
+		limit:      limit,
+		qualMap:    qualMap,
+		cacheTTL:   cacheTTL,
+		table:      table,
+		connection: connection,
+		traceCtx:   traceCtx,
+		startTime:  time.Now(),
 	}
 }
 
@@ -126,10 +122,6 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 		res, err = i.populateRow(row)
 		if err != nil {
 			return nil, err
-		}
-		// if caching is enabled add row to cached rows
-		if i.cacheEnabled {
-			i.cachedRows.Append(res)
 		}
 	}
 	logging.LogTime("[hub] Next end")
@@ -315,16 +307,6 @@ func (i *scanIterator) writeToCache() {
 		log.Printf("[TRACE] caching disabled - returning")
 		// nothing to do
 		return
-	}
-
-	res := i.hub.queryCache.Set(i.connection, i.table, i.qualMap, i.columns, i.limit, i.cachedRows, i.cacheTTL)
-
-	if res {
-		if len(i.cachedRows.Rows) > 0 {
-			log.Printf("[INFO] adding %d rows to cache", len(i.cachedRows.Rows))
-		}
-	} else {
-		log.Printf("[WARN] failed to add %d rows to cache", len(i.cachedRows.Rows))
 	}
 }
 

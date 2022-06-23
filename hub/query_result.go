@@ -1,4 +1,4 @@
-package cache
+package hub
 
 type QueryResult struct {
 	Rows []map[string]interface{}

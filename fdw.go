@@ -22,7 +22,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
-	"github.com/turbot/steampipe/constants"
+	"github.com/turbot/steampipe/pkg/constants"
 )
 
 var logger hclog.Logger

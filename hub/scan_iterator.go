@@ -16,7 +16,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
 	"github.com/turbot/steampipe-postgres-fdw/types"
-	"github.com/turbot/steampipe/steampipeconfig"
+	"github.com/turbot/steampipe/pkg/steampipeconfig"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 

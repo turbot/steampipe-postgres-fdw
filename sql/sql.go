@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe/db/db_common"
+	"github.com/turbot/steampipe/pkg/db/db_common"
 )
 
 func GetSQLForTable(table string, tableSchema *proto.TableSchema, localSchema string, serverName string) (string, error) {

@@ -24,6 +24,8 @@ jobs:
       with:
         arch: aarch64
         distro: ubuntu_latest
+        env: |
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uname -m
 

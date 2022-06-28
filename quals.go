@@ -220,7 +220,7 @@ func qualFromNullTest(restriction *C.NullTest, node *C.ForeignScanState, cinfos 
 }
 
 // build a protobuf qual from a BoolTest
-func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
+func qualFromBooleanTest(restriction *C.BooleanTest, _ *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
 	arg := restriction.arg
 	if C.fdw_nodeTag(arg) != C.T_Var {
 		return nil
@@ -235,21 +235,21 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 		return nil
 	}
 
-	// now populate the operator
-	operatorName := ""
+	// now populate the qual value
+	var qualValue bool
 	switch restriction.booltesttype {
 	case C.IS_TRUE:
-		operatorName = "="
+		qualValue = true
 	case C.IS_NOT_TRUE, C.IS_FALSE:
-		operatorName = "<>"
+		qualValue = false
 	default:
 		return nil
 	}
 
 	qual := &proto.Qual{
 		FieldName: column,
-		Operator:  &proto.Qual_StringValue{StringValue: operatorName},
-		Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+		Operator:  &proto.Qual_StringValue{StringValue: "="},
+		Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: qualValue}},
 	}
 
 	return qual

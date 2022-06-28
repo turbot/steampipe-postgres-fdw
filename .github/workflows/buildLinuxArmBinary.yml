@@ -52,8 +52,7 @@ jobs:
           git init
           git fetch
           pwd
-          echo ${{ github.event.inputs.tag }}
-          git checkout v1.3.0-alpha.0
+          git checkout ${{ github.event.inputs.tag }}
           git branch
           cd steampipe-postgres-fdw/fdw
 
@@ -134,4 +133,8 @@ jobs:
           sudo apt install gh
 
           gh --version
+          
+          echo "upload binary to:"
+          echo ${{ github.event.inputs.version }}
+          gh release upload ${{ github.event.inputs.version }} steampipe_postgres_fdw.so.linux_arm64.gz
 

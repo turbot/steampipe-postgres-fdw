@@ -111,8 +111,13 @@ jobs:
           
           make
 
+          echo "check binary"
+          cd ..
+          ls
+
     - name: gzip the steampipe_postgres_fdw.so
       run: |-
+        docker ps
         gzip steampipe_postgres_fdw.so
         mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_arm64.gz
       working-directory: ./fdw

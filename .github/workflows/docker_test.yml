@@ -2,21 +2,142 @@ name: ">>>> Docker testing"
 on: push
 
 jobs:
-  run_container:
-    name: Run container
+  build-linux-arm:
+    name: Build for Linux ARM64
     runs-on: ubuntu-latest
     steps:
-      - name: uname
-        run: |
-          uname -a
-          whoami
-          pwd
-          ls
+    - name: Checkout
+      uses: actions/checkout@v3
 
-      - name: install qemu
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install qemu binfmt-support qemu-user-static -y
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+    - name: Setup GoLang
+      uses: actions/setup-go@v3
+      with:
+        go-version: '^1.16.0' # The Go version to download (if necessary) and use.
 
-          docker run --rm -t arm64v8/ubuntu uname -m
+    - name: Fetching Go Cache Paths
+      id: go-cache-paths
+      run: |
+        echo "::set-output name=go-build::$(go env GOCACHE)"
+        echo "::set-output name=go-mod::$(go env GOMODCACHE)"
+
+    - name: Go Build Cache
+      id: build-cache
+      uses: actions/cache@v3
+      with:
+        path: ${{ steps.go-cache-paths.outputs.go-build }}
+        key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+
+    - name: Go Mod Cache
+      id: mod-cache
+      uses: actions/cache@v3
+      with:
+        path: ${{ steps.go-cache-paths.outputs.go-mod }}
+        key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+    - name: Setup apt-get
+      run: |-
+        sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+        sudo env ACCEPT_EULA=Y apt-get update
+        sudo env ACCEPT_EULA=Y apt-get upgrade
+
+    - name: Do stuff
+      uses: uraimo/run-on-arch-action@v2
+      working-directory: ./fdw
+      with:
+        arch: aarch64
+        distro: ubuntu_latest
+      run: |-
+        uname -m
+        sudo apt-get -y install postgresql-server-dev-14
+        
+        echo "find stuff"
+        which pg_config
+        pg_config --version
+
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+
+        export SERVER_LIB=$(pg_config --includedir)/14/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+        ls -la $(pg_config --includedir)
+
+        ls -la $SERVER_LIB
+        ls -la $INTERNAL_LIB
+
+        echo "make clean"
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+      
+        make clean
+
+        echo "make go"
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+
+        export CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldflags)
+        export PG_LDFLAGS=$(pg_config --ldflags)
+      
+        make go
+
+        echo "make"
+        go version
+        
+        which pg_config
+        pg_config --version
+        
+        export PATH=$(pg_config --bindir):$PATH
+        export PGXS=$(pg_config --pgxs)
+    
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+    
+        export LDFLAGS=$(pg_config --ldfalgs)
+        export PG_LDFLAGS=$(pg_config --ldfalgs)
+        
+        make
+
+    - name: gzip the steampipe_postgres_fdw.so
+      run: |-
+        gzip steampipe_postgres_fdw.so
+        mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_arm64.gz
+      working-directory: ./fdw
+
+    - name: Save Linux Build Artifact - ARM64
+      uses: actions/upload-artifact@v3
+      with:
+        name: steampipe_postgres_fdw.so.linux_amd64
+        path: ./fdw/steampipe_postgres_fdw.so.linux_arm64.gz
+        if-no-files-found: error

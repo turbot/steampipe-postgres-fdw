@@ -1,5 +1,13 @@
 name: ">>>> Docker testing"
-on: push
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The version where the binary will be uploaded(must not be prefixed with 'v')"
+        required: true
+      tag:
+        description: "The github tag which will be built(must be prefixed with 'v')"
+        required: true
 
 jobs:
   build-linux-arm:
@@ -40,6 +48,7 @@ jobs:
 
           echo "clone repo"
           git clone https://github.com/turbot/steampipe-postgres-fdw.git
+          git checkout ${{ github.event.inputs.tag }}
           cd steampipe-postgres-fdw/fdw
           pwd
 
@@ -121,16 +130,3 @@ jobs:
 
           gh --version
 
-    - name: gzip the steampipe_postgres_fdw.so
-      run: |-
-        docker ps
-        gzip steampipe_postgres_fdw.so
-        mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_arm64.gz
-      working-directory: ./fdw
-
-    - name: Save Linux Build Artifact - ARM64
-      uses: actions/upload-artifact@v3
-      with:
-        name: steampipe_postgres_fdw.so.linux_amd64
-        path: ./fdw/steampipe_postgres_fdw.so.linux_arm64.gz
-        if-no-files-found: error

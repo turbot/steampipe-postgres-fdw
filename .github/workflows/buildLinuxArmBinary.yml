@@ -48,9 +48,11 @@ jobs:
 
           echo "clone repo"
           git clone https://github.com/turbot/steampipe-postgres-fdw.git
+          git config --global --add safe.directory /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
+          git init
+          pwd
           git checkout ${{ github.event.inputs.tag }}
           cd steampipe-postgres-fdw/fdw
-          pwd
 
           echo "make clean"
           go version

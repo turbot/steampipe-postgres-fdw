@@ -17,7 +17,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Build binary
+    - name: Build and upload binary
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       uses: uraimo/run-on-arch-action@v2
@@ -139,4 +139,3 @@ jobs:
           echo "upload binary to:"
           echo ${{ github.event.inputs.version }}
           gh release upload ${{ github.event.inputs.version }} steampipe_postgres_fdw.so.linux_arm64.gz
-

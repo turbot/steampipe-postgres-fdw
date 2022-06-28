@@ -43,91 +43,90 @@ jobs:
 
     - name: Do stuff
       uses: uraimo/run-on-arch-action@v2
-      working-directory: ./fdw
       with:
         arch: aarch64
         distro: ubuntu_latest
-      run: |-
-        uname -m
-        sudo apt-get -y install postgresql-server-dev-14
-        
-        echo "find stuff"
-        which pg_config
-        pg_config --version
+        run: |
+          uname -m
+          sudo apt-get -y install postgresql-server-dev-14
+          
+          echo "find stuff"
+          which pg_config
+          pg_config --version
 
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
 
-        export SERVER_LIB=$(pg_config --includedir)/14/server
-        export INTERNAL_LIB=$(pg_config --includedir)/internal
+          export SERVER_LIB=$(pg_config --includedir)/14/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
 
-        ls -la $(pg_config --includedir)
+          ls -la $(pg_config --includedir)
 
-        ls -la $SERVER_LIB
-        ls -la $INTERNAL_LIB
+          ls -la $SERVER_LIB
+          ls -la $INTERNAL_LIB
 
-        echo "make clean"
-        go version
-        
-        which pg_config
-        pg_config --version
-        
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
-    
-        export SERVER_LIB=$(pg_config --includedir)/server
-        export INTERNAL_LIB=$(pg_config --includedir)/internal
-
-        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-    
-        export LDFLAGS=$(pg_config --ldfalgs)
-        export PG_LDFLAGS=$(pg_config --ldfalgs)
+          echo "make clean"
+          go version
+          
+          which pg_config
+          pg_config --version
+          
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
       
-        make clean
+          export SERVER_LIB=$(pg_config --includedir)/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
 
-        echo "make go"
-        go version
-        
-        which pg_config
-        pg_config --version
-        
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
-    
-        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
-        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
-
-        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-
-        export CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-    
-        export LDFLAGS=$(pg_config --ldflags)
-        export PG_LDFLAGS=$(pg_config --ldflags)
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
       
-        make go
+          export LDFLAGS=$(pg_config --ldfalgs)
+          export PG_LDFLAGS=$(pg_config --ldfalgs)
+        
+          make clean
 
-        echo "make"
-        go version
-        
-        which pg_config
-        pg_config --version
-        
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
-    
-        export SERVER_LIB=$(pg_config --includedir)/server
-        export INTERNAL_LIB=$(pg_config --includedir)/internal
+          echo "make go"
+          go version
+          
+          which pg_config
+          pg_config --version
+          
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
+      
+          export SERVER_LIB=$(pg_config --includedir)/postgresql/server
+          export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
 
-        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-    
-        export LDFLAGS=$(pg_config --ldfalgs)
-        export PG_LDFLAGS=$(pg_config --ldfalgs)
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+
+          export CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+      
+          export LDFLAGS=$(pg_config --ldflags)
+          export PG_LDFLAGS=$(pg_config --ldflags)
         
-        make
+          make go
+
+          echo "make"
+          go version
+          
+          which pg_config
+          pg_config --version
+          
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
+      
+          export SERVER_LIB=$(pg_config --includedir)/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+      
+          export LDFLAGS=$(pg_config --ldfalgs)
+          export PG_LDFLAGS=$(pg_config --ldfalgs)
+          
+          make
 
     - name: gzip the steampipe_postgres_fdw.so
       run: |-

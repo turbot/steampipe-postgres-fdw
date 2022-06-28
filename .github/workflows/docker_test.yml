@@ -48,7 +48,7 @@ jobs:
         distro: ubuntu_latest
         run: |
           uname -m
-          sudo apt-get -y install postgresql-server-dev-14
+          apt-get -y install postgresql-server-dev-14
           
           echo "find stuff"
           which pg_config

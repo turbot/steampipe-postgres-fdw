@@ -17,8 +17,8 @@ jobs:
         run: |
           uname -m
 
-          apt update && apt upgrade -y
-          apt-get -y install sudo git curl tar postgresql-server-dev-14 build-essential make
+          apt-get update -y
+          apt-get -y install sudo git curl tar gzip file postgresql-server-dev-14 build-essential make
 
           echo "install go"
           curl -LO https://go.dev/dl/go1.18beta1.linux-arm64.tar.gz
@@ -37,11 +37,6 @@ jobs:
 
           export SERVER_LIB=$(pg_config --includedir)/14/server
           export INTERNAL_LIB=$(pg_config --includedir)/internal
-
-          ls -la $(pg_config --includedir)
-
-          ls -la $SERVER_LIB
-          ls -la $INTERNAL_LIB
 
           echo "clone repo"
           git clone https://github.com/turbot/steampipe-postgres-fdw.git
@@ -112,8 +107,10 @@ jobs:
           make
 
           echo "check binary"
-          cd ..
           ls
+          gzip steampipe_postgres_fdw.so
+          file steampipe_postgres_fdw.so
+          mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_arm64.gz
 
     - name: gzip the steampipe_postgres_fdw.so
       run: |-

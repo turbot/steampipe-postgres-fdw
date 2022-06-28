@@ -19,12 +19,11 @@ jobs:
 
     - name: Build binary
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       uses: uraimo/run-on-arch-action@v2
       with:
         arch: aarch64
         distro: ubuntu_latest
-        githubToken: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uname -m
 

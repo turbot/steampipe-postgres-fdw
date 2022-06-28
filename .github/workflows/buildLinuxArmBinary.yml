@@ -50,8 +50,11 @@ jobs:
           git clone https://github.com/turbot/steampipe-postgres-fdw.git
           git config --global --add safe.directory /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
           git init
+          git fetch
           pwd
-          git checkout ${{ github.event.inputs.tag }}
+          echo ${{ github.event.inputs.tag }}
+          git checkout v1.3.0-alpha.0
+          git branch
           cd steampipe-postgres-fdw/fdw
 
           echo "make clean"

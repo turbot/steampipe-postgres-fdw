@@ -10,6 +10,8 @@ jobs:
         run: |
           uname -a
           whoami
+          pwd
+          ls
 
       - name: install qemu
         run: |

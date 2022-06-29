@@ -438,13 +438,15 @@ jobs:
       # Items placed in /artifacts in the container will be in
       # ${PWD}/artifacts on the host.
       run: |
+        pwd
+        ls
         ls -al "${PWD}/artifacts"
 
     - name: Save Linux Build Artifact - ARM64
       uses: actions/upload-artifact@v3
       with:
         name: steampipe_postgres_fdw.so.linux_arm64
-        path: "${PWD}/artifacts/steampipe_postgres_fdw.so.linux_arm64.gz"
+        path: /artifacts/steampipe_postgres_fdw.so.linux_arm64.gz
         if-no-files-found: error
 
   build-draft-release:

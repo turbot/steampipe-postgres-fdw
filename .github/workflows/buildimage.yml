@@ -438,10 +438,7 @@ jobs:
       # Items placed in /artifacts in the container will be in
       # ${PWD}/artifacts on the host.
       run: |
-        pwd
-        ls
         ls -al "${PWD}/artifacts"
-        ls -al /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/artifacts/steampipe_postgres_fdw.so.linux_arm64.gz
 
     - name: Save Linux Build Artifact - ARM64
       uses: actions/upload-artifact@v3

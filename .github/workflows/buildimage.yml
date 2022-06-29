@@ -441,13 +441,13 @@ jobs:
         pwd
         ls
         ls -al "${PWD}/artifacts"
-        ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/artifacts
+        ls -al /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/artifacts/steampipe_postgres_fdw.so.linux_arm64.gz
 
     - name: Save Linux Build Artifact - ARM64
       uses: actions/upload-artifact@v3
       with:
         name: steampipe_postgres_fdw.so.linux_arm64
-        path: /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/artifacts
+        path: /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/artifacts/steampipe_postgres_fdw.so.linux_arm64.gz
         if-no-files-found: error
 
   build-draft-release:

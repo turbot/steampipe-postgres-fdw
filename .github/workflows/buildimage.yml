@@ -453,7 +453,7 @@ jobs:
     needs:
       - build-linux
       - build-osx
-      - build-arm-linux
+      - build-linux-arm
     steps:
 
       - name: Get latest version tag

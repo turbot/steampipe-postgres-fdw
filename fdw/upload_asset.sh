@@ -4,7 +4,7 @@
 TAG=$(gh api -X GET /repos/{owner}/{repo}/releases -F owner=turbot -F repo=steampipe --jq '.[] | select(.draft == true) | .tag_name')
 
 # count the number of draft releases
-COUNT=$(echo "$DRAFT" | wc -l | tr -d ' ')
+COUNT=$(echo "$TAG" | wc -l | tr -d ' ')
 
 if [[ "$COUNT" == "1" ]]; then
   gzip steampipe_postgres_fdw.so

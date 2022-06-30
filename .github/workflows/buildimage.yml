@@ -217,7 +217,7 @@ jobs:
         export PATH=$(pg_config --bindir):$PATH
         export PGXS=$(pg_config --pgxs)
     
-        export SERVER_LIB=$(pg_config --includedir)/server
+        export SERVER_LIB=$(pg_config --includedir)/14/server
         export INTERNAL_LIB=$(pg_config --includedir)/internal
 
         export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"

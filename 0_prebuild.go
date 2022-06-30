@@ -2,6 +2,7 @@ package main
 
 /*
 #cgo darwin CFLAGS: -Ifdw -I/usr/local/include/postgresql/server -I/usr/local/include/postgresql/internal -g
+#cgo darwin CFLAGS: -Ifdw -I/opt/homebrew/Cellar/postgresql/14.3/include/postgresql/server/ -I/opt/homebrew/Cellar/postgresql/14.3/include/postgresql/internal/ -g
 #cgo linux CFLAGS: -Ifdw -I/usr/include/postgresql/14/server -I/usr/include/postgresql/internal
 #include "postgres.h"
 #include "common.h"

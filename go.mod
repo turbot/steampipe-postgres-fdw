@@ -9,9 +9,9 @@ require (
 	github.com/hashicorp/go-version v1.6.0
 	github.com/turbot/go-kit v0.4.0
 	// main
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20220627110522-2b16fe7f30ba
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20220630095134-ab53fbeda66c
 	// streaming_cache
-	github.com/turbot/steampipe-plugin-sdk/v3 v3.3.1-0.20220627105741-f2fd8fd7f7f0
+	github.com/turbot/steampipe-plugin-sdk/v3 v3.4.0-alpha.1
 	go.opentelemetry.io/otel v1.7.0
 	google.golang.org/protobuf v1.28.0
 )
@@ -28,6 +28,7 @@ require (
 	github.com/XiaoMi/pegasus-go-client v0.0.0-20210427083443-f3b6b08bc4c2 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/agext/levenshtein v1.2.2 // indirect
+	github.com/allegro/bigcache/v3 v3.0.2 // indirect
 	github.com/apparentlymart/go-cidr v1.1.0 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/apparentlymart/go-versions v1.0.1 // indirect

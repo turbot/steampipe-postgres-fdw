@@ -330,8 +330,7 @@ jobs:
         env: |
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          uname -m
-
+          echo "update apt and install necessary packages"
           apt-get update -y
           apt-get -y install sudo git curl tar gzip file postgresql-server-dev-14 build-essential make
 
@@ -343,19 +342,15 @@ jobs:
           export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
           go version
           
-          echo "find stuff"
+          echo "find stuff and set env"
           which pg_config
           pg_config --version
-
           export PATH=$(pg_config --bindir):$PATH
           export PGXS=$(pg_config --pgxs)
-      
           export SERVER_LIB=$(pg_config --includedir)/server
           export INTERNAL_LIB=$(pg_config --includedir)/internal
-
           export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
           export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-      
           export LDFLAGS=$(pg_config --ldflags)
           export PG_LDFLAGS=$(pg_config --ldflags)
 
@@ -370,34 +365,19 @@ jobs:
 
           echo "make clean"
           go version
-          
-          which pg_config
-          pg_config --version
-        
           make clean
 
           echo "make go"
-          go version
-          
-          which pg_config
-          pg_config --version
-        
           make go
 
           echo "make"
-          go version
-          
-          which pg_config
-          pg_config --version
-          
           make
 
-          echo "check binary"
+          echo "check binary and copy into artifacts directory"
           file steampipe_postgres_fdw.so
           gzip steampipe_postgres_fdw.so
           mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_arm64.gz
           ls
-
           cp steampipe_postgres_fdw.so.linux_arm64.gz /artifacts
           ls -al /artifacts
     

@@ -316,8 +316,31 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
 		econtext := node.ss.ps.ps_ExprContext
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
+		log.Printf("[TRACE] getQualValue T_Param qual, value %v", value)
 	case C.T_OpExpr:
+		/* T_OpExpr may be something like
+		   where date_time_column > current_timestamp - interval '1 hr'
+		or
+		   select * from
+		     aws_ec2_instance as i,
+				jsonb_array_elements(i.block_device_mappings) as b,
+				aws_ebs_volume as v
+			  where
+				v.volume_id = b -> 'Ebs'  ->> 'VolumeId';
+
+		evaluating jsonb_array_elements causes a crash, so exclude these quals from the evaluation
+		*/
+
 		opExprQual := (*C.OpExpr)(right)
+
+		log.Printf("[TRACE] getQualValue T_OpExpr qual opno %d, opfuncid %d", opExprQual.opno, opExprQual.opfuncid)
+
+		// TACTICAL we know that trying to evaluate a qual deriving from a jsonb_array_elements function call causes
+		// ExecEvalExpr to crash - so skip evaluation in that case
+		if opExprQual.opfuncid == 3214 {
+			log.Printf("[TRACE] skipping OpExpr evaluation as opfuncid 3214 (jsonb_array_elements) is not supported)")
+			return nil, fmt.Errorf("QualDefsToQuals: unsupported qual value (type %s, opfuncid %d), skipping\n", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))), opExprQual.opfuncid)
+		}
 		typeOid = opExprQual.opresulttype
 		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
 		econtext := node.ss.ps.ps_ExprContext

@@ -445,6 +445,12 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 
 //export goFdwShutdown
 func goFdwShutdown() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] goFdwShutdown failed with panic: %v", r)
+			// DO NOT call FdwError or we will recurse
+		}
+	}()
 	log.Printf("[INFO] .\n******************************************************\n\n\t\tsteampipe postgres fdw shutdown\n\n******************************************************\n")
 	pluginHub, err := hub.GetHub()
 	if err != nil {

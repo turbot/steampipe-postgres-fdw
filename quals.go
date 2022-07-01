@@ -153,13 +153,10 @@ func qualFromScalarOpExpr(restriction *C.ScalarArrayOpExpr, node *C.ForeignScanS
 	right := C.list_nth(restriction.args, 1)
 
 	// Do not add it if it either contains a mutable function, or makes self references in the right hand side.
-	// TODO pull_varnos signature has changed in PG14 - we also need a *PlannerInfo which is not available to us
-	//  at this point
-	// https://github.com/turbot/steampipe-postgres-fdw/issues/177
-	//if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos((*C.Node)(right))) {
-	//	log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
-	//	return nil
-	//}
+	if C.contain_volatile_functions((*C.Node)(right)) || C.bms_is_subset(relids, C.pull_varnos(nil, (*C.Node)(right))) {
+		log.Printf("[TRACE] restriction either contains a mutable function, or makes self references in the right hand side - NOT adding qual for OpExpr")
+		return nil
+	}
 
 	var arrayIndex = int(left.varattno - 1)
 	ci := cinfos.get(arrayIndex)
@@ -325,9 +322,9 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
 		econtext := node.ss.ps.ps_ExprContext
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
-		log.Printf("[TRACE] getQualValue T_Param qual, value %v, isNull %v", value, isNull)
+		log.Printf("[TRACE] getQualValue T_OpExpr qual, value %v, isNull %v", value, isNull)
 	default:
-		return nil, fmt.Errorf("QualDefsToQuals: non-const qual value (type %s), skipping\n", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))))
+		return nil, fmt.Errorf("QualDefsToQuals: unsupported qual value (type %s), skipping\n", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))))
 	}
 
 	var qualValue *proto.QualValue
@@ -441,6 +438,16 @@ func convertUnknown(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*pro
 }
 
 func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {
+	var result = &proto.QualValue{
+		Value: &proto.QualValue_ListValue{
+			ListValue: &proto.QualValueList{},
+		},
+	}
+	// NOTE: we have seen the occurrence of a zero datum with an array typeoid - explicitly check for this
+	if datum == 0 {
+		return result, nil
+	}
+
 	iterator := C.array_create_iterator(C.fdw_datumGetArrayTypeP(datum), 0, nil)
 
 	var qualValues []*proto.QualValue
@@ -467,13 +474,12 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 			qualValues = append(qualValues, qualValue)
 		}
 	}
-	var result = &proto.QualValue{
-		Value: &proto.QualValue_ListValue{
-			ListValue: &proto.QualValueList{
-				Values: qualValues,
-			},
+	result.Value = &proto.QualValue_ListValue{
+		ListValue: &proto.QualValueList{
+			Values: qualValues,
 		},
 	}
+
 	log.Printf("[TRACE] datumArrayToQualValue complete, returning array of %d quals values \n", len(qualValues))
 
 	return result, nil

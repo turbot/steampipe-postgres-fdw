@@ -434,9 +434,15 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (re
 	case C.BOOLOID:
 		result.Value = &proto.QualValue_BoolValue{BoolValue: bool(C.datumBool(datum, cinfo))}
 	case C.JSONBOID:
-		jsonbQual := C.datumJsonb(datum, cinfo)
-		jsonbQualStr := C.JsonbToCStringIndent(nil, &(jsonbQual.root), -1)
-		result.Value = &proto.QualValue_JsonbValue{JsonbValue: C.GoString(jsonbQualStr)}
+		var jsonbQualStr string
+		// handle zero value
+		if datum == 0 {
+			jsonbQualStr = "0"
+		} else {
+			jsonbQual := C.datumJsonb(datum, cinfo)
+			jsonbQualStr = C.GoString(C.JsonbToCStringIndent(nil, &(jsonbQual.root), -1))
+		}
+		result.Value = &proto.QualValue_JsonbValue{JsonbValue: jsonbQualStr}
 	default:
 		log.Printf("[INFO] datumToQualValue unknown typeoid %v ", typeOid)
 		result, err = convertUnknown(datum, typeOid, cinfo)

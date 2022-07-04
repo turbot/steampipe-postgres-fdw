@@ -29,9 +29,16 @@ jobs:
         run: |- 
           ls -la .
 
+      - name: Sanitize Version
+        run: |-
+          echo $VERSION
+          trim=${VERSION#"v"}
+          echo $trim
+          echo "VERSION=${trim}" >> $GITHUB_ENV
+
       - name: Validate Version
         run: |-
-          if [[ $VERSION =~  ^v[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
+          if [[ $VERSION =~  ^[0-9]+\.[0-9]+\.[0-9]+(-.+)?$ ]]; then
             echo "Version OK: $VERSION"
           else
             echo "Invalid version: $VERSION"

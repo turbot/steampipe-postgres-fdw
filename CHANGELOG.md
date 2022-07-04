@@ -1,3 +1,9 @@
+## v1.2.1 [2022-07-03]
+_Bug fixes_
+* Fix EOF error when joining multiple tables on the JSON qual column. Handle zero value jsonb quaLs. ([#201](https://github.com/turbot/steampipe-postgres-fdw/issues/201))
+* Fix EOF error when joining multiple tables with jsonb_array_elements. ([#192](https://github.com/turbot/steampipe-postgres-fdw/issues/192))
+* Fix panic when querying with json_array_elements_text. ([#207](https://github.com/turbot/steampipe-postgres-fdw/issues/207))
+
 ## v1.2.0 [2022-06-22]
 _What's new?_
 * Add support for Open Telemetry. ([#195](https://github.com/turbot/steampipe-postgres-fdw/issues/195))

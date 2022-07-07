@@ -563,7 +563,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 	table := iterator.table
 	c := iterator.connection
 
-	callId := grpc.BuildCallId()
+	callId := grpc.BuildCallId(c.ConnectionName)
 
 	req := &proto.ExecuteRequest{
 		Table:        table,

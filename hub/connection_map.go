@@ -72,16 +72,14 @@ func (f *connectionFactory) getOrCreate(pluginFQN, connectionName string) (*stea
 		return c, nil
 	}
 	// otherwise create the connection plugin, setting connection config
-	return f.createConnectionPlugin(pluginFQN, connectionName, &steampipeconfig.CreateConnectionPluginOptions{
-		SetConnectionConfig: true,
-	})
+	return f.createConnectionPlugin(pluginFQN, connectionName)
 }
 
-func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionName string, opts *steampipeconfig.CreateConnectionPluginOptions) (*steampipeconfig.ConnectionPlugin, error) {
+func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
 	f.connectionLock.Lock()
 	defer f.connectionLock.Unlock()
 	log.Printf("[TRACE] connectionFactory.createConnectionPlugin lazy loading connection %s", connectionName)
-	c, err := f.hub.createConnectionPlugin(pluginFQN, connectionName, opts)
+	c, err := f.hub.createConnectionPlugin(pluginFQN, connectionName)
 	if err != nil {
 		return nil, err
 	}
@@ -124,9 +122,7 @@ func (f *connectionFactory) getSchema(pluginFQN, connectionName string) (*proto.
 	}
 	// otherwise create the connection, but DO NOT set connection config n(this will have been done by the CLI)
 	log.Printf("[TRACE] creating connection plugin to get schema")
-	c, err = f.createConnectionPlugin(pluginFQN, connectionName, &steampipeconfig.CreateConnectionPluginOptions{
-		SetConnectionConfig: false,
-	})
+	c, err = f.createConnectionPlugin(pluginFQN, connectionName)
 	if err != nil {
 		return nil, err
 	}

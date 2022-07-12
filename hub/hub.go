@@ -20,7 +20,6 @@ import (
 	"github.com/turbot/steampipe/pkg/filepaths"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 	"github.com/turbot/steampipe/pkg/steampipeconfig/modconfig"
-	"github.com/turbot/steampipe/pluginmanager"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
@@ -33,8 +32,7 @@ const (
 
 // Hub is a structure representing plugin hub
 type Hub struct {
-	connections      *connectionFactory
-	steampipeConfig  *steampipeconfig.SteampipeConfig
+	connections *connectionFactory
 	runningIterators []Iterator
 
 	// if the cache is enabled/disabled by a metacommand, this will be non null
@@ -296,7 +294,7 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	// create a span for this scan
 	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
 
-	connectionConfig, _ := h.steampipeConfig.Connections[connectionName]
+	connectionConfig, _ := steampipeconfig.GlobalConfig.Connections[connectionName]
 
 	var iterator Iterator
 	// if this is an aggregate connection, create a group iterator
@@ -328,8 +326,8 @@ func (h *Hub) LoadConnectionConfig() (bool, error) {
 		return false, err
 	}
 
-	configChanged := h.steampipeConfig == connectionConfig
-	h.steampipeConfig = connectionConfig
+	configChanged := steampipeconfig.GlobalConfig == connectionConfig
+	steampipeconfig.GlobalConfig = connectionConfig
 
 	return configChanged, nil
 }
@@ -410,7 +408,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	schema := connectionPlugin.Schema.Schema[table]
+	schema := connectionPlugin.ConnectionMap[connectionName].Schema.Schema[table]
 	var allColumns = make([]string, len(schema.Columns))
 	for i, c := range schema.Columns {
 		allColumns[i] = c.Name
@@ -484,7 +482,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	// determine whether to include the limit, based on the quals
 	// we ONLY pushgdown the limit is all quals have corresponding key columns,
 	// and if the qual operator is supported by the key column
-	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionPlugin) {
+	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionName, connectionPlugin) {
 		limit = -1
 	}
 
@@ -499,7 +497,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	// cache not enabled - create a scan iterator
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-	iterator := newScanIterator(h, connectionPlugin, table, qualMap, columns, limit, scanTraceCtx)
+	iterator := newScanIterator(h, connectionPlugin, connectionName, table, qualMap, columns, limit, scanTraceCtx)
 
 	if err := h.startScan(iterator, queryContext, scanTraceCtx); err != nil {
 		return nil, err
@@ -511,9 +509,9 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 // determine whether to include the limit, based on the quals
 // we ONLY pushdown the limit is all quals have corresponding key columns,
 // and if the qual operator is supported by the key column
-func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionPlugin *steampipeconfig.ConnectionPlugin) bool {
+func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionName string, connectionPlugin *steampipeconfig.ConnectionPlugin) bool {
 	// build a map of all key columns
-	tableSchema, ok := connectionPlugin.Schema.Schema[table]
+	tableSchema, ok := connectionPlugin.ConnectionMap[connectionName].Schema.Schema[table]
 	if !ok {
 		// any errors, just default to NOT pushing down the limit
 		return false
@@ -561,24 +559,24 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 	h.throttle()
 
 	table := iterator.table
-	c := iterator.connection
-
-	callId := grpc.BuildCallId(c.ConnectionName)
+	connectionPlugin := iterator.connectionPlugin
+	connectionName := iterator.connectionName
+	callId := grpc.BuildCallId(connectionName)
 
 	req := &proto.ExecuteRequest{
 		Table:        table,
 		QueryContext: queryContext,
-		Connection:   c.ConnectionName,
-		CacheEnabled: h.cacheEnabled(c),
-		CacheTtl:     int64(h.cacheTTL(c.ConnectionName).Seconds()),
+		Connection:   connectionName,
+		CacheEnabled: h.cacheEnabled(connectionName),
+		CacheTtl:     int64(h.cacheTTL(connectionName).Seconds()),
 		CallId:       callId,
 		TraceContext: grpc.CreateCarrierFromContext(traceCtx.Ctx),
 	}
 
 	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v, iterator %p", table, callId, req.CacheEnabled, iterator)
-	stream, ctx, cancel, err := c.PluginClient.Execute(req)
+	stream, ctx, cancel, err := connectionPlugin.PluginClient.Execute(req)
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
-	err = grpc.HandleGrpcError(err, c.PluginName, "Execute")
+	err = grpc.HandleGrpcError(err, connectionPlugin.PluginName, "Execute")
 	if err != nil {
 		log.Printf("[WARN] startScan: plugin Execute function callId: %s returned error: %v\n", callId, err)
 		iterator.setError(err)
@@ -595,7 +593,7 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
 
 	// get the plugin FQN
-	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
+	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
 	if !ok {
 		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
 	}
@@ -610,49 +608,25 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	return c, nil
 }
 
-// load the given plugin connection into the connection map and return the schema
-func (h *Hub) createConnectionPlugin(pluginFQN, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
-	// load the config for this connection
-	connection, ok := h.steampipeConfig.Connections[connectionName]
-	if !ok {
-		log.Printf("[WARN] no config found for connection %s", connectionName)
-		return nil, fmt.Errorf("no config found for connection %s", connectionName)
-	}
-
-	log.Printf("[TRACE] createConnectionPlugin plugin %s, connection %s, config: %s\n", pluginmanager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
-
-	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins([]*modconfig.Connection{connection})
-	if res.Error != nil {
-		return nil, res.Error
-	}
-	if connectionPlugins[connection.Name] == nil {
-		if len(res.Warnings) > 0 {
-			return nil, fmt.Errorf("%s", strings.Join(res.Warnings, ","))
-		}
-		return nil, fmt.Errorf("unknown failure")
-	}
-	return connectionPlugins[connection.Name], nil
-}
-
-func (h *Hub) cacheEnabled(connection *steampipeconfig.ConnectionPlugin) bool {
+func (h *Hub) cacheEnabled(connectionName string) bool {
 	if h.overrideCacheEnabled != nil {
 		res := *h.overrideCacheEnabled
 		log.Printf("[TRACE] cacheEnabled overrideCacheEnabled %v", *h.overrideCacheEnabled)
 		return res
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
-	connectionOptions := h.steampipeConfig.GetConnectionOptions(connection.ConnectionName)
+	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
 
 	// the config loading code should ALWAYS populate the connection options, using defaults if needed
 	if connectionOptions.Cache == nil {
-		panic(fmt.Sprintf("No cache options found for connection %s", connection))
+		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
 	}
 	return *connectionOptions.Cache
 }
 
 func (h *Hub) cacheTTL(connectionName string) time.Duration {
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
-	connectionOptions := h.steampipeConfig.GetConnectionOptions(connectionName)
+	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
 
 	// the config loading code shouls ALWAYS populate the connection options, using defaults if needed
 	if connectionOptions.CacheTTL == nil {
@@ -671,7 +645,7 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 
 // IsAggregatorConnection returns  whether the connection with the given name is of type "aggregate"
 func (h *Hub) IsAggregatorConnection(connectionName string) bool {
-	connectionConfig, ok := h.steampipeConfig.Connections[connectionName]
+	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
 	return ok && connectionConfig.Type == modconfig.ConnectionTypeAggregator
 }
 
@@ -680,7 +654,7 @@ func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
 	if !h.IsAggregatorConnection(connectionName) {
 		panic(fmt.Sprintf("GetAggregateConnectionChild called for connection %s which is not an aggregate", connectionName))
 	}
-	aggregateConnection := h.steampipeConfig.Connections[connectionName]
+	aggregateConnection := steampipeconfig.GlobalConfig.Connections[connectionName]
 	// get first child
 	return aggregateConnection.FirstChild().Name
 }

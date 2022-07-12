@@ -31,48 +31,50 @@ const (
 )
 
 type scanIterator struct {
-	status          queryStatus
-	err             error
-	rows            chan *proto.Row
-	scanMetadata    *proto.QueryMetadata
-	columns         []string
-	limit           int64
-	pluginRowStream proto.WrapperPlugin_ExecuteClient
-	rel             *types.Relation
-	qualMap         map[string]*proto.Quals
-	hub             *Hub
-	cacheEnabled    bool
-	cacheTTL        time.Duration
-	table           string
-	connection      *steampipeconfig.ConnectionPlugin
-	cancel          context.CancelFunc
-	traceCtx        *telemetry.TraceCtx
+	status           queryStatus
+	err              error
+	rows             chan *proto.Row
+	scanMetadata     *proto.QueryMetadata
+	columns          []string
+	limit            int64
+	pluginRowStream  proto.WrapperPlugin_ExecuteClient
+	rel              *types.Relation
+	qualMap          map[string]*proto.Quals
+	hub              *Hub
+	cacheEnabled     bool
+	cacheTTL         time.Duration
+	table            string
+	connectionName   string
+	connectionPlugin *steampipeconfig.ConnectionPlugin
+	cancel           context.CancelFunc
+	traceCtx         *telemetry.TraceCtx
 
 	startTime time.Time
 }
 
-func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx) *scanIterator {
-	cacheTTL := hub.cacheTTL(connection.ConnectionName)
+func newScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, connectionName, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx) *scanIterator {
+	cacheTTL := hub.cacheTTL(connectionName)
 
 	return &scanIterator{
-		status:     QueryStatusReady,
-		rows:       make(chan *proto.Row, rowBufferSize),
-		hub:        hub,
-		columns:    columns,
-		limit:      limit,
-		qualMap:    qualMap,
-		cacheTTL:   cacheTTL,
-		table:      table,
-		connection: connection,
-		traceCtx:   traceCtx,
-		startTime:  time.Now(),
+		status:           QueryStatusReady,
+		rows:             make(chan *proto.Row, rowBufferSize),
+		hub:              hub,
+		columns:          columns,
+		limit:            limit,
+		qualMap:          qualMap,
+		cacheTTL:         cacheTTL,
+		table:            table,
+		connectionName:   connectionName,
+		connectionPlugin: connection,
+		traceCtx:         traceCtx,
+		startTime:        time.Now(),
 	}
 }
 
 // access functions
 
 func (i *scanIterator) ConnectionName() string {
-	return i.connection.ConnectionName
+	return i.connectionName
 }
 
 func (i *scanIterator) Status() queryStatus {

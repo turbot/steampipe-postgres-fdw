@@ -53,7 +53,7 @@ func (i *inMemoryIterator) Next() (map[string]interface{}, error) {
 
 // Close implements Iterator
 // clear the rows and the index
-func (i *inMemoryIterator) Close(bool) {
+func (i *inMemoryIterator) Close() {
 	log.Printf("[TRACE] inMemoryIterator Close() (%p)", i)
 	i.index = 0
 	i.rows = nil

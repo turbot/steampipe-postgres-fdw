@@ -35,11 +35,13 @@ func newConnectionFactory(hub *Hub) *connectionFactory {
 
 // build a map key for the plugin
 func (f *connectionFactory) getPluginKey(pluginFQN, connectionName string) string {
-	// if the plugin supports multi connections, just use FQN
+	// if we have already loaded this plugin and it supports multi connections, just use FQN
 	if f.multiConnectionPlugins[pluginFQN] {
 		return pluginFQN
 	}
-	// otherwise for legacy plugins include conneciton name in key
+
+	// otherwise assume a legacy plugin and include connection name in key
+	// (if this tr
 	return fmt.Sprintf("%s%s%s", pluginFQN, keySeparator, connectionName)
 }
 
@@ -57,19 +59,39 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 	log.Printf("[TRACE] connectionFactory get %s %s", pluginFQN, connectionName)
 	f.connectionLock.Lock()
 	defer f.connectionLock.Unlock()
-	// if this is an aggregate connection, return error
-	// (we must iterate through the child connections explicitly)
-	if f.hub.IsAggregatorConnection(connectionName) {
+
+	// build a map key for the plugin
+	var key string
+	// if we have already loaded this plugin and it supports multi connections, just use FQN
+	if f.multiConnectionPlugins[pluginFQN] {
+		key = pluginFQN
+	} else {
+		// otherwise try looking for a legacy connection plugin
+		key = f.legacyConnectionPluginKey(pluginFQN, connectionName)
+	}
+
+	c, gotPluginClient := f.connectionPlugins[key]
+	log.Printf("[TRACE] c %v gotPluginClient %v", c, gotPluginClient)
+
+	if gotPluginClient && !c.PluginClient.Exited() {
+		return c, nil
+	}
+
+	log.Printf("[TRACE] c %v gotPluginClient %v", c, gotPluginClient)
+
+	// if we failed to find the connection plugins, and it is a legacy aggregate connection, return error
+	// (it is invalid to try to 'get' a legacy aggregator connection directly)
+	if f.hub.IsLegacyAggregatorConnection(connectionName) {
 		log.Printf("[WARN] connectionFactory get %s %s called for aggregator connection - invalid (we must iterate through the child connections explicitly)", pluginFQN, connectionName)
 		debug.PrintStack()
 		return nil, fmt.Errorf("the connectionFactory cannot return or create a connectionPlugin for an aggregate connection")
 	}
 
-	c, gotPluginClient := f.connectionPlugins[f.getPluginKey(pluginFQN, connectionName)]
-	if gotPluginClient && !c.PluginClient.Exited() {
-		return c, nil
-	}
 	return nil, nil
+}
+
+func (f *connectionFactory) legacyConnectionPluginKey(pluginFQN string, connectionName string) string {
+	return fmt.Sprintf("%s%s%s", pluginFQN, keySeparator, connectionName)
 }
 
 func (f *connectionFactory) getOrCreate(pluginFQN, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
@@ -81,6 +103,8 @@ func (f *connectionFactory) getOrCreate(pluginFQN, connectionName string) (*stea
 	if c != nil {
 		return c, nil
 	}
+	log.Printf("[TRACE] get returned %v, %v", c, err)
+
 	// otherwise create the connection plugin, setting connection config
 	return f.createConnectionPlugin(pluginFQN, connectionName)
 }
@@ -110,21 +134,28 @@ func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionN
 		return nil, fmt.Errorf("CreateConnectionPlugins did not return error but '%s' not found in connection map", connection.Name)
 	}
 
-	c := connectionPlugins[connection.Name]
+	connectionPlugin := connectionPlugins[connection.Name]
+	f.add(connectionPlugin, connectionName)
 
-	// if this plugin supports multiple connections, add to multiConnectionPlugins map
-	if c.SupportedOperations.MultipleConnections {
-		f.multiConnectionPlugins[c.PluginName] = true
-	}
-	// add to map
-	f.add(c, connection.Name)
-
-	return c, nil
+	return connectionPlugin, nil
 }
 
-func (f *connectionFactory) add(connection *steampipeconfig.ConnectionPlugin, connectionName string) {
-	key := f.getPluginKey(connection.PluginName, connectionName)
-	f.connectionPlugins[key] = connection
+func (f *connectionFactory) add(connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName string) {
+	// key to add the connection with
+	var connectionPluginKey string
+
+	if connectionPlugin.SupportedOperations.MultipleConnections {
+		// if this plugin supports multiple connections, add to multiConnectionPlugins map
+		f.multiConnectionPlugins[connectionPlugin.PluginName] = true
+		// use plugin name as key
+		connectionPluginKey = connectionPlugin.PluginName
+	} else {
+		// for legacy plugins, include the connection name in the key
+		connectionPluginKey = f.legacyConnectionPluginKey(connectionPlugin.PluginName, connectionName)
+	}
+
+	// add to map
+	f.connectionPlugins[connectionPluginKey] = connectionPlugin
 }
 
 func (f *connectionFactory) getSchema(pluginFQN, connectionName string) (*proto.Schema, error) {

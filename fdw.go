@@ -347,7 +347,7 @@ func goFdwAbortCallback() {
 			// DO NOT call FdwError or we will recurse
 		}
 	}()
-	log.Printf("[TRACE] goFdwAbortCallback")
+	log.Printf("[WARN] goFdwAbortCallback")
 	if pluginHub, err := hub.GetHub(); err == nil {
 		pluginHub.Abort()
 	}

@@ -290,10 +290,15 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
 
 	var iterator Iterator
+	// if this is an aggregate connection, create a group iterator
+	if h.IsLegacyAggregatorConnection(connectionName) {
+		iterator, err = newLegacyGroupIterator(connectionName, table, qualMap, columns, limit, h, scanTraceCtx)
+		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
 
-	iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit, scanTraceCtx)
-	log.Printf("[TRACE] Hub Scan() created iterator (%p)", iterator)
-
+	} else {
+		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit, scanTraceCtx)
+		log.Printf("[TRACE] Hub Scan() created iterator (%p)", iterator)
+	}
 	if err != nil {
 		log.Printf("[TRACE] Hub Scan() failed :( %s", err)
 		return nil, err

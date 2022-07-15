@@ -7,8 +7,6 @@ import (
 	"log"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
@@ -34,7 +32,7 @@ type scanIterator struct {
 	status             queryStatus
 	err                error
 	rows               chan *proto.Row
-	scanMetadata       *proto.QueryMetadata
+	scanMetadata       map[string]*proto.QueryMetadata
 	columns            []string
 	pluginRowStream    proto.WrapperPlugin_ExecuteClient
 	rel                *types.Relation
@@ -54,6 +52,7 @@ func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugi
 	return &scanIterator{
 		status:             QueryStatusReady,
 		rows:               make(chan *proto.Row, rowBufferSize),
+		scanMetadata:       make(map[string]*proto.QueryMetadata),
 		hub:                hub,
 		columns:            columns,
 		qualMap:            qualMap,
@@ -126,13 +125,14 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 
 func (i *scanIterator) closeSpan() {
 	// if we have scan metadata, add to span
-	if i.scanMetadata != nil {
-		i.traceCtx.Span.SetAttributes(
-			attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
-			attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
-			attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
-		)
-	}
+	// TODO SUM ALL metadata
+	//if i.scanMetadata != nil {
+	//	i.traceCtx.Span.SetAttributes(
+	//		attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
+	//		attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
+	//		attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
+	//	)
+	//}
 
 	i.traceCtx.Span.End()
 }
@@ -173,22 +173,25 @@ func (i *scanIterator) CanIterate() bool {
 }
 
 func (i *scanIterator) GetScanMetadata() []ScanMetadata {
-	// TODO how will this work for aggregate connections??? just use first connection?
-	// scan metadata will only be populated for plugins using latest sdk
-	if i.scanMetadata == nil {
-		return nil
+
+	res := make([]ScanMetadata, len(i.scanMetadata))
+	idx := 0
+	for connection, m := range i.scanMetadata {
+		log.Printf("[WARN] GetScanMetadata connection %s, %v", connection, m)
+		res[idx] = ScanMetadata{
+			Table:        i.table,
+			CacheHit:     m.CacheHit,
+			RowsFetched:  m.RowsFetched,
+			HydrateCalls: m.HydrateCalls,
+			Columns:      i.columns,
+			Quals:        i.qualMap,
+			//Limit:        i.limit,
+			StartTime: i.startTime,
+			Duration:  time.Since(i.startTime),
+		}
+		idx++
 	}
-	return []ScanMetadata{{
-		Table:        i.table,
-		CacheHit:     i.scanMetadata.CacheHit,
-		RowsFetched:  i.scanMetadata.RowsFetched,
-		HydrateCalls: i.scanMetadata.HydrateCalls,
-		Columns:      i.columns,
-		Quals:        i.qualMap,
-		//Limit:        i.limit,
-		StartTime: i.startTime,
-		Duration:  time.Since(i.startTime),
-	}}
+	return res
 }
 
 func (i *scanIterator) GetTraceContext() *telemetry.TraceCtx {
@@ -275,8 +278,8 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 			// stop reading
 			continueReading = false
 		} else {
-			// update the scan metadata (this will overwrite any existing from the previous row)
-			i.scanMetadata = rowResult.Metadata
+			// update the scan metadata for this connection (this will overwrite any existing from the previous row)
+			i.scanMetadata[rowResult.Connection] = rowResult.Metadata
 
 			// so we have a row
 			i.rows <- rowResult.Row

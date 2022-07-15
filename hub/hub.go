@@ -461,6 +461,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		}
 	}()
 
+	log.Printf("[TRACE] Hub startScanForConnection  '%s'", connectionName)
 	// get connection plugin for this connection
 	// TODO check behavior for legacy aggregator
 	// we could always get connectionPlugin for first child if aggregator

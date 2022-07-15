@@ -2,9 +2,8 @@ module github.com/turbot/steampipe-postgres-fdw
 
 go 1.18
 
-replace github.com/turbot/steampipe-plugin-sdk/v3 => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk
-
-replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
+//replace github.com/turbot/steampipe-plugin-sdk/v3 => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk
+//replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
 
 require (
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
@@ -12,10 +11,9 @@ require (
 	github.com/hashicorp/go-hclog v1.2.1
 	github.com/hashicorp/go-version v1.5.0 // indirect
 	github.com/turbot/go-kit v0.4.0
-	// main
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20220630095134-ab53fbeda66c
-	// streaming_cache
-	github.com/turbot/steampipe-plugin-sdk/v3 v3.4.0-alpha.1
+	// multi-connection
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20220715165515-57ec94d7264f
+	github.com/turbot/steampipe-plugin-sdk/v3 v3.4.0-alpha.2
 	go.opentelemetry.io/otel v1.7.0
 	google.golang.org/protobuf v1.28.0
 )

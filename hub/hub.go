@@ -53,7 +53,6 @@ type Hub struct {
 
 	// array of scan metadata
 	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
-	// the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
 	scanMetadata []ScanMetadata
 }
 
@@ -185,7 +184,7 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	}
 	ctx := iter.GetTraceContext().Ctx
 
-	// if this is a group iterator, recurse into AddScanMetadata for each underlyinh iterator
+	// if this is a group iterator, recurse into AddScanMetadata for each underlying iterator
 	if g, ok := iter.(*legacyGroupIterator); ok {
 		for _, i := range g.Iterators {
 			h.AddScanMetadata(i)

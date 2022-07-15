@@ -48,7 +48,7 @@ require (
 	github.com/deislabs/oras v0.8.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/eko/gocache/v3 v3.1.0 // indirect
+	github.com/eko/gocache/v3 v3.1.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect

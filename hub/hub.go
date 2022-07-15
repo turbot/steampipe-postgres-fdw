@@ -755,28 +755,28 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 
 // IsLegacyAggregatorConnection returns whether the connection with the given name is
 // using a legacy plugin and has type "aggregator"
-func (h *Hub) IsLegacyAggregatorConnection(connectionName string) bool {
-	// TODO KAI NEEDS THOUGHT!!! we cannot tell its legacy aggregator until plugin is instantiated
-	return false
-	//log.Printf("[TRACE] IsLegacyAggregatorConnection %s", connectionName)
-	//
-	//connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
-	//if !ok || connectionConfig.Type != modconfig.ConnectionTypeAggregator {
-	//	if !ok {
-	//		log.Printf("[WARN] IsLegacyAggregatorConnection: connection %s not found", connectionName)
-	//	} else {
-	//		log.Printf("[TRACE] connectionConfig.Type is NOT 'aggregator'")
-	//	}
-	//	return false
-	//}
-	//
-	//// get connection plugin for first connection
-	//childConnectionName := connectionConfig.ConnectionNames[0]
-	//connectionPlugin, _ := h.getConnectionPlugin(childConnectionName)
-	//res := connectionPlugin != nil && !connectionPlugin.SupportedOperations.MultipleConnections
-	//
-	//log.Printf("[TRACE] IsLegacyAggregatorConnection returning %v", res)
-	//return res
+func (h *Hub) IsLegacyAggregatorConnection(connectionName string) (res bool) {
+	// is the connection an aggregator?
+	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
+	if !ok || connectionConfig.Type != modconfig.ConnectionTypeAggregator {
+		if !ok {
+			log.Printf("[WARN] IsLegacyAggregatorConnection: connection %s not found", connectionName)
+		} else {
+			log.Printf("[TRACE] connectionConfig.Type is NOT 'aggregator'")
+		}
+		return false
+	}
+
+	// ok so it _is_ an aggregator - we need to find out if it is a legacy plugin - only way to do that is to
+	// instantiate the connection plugin for the first child connection
+	// NOTE we know there will be at least one child or else the connection will fail validation
+	for childConnectionName := range connectionConfig.Connections {
+		connectionPlugin, _ := h.getConnectionPlugin(childConnectionName)
+		res = connectionPlugin != nil && !connectionPlugin.SupportedOperations.MultipleConnections
+		log.Printf("[TRACE] IsLegacyAggregatorConnection returning %v", res)
+		break
+	}
+	return res
 }
 
 // GetAggregateConnectionChild returns the name of first child connection of the aggregate connection with the given name

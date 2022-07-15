@@ -56,7 +56,16 @@ func (f *connectionFactory) parsePluginKey(key string) (pluginFQN, connectionNam
 // if a connection plugin for the plugin and connection, return it. If it does not, create it, store in map and return it
 // NOTE: there is special case logic got aggregate connections
 func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
-	log.Printf("[TRACE] connectionFactory get %s %s", pluginFQN, connectionName)
+	log.Printf("[TRACE] connectionFactory get plugin: %s connection %s", pluginFQN, connectionName)
+
+	// if we this is a legacy aggregate connection, return error
+	// (it is invalid to try to 'get' a legacy aggregator connection directly)
+	if f.hub.IsLegacyAggregatorConnection(connectionName) {
+		log.Printf("[WARN] connectionFactory get %s %s called for aggregator connection - invalid (we must iterate through the child connections explicitly)", pluginFQN, connectionName)
+		debug.PrintStack()
+		return nil, fmt.Errorf("cannot create a connectionPlugin for a legacy aggregator connection")
+	}
+
 	f.connectionLock.Lock()
 	defer f.connectionLock.Unlock()
 
@@ -64,29 +73,28 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 	var key string
 	// if we have already loaded this plugin and it supports multi connections, just use FQN
 	if f.multiConnectionPlugins[pluginFQN] {
+		log.Printf("[TRACE] %s supports multi connections, using pluginFQN for key", pluginFQN)
 		key = pluginFQN
 	} else {
 		// otherwise try looking for a legacy connection plugin
 		key = f.legacyConnectionPluginKey(pluginFQN, connectionName)
+		log.Printf("[TRACE] %s is a legacy connections, using key %s", connectionName, key)
+
 	}
 
-	c, gotPluginClient := f.connectionPlugins[key]
-	log.Printf("[TRACE] c %v gotPluginClient %v", c, gotPluginClient)
-
-	if gotPluginClient && !c.PluginClient.Exited() {
+	c, gotConnectionPlugin := f.connectionPlugins[key]
+	if gotConnectionPlugin && !c.PluginClient.Exited() {
 		return c, nil
 	}
 
-	log.Printf("[TRACE] c %v gotPluginClient %v", c, gotPluginClient)
-
-	// if we failed to find the connection plugins, and it is a legacy aggregate connection, return error
-	// (it is invalid to try to 'get' a legacy aggregator connection directly)
-	if f.hub.IsLegacyAggregatorConnection(connectionName) {
-		log.Printf("[WARN] connectionFactory get %s %s called for aggregator connection - invalid (we must iterate through the child connections explicitly)", pluginFQN, connectionName)
-		debug.PrintStack()
-		return nil, fmt.Errorf("the connectionFactory cannot return or create a connectionPlugin for an aggregate connection")
+	// so either we have not yet instantiated the conneciton plugin, or it has exited
+	if !gotConnectionPlugin {
+		log.Printf("[TRACE] no connectionPlugin loaded with key %s", key)
+	} else {
+		log.Printf("[TRACE] connectionPluginwith key %s has exited - reloading", key)
 	}
 
+	log.Printf("[TRACE] failed to get plugin: %s connection %s", pluginFQN, connectionName)
 	return nil, nil
 }
 
@@ -112,7 +120,7 @@ func (f *connectionFactory) getOrCreate(pluginFQN, connectionName string) (*stea
 func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
 	f.connectionLock.Lock()
 	defer f.connectionLock.Unlock()
-	log.Printf("[TRACE] connectionFactory.createConnectionPlugin lazy loading connection %s", connectionName)
+	log.Printf("[TRACE] connectionFactory.createConnectionPlugin create connection %s", connectionName)
 
 	// load the config for this connection
 	connection, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
@@ -180,23 +188,29 @@ func (f *connectionFactory) getSchema(pluginFQN, connectionName string) (*proto.
 	log.Printf("[TRACE] searching for other connections using same plugin")
 	for _, c := range f.connectionPlugins {
 		if c.PluginName == pluginFQN {
-			// this plugin CANNOT suport multiple connections, otherwise f.get woul dhave returned it
+			// this plugin CANNOT suport multiple connections, otherwise f.get would have returned it
 			if c.SupportedOperations.MultipleConnections {
-				return nil, fmt.Errorf("unexpected error: plugin %s supports multi connections but was not returned for connection %s", connectionName)
+				return nil, fmt.Errorf("unexpected error: plugin %s supports multi connections but was not returned for connection %s", pluginFQN, connectionName)
 			}
 
-			// so we know this connection plugin has a single connection
-			connectionData := c.ConnectionMap[connectionName]
-			// so we have found another connection with this plugin
-			log.Printf("[TRACE] found another connection with this plugin")
-
-			// if the schema mode is dynamic we cannot reuse the schema
-			if connectionData.Schema.Mode == plugin.SchemaModeDynamic {
-				log.Printf("[TRACE] dynamic schema - cannot reuse")
-				break
+			log.Printf("[TRACE] found connectionPlugin with same pluginFQN: %s, conneciton map: %v ", c.PluginName, c.ConnectionMap)
+			// so we know this connection plugin should have a single connection
+			if len(c.ConnectionMap) > 1 {
+				return nil, fmt.Errorf("unexpected error: plugin %s does not support multi connections but has %d connections", pluginFQN, len(c.ConnectionMap))
 			}
-			log.Printf("[TRACE] returning schema")
-			return connectionData.Schema, nil
+			// get the first and only connection data
+			for _, connectionData := range c.ConnectionMap {
+				// so we have found another connection with this plugin
+				log.Printf("[TRACE] found another connection with this plugin: %v", c.ConnectionMap)
+
+				// if the schema mode is dynamic we cannot reuse the schema
+				if connectionData.Schema.Mode == plugin.SchemaModeDynamic {
+					log.Printf("[TRACE] dynamic schema - cannot reuse")
+					break
+				}
+				log.Printf("[TRACE] returning schema")
+				return connectionData.Schema, nil
+			}
 		}
 	}
 	// otherwise create the connection

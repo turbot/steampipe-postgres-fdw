@@ -176,8 +176,7 @@ func (i *scanIterator) GetScanMetadata() []ScanMetadata {
 
 	res := make([]ScanMetadata, len(i.scanMetadata))
 	idx := 0
-	for connection, m := range i.scanMetadata {
-		log.Printf("[WARN] GetScanMetadata connection %s, %v", connection, m)
+	for _, m := range i.scanMetadata {
 		res[idx] = ScanMetadata{
 			Table:        i.table,
 			CacheHit:     m.CacheHit,
@@ -185,9 +184,8 @@ func (i *scanIterator) GetScanMetadata() []ScanMetadata {
 			HydrateCalls: m.HydrateCalls,
 			Columns:      i.columns,
 			Quals:        i.qualMap,
-			//Limit:        i.limit,
-			StartTime: i.startTime,
-			Duration:  time.Since(i.startTime),
+			StartTime:    i.startTime,
+			Duration:     time.Since(i.startTime),
 		}
 		idx++
 	}

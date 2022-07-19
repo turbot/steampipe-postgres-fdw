@@ -64,7 +64,7 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 			FdwError(err)
 			return nil
 		}
-		//log.Printf("[INFO] Table sql: \n%s\n", sql)
+
 		commands = C.lappend(commands, unsafe.Pointer(C.CString(sql)))
 	}
 

@@ -242,7 +242,7 @@ func (h *Hub) Close() {
 
 // Abort shuts down currently running queries
 func (h *Hub) Abort() {
-	log.Printf("[WARN] Hub Abort")
+	log.Printf("[TRACE] Hub Abort")
 	// for all running iterators
 	for _, iter := range h.runningIterators {
 		// read the scan metadata from the iterator and add to our stack

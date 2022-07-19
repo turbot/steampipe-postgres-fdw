@@ -41,7 +41,6 @@ func (f *connectionFactory) getPluginKey(pluginFQN, connectionName string) strin
 	}
 
 	// otherwise assume a legacy plugin and include connection name in key
-	// (if this tr
 	return fmt.Sprintf("%s%s%s", pluginFQN, keySeparator, connectionName)
 }
 
@@ -111,7 +110,6 @@ func (f *connectionFactory) getOrCreate(pluginFQN, connectionName string) (*stea
 	if c != nil {
 		return c, nil
 	}
-	log.Printf("[TRACE] get returned %v, %v", c, err)
 
 	// otherwise create the connection plugin, setting connection config
 	return f.createConnectionPlugin(pluginFQN, connectionName)

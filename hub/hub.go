@@ -632,8 +632,7 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 
 	table := iterator.table
 	connectionPlugin := iterator.connectionPlugin
-	connectionName := iterator.connectionName
-	callId := grpc.BuildCallId(connectionName)
+	callId := grpc.BuildCallId()
 
 	req := &proto.ExecuteRequest{
 		Table:                 table,
@@ -676,7 +675,7 @@ func (h *Hub) startLegacyScan(iterator *legacyScanIterator, queryContext *proto.
 	table := iterator.table
 	connectionPlugin := iterator.connectionPlugin
 	connectionName := iterator.connectionName
-	callId := grpc.BuildCallId(connectionName)
+	callId := grpc.BuildCallId()
 
 	req := &proto.ExecuteRequest{
 		Table:        table,

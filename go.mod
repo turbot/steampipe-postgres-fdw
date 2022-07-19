@@ -9,7 +9,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/go-hclog v1.2.1
-	github.com/hashicorp/go-version v1.6.0
+	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.4.0
 	// multi-connection
 	github.com/turbot/steampipe v1.7.0-rc.0.0.20220715165515-57ec94d7264f

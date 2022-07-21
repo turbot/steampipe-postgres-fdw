@@ -1,3 +1,7 @@
+## v1.2.2 [2022-07-21]
+_Bug fixes_
+* Fix build issue which causes failure to load FDW on Arm Docker images. ([#219](https://github.com/turbot/steampipe-postgres-fdw/issues/219))
+
 ## v1.2.1 [2022-07-03]
 _Bug fixes_
 * Fix EOF error when joining multiple tables on the JSON qual column. Handle zero value jsonb quaLs. ([#201](https://github.com/turbot/steampipe-postgres-fdw/issues/201))

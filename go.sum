@@ -939,6 +939,8 @@ github.com/turbot/steampipe v1.7.0-rc.0.0.20220719134926-043c0f3b5354 h1:Pp5doVb
 github.com/turbot/steampipe v1.7.0-rc.0.0.20220719134926-043c0f3b5354/go.mod h1:gspMr176JAPMvNWrk2xB9nqtvTW4AeBVOHyfVw+BW8c=
 github.com/turbot/steampipe-plugin-sdk/v3 v3.4.0-alpha.3 h1:wk2udCXmZMEAJcBRcTYopN5QfDZjamQscTKKSxQLyQs=
 github.com/turbot/steampipe-plugin-sdk/v3 v3.4.0-alpha.3/go.mod h1:9Yki3Awc22Kfx36dpXsK9H5MBlJVgpQzNhzoxHPFZYQ=
+github.com/turbot/steampipe-plugin-sdk/v4 v4.0.0-dev.1 h1:GtdzG52A6Uq8Ebpp5csbvuaVDnEXwPpQB9HSIRz2nqU=
+github.com/turbot/steampipe-plugin-sdk/v4 v4.0.0-dev.1/go.mod h1:v6bYQWg9z+3IhTpMG7kldX3b774T4eFRxU5llMam9X8=
 github.com/ugorji/go v0.0.0-20180813092308-00b869d2f4a5/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=

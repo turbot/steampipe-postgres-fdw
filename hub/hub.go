@@ -3,7 +3,8 @@ package hub
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin"
+	"github.com/turbot/steampipe/pkg/utils"
 	"log"
 	"os"
 	"path"
@@ -12,10 +13,10 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/pkg/constants"
 	"github.com/turbot/steampipe/pkg/filepaths"
@@ -465,7 +466,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		}
 	}()
 
-	log.Printf("[TRACE] Hub startScanForConnection  '%s'", connectionName)
+	log.Printf("[TRACE] Hub startScanForConnection '%s'", connectionName)
 	// get connection plugin for this connection
 	// TODO check behavior for legacy aggregator
 	// we could always get connectionPlugin for first child if aggregator
@@ -512,32 +513,32 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 }
 
 func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Quals, connectionNames []string, limit int64, connectionPlugin *steampipeconfig.ConnectionPlugin) map[string]int64 {
-	var connectionLimitMap = make(map[string]int64)
+	log.Printf("[TRACE] buildConnectionLimitMap, table: '%s', %d %s, limit: %d", table, len(connectionNames), utils.Pluralize("connection", len(connectionNames)), limit)
+
+	schemaMode := connectionPlugin.ConnectionMap[connectionNames[0]].Schema.Mode
 
 	// pushing the limit down or not is dependent on the schema.
 	// for a static schema, the limit will be the same for all connections (i.e. we either pushdown for all or none)
-	// for dynamic schema we check for each connection
-	if limit != -1 && connectionPlugin.ConnectionMap[connectionNames[0]].Schema.Mode == plugin.SchemaModeStatic {
+	// check once whether we should push down
+	if limit != -1 && schemaMode == plugin.SchemaModeStatic {
+		log.Printf("[TRACE] static schema - using same limit for all connections")
 		if !h.shouldPushdownLimit(table, qualMap, connectionNames[0], connectionPlugin) {
 			limit = -1
 		}
 	}
 
-	// if there is no limit (or we are not pushing down for any connections), set all values to -1
-	if limit == -1 {
-		for _, c := range connectionNames {
-			connectionLimitMap[c] = -1
+	// set the limit for the one and only connection
+	var connectionLimitMap = make(map[string]int64)
+	for _, c := range connectionNames {
+		connectionLimit := limit
+		// if schema mode is dynamic, check whether we should push down for each connection
+		if schemaMode == plugin.SchemaModeDynamic && !h.shouldPushdownLimit(table, qualMap, c, connectionPlugin) {
+			log.Printf("[INFO] not pushing limit down for connection %s", c)
+			connectionLimit = -1
 		}
-	} else {
-		// ok so we are determining the limit for each connection
-		for _, c := range connectionNames {
-			connectionLimit := limit
-			if !h.shouldPushdownLimit(table, qualMap, c, connectionPlugin) {
-				connectionLimit = -1
-			}
-			connectionLimitMap[c] = connectionLimit
-		}
+		connectionLimitMap[c] = connectionLimit
 	}
+
 	return connectionLimitMap
 }
 
@@ -615,7 +616,7 @@ func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals,
 			}
 		} else {
 			// no key column defined for this qual - DO NOT push down the limit
-			log.Printf("[INFO] shouldPushdownLimit no key column found for column %s. NOT pushing down limit", col)
+			log.Printf("[INFO] shouldPushdownLimit no key column found for column '%s'. NOT pushing down limit", col)
 			return false
 		}
 	}

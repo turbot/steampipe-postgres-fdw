@@ -12,8 +12,8 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.4.0
 	// revert_cache_stream
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20220721112656-4d4e13424d00
-	github.com/turbot/steampipe-plugin-sdk/v4 v4.0.0-alpha.0
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20220722125407-74cf746365a4
+	github.com/turbot/steampipe-plugin-sdk/v4 v4.0.0-alpha.2
 	go.opentelemetry.io/otel v1.7.0
 	google.golang.org/protobuf v1.28.0
 )
@@ -149,7 +149,7 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
-	google.golang.org/grpc v1.47.0 // indirect
+	google.golang.org/grpc v1.48.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect

@@ -33,7 +33,7 @@ PG_CFLAGS = -I${SERVER_LIB} -I${INTERNAL_LIB} -g
 include $(PGXS)
 
 go: ../fdw.go
-	go build -o steampipe_postgres_fdw.a -buildmode=c-archive ../*.go
+	go1.19rc1 build -o steampipe_postgres_fdw.a -buildmode=c-archive ../*.go
 
 inst:
 	mkdir -p ../build-${PLATFORM}

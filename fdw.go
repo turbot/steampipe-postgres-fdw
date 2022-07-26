@@ -333,7 +333,6 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	if s != nil && pluginHub != nil {
 		log.Printf("[TRACE] goFdwEndForeignScan, iterator: %p", s.Iter)
 		pluginHub.EndScan(s.Iter, int64(s.State.limit))
-
 	}
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil

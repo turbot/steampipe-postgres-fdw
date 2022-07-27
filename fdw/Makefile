@@ -50,4 +50,4 @@ inst:
 	rm ./*.o
 	
 release:
-	./upload_asset.sh
+	./upload_arm_asset.sh

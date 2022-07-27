@@ -258,100 +258,12 @@ jobs:
         path: ./fdw/steampipe_postgres_fdw.so.linux_amd64.gz
         if-no-files-found: error
 
-  build-linux-arm:
-    name: Build for Linux ARM64
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-
-    - name: Build and upload binary
-      uses: uraimo/run-on-arch-action@v2
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        arch: aarch64
-        distro: ubuntu_latest
-        # Create an artifacts directory
-        setup: |
-          mkdir -p "${PWD}/artifacts"
-        # Mount the artifacts directory as /artifacts in the container
-        dockerRunArgs: |
-          --volume "${PWD}/artifacts:/artifacts"
-        env: |
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "update apt and install necessary packages"
-          apt-get update -y
-          apt-get -y install sudo git curl tar gzip file postgresql-server-dev-14 build-essential make
-
-          echo "install go"
-          curl -LO https://go.dev/dl/go1.18beta1.linux-arm64.tar.gz
-          tar -C /usr/local -xzf go1.18beta1.linux-arm64.tar.gz
-          export GOROOT=/usr/local/go
-          export GOPATH=$HOME/go
-          export PATH=$GOPATH/bin:$GOROOT/bin:$PATH
-          go version
-          
-          echo "find stuff and set env"
-          which pg_config
-          pg_config --version
-          export PATH=$(pg_config --bindir):$PATH
-          export PGXS=$(pg_config --pgxs)
-          export SERVER_LIB=$(pg_config --includedir)/server
-          export INTERNAL_LIB=$(pg_config --includedir)/internal
-          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-          export LDFLAGS=$(pg_config --ldflags)
-          export PG_LDFLAGS=$(pg_config --ldflags)
-
-          echo "clone repo"
-          git clone https://github.com/turbot/steampipe-postgres-fdw.git
-          git config --global --add safe.directory /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
-          git init
-          git fetch
-          pwd
-          git checkout ${{ github.event.inputs.tag }}
-          cd steampipe-postgres-fdw/fdw
-
-          echo "make clean"
-          go version
-          make clean
-
-          echo "make go"
-          make go
-
-          echo "make"
-          make
-
-          echo "check binary and copy into artifacts directory"
-          file steampipe_postgres_fdw.so
-          gzip steampipe_postgres_fdw.so
-          mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_arm64.gz
-          ls
-          cp steampipe_postgres_fdw.so.linux_arm64.gz /artifacts
-          ls -al /artifacts
-    
-    - name: Show the artifact
-      # Items placed in /artifacts in the container will be in
-      # ${PWD}/artifacts on the host.
-      run: |
-        ls -al "${PWD}/artifacts"
-
-    - name: Save Linux Build Artifact - ARM64
-      uses: actions/upload-artifact@v3
-      with:
-        name: steampipe_postgres_fdw.so.linux_arm64
-        path: /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/artifacts/steampipe_postgres_fdw.so.linux_arm64.gz
-        if-no-files-found: error
-
   build-draft-release:
     name: Build Draft Release
     runs-on: ubuntu-latest
     needs:
       - build-linux
       - build-osx
-      - build-linux-arm
     steps:
 
       - name: Get latest version tag
@@ -378,12 +290,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: steampipe_postgres_fdw.so.linux_amd64
-
-      - name: Download steampipe_postgres_fdw.so - linux_arm64
-        id: download_fdw_so_linux_arm64
-        uses: actions/download-artifact@v3
-        with:
-          name: steampipe_postgres_fdw.so.linux_arm64
 
       - name: Download steampipe_postgres_fdw.control
         id: download_fdw_control
@@ -414,5 +320,4 @@ jobs:
             ${{ steps.download_fdw_sql.outputs.download-path }}/steampipe_postgres_fdw--1.0.sql
             ${{ steps.download_fdw_control.outputs.download-path }}/steampipe_postgres_fdw.control
             ${{ steps.download_fdw_so_linux_amd64.outputs.download-path }}/steampipe_postgres_fdw.so.linux_amd64.gz
-            ${{ steps.download_fdw_so_linux_arm64.outputs.download-path }}/steampipe_postgres_fdw.so.linux_arm64.gz
             ${{ steps.download_fdw_so_darwin_amd64.outputs.download-path }}/steampipe_postgres_fdw.so.darwin_amd64.gz

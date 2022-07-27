@@ -60,11 +60,6 @@ func (i *inMemoryIterator) Close() {
 	i.status = QueryStatusReady
 }
 
-func (i *inMemoryIterator) Abort() {
-	log.Printf("[TRACE] inMemoryIterator Abort() (%p)", i)
-	i.Close()
-}
-
 func (i *inMemoryIterator) CanIterate() bool {
 	switch i.status {
 	case QueryStatusError, QueryStatusComplete:

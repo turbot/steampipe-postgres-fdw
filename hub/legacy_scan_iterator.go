@@ -151,11 +151,7 @@ func (i *legacyScanIterator) Close() {
 	}
 
 	i.closeSpan()
-}
 
-func (i *legacyScanIterator) Abort() {
-	// for legacy iterator just call Close which ha ssame behaviour as abort
-	i.Close()
 }
 
 // CanIterate returns true if this iterator has results available to iterate

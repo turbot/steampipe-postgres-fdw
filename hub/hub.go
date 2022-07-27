@@ -248,8 +248,8 @@ func (h *Hub) Abort() {
 	for _, iter := range h.runningIterators {
 		// read the scan metadata from the iterator and add to our stack
 		h.AddScanMetadata(iter)
-		// abort the iterator
-		iter.Abort()
+		// close the iterator
+		iter.Close()
 		// remove it from the saved list of iterators
 		h.RemoveIterator(iter)
 	}
@@ -633,11 +633,12 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 
 	table := iterator.table
 	connectionPlugin := iterator.connectionPlugin
+	callId := grpc.BuildCallId()
 
 	req := &proto.ExecuteRequest{
 		Table:                 table,
 		QueryContext:          queryContext,
-		CallId:                iterator.callId,
+		CallId:                callId,
 		TraceContext:          grpc.CreateCarrierFromContext(traceCtx.Ctx),
 		ExecuteConnectionData: make(map[string]*proto.ExecuteConnectionData),
 	}
@@ -654,12 +655,12 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 		req.ExecuteConnectionData[connectionName] = data
 	}
 
-	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v, iterator %p", table, iterator.callId, req.CacheEnabled, iterator)
+	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v, iterator %p", table, callId, req.CacheEnabled, iterator)
 	stream, ctx, cancel, err := connectionPlugin.PluginClient.Execute(req)
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
 	err = grpc.HandleGrpcError(err, connectionPlugin.PluginName, "Execute")
 	if err != nil {
-		log.Printf("[WARN] startScan: plugin Execute function callId: %s returned error: %v\n", iterator.callId, err)
+		log.Printf("[WARN] startScan: plugin Execute function callId: %s returned error: %v\n", callId, err)
 		iterator.setError(err)
 		return err
 	}

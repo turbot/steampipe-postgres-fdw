@@ -268,15 +268,20 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@master
-      with:
-        aws-access-key-id: ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-south-1
+    # - name: Configure AWS Credentials
+    #   uses: aws-actions/configure-aws-credentials@master
+    #   with:
+    #     aws-access-key-id: ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}
+    #     aws-secret-access-key: ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}
+    #     aws-region: ap-south-1
 
     - name: SSH into the system and build binary
       run: |
+
+        export AWS_ACCESS_KEY_ID=${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}
+        export AWS_SECRET_ACCESS_KEY=${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}
+        export AWS_DEFAULT_REGION=ap-south-1
+
         ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
         echo $ip
 

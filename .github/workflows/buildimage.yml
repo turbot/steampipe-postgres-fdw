@@ -261,12 +261,15 @@ jobs:
   build-linux-arm:
     name: Build for Linux ARM
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - name: Checkout
       uses: actions/checkout@v3
 
     - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v1
+      uses: aws-actions/configure-aws-credentials@master
       with:
         aws-access-key-id: ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}
@@ -280,6 +283,13 @@ jobs:
         export PAGER=
 
         aws sts get-caller-identity --output text
+
+        aws ec2 authorize-security-group-ingress \
+        --group-name pskr-sg \        
+        --protocol tcp \
+        --port 22 \
+        --cidr $ip \
+        --region ap-south-1
 
         aws ec2 start-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1 --output text
         echo "starting instance..."
@@ -301,6 +311,13 @@ jobs:
         scp -i "${{ secrets.REDHOOD_PRIVATE_KEY }}" ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
 
         aws ec2 stop-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1
+
+        aws ec2 revoke-security-group-ingress \
+        --group-name pskr-sg \      
+        --protocol tcp \
+        --port 22 \
+        --cidr $ip \
+        --region ap-south-1
 
         file steampipe_postgres_fdw.so
 

@@ -261,9 +261,6 @@ jobs:
   build-linux-arm:
     name: Build for Linux ARM64
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -274,6 +271,10 @@ jobs:
         echo -e "[default]\naws_access_key_id = ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}\naws_secret_access_key = ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}\nregion = ap-south-1" > ~/.aws/credentials
 
     - name: SSH into the system and build binary
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: 'ap-south-1'
       run: |
 
         ip=$(dig +short myip.opendns.com @resolver1.opendns.com)

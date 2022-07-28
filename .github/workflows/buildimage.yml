@@ -275,6 +275,7 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: 'ap-south-1'
+        PRIVATE_KEY: ${{ secrets.AWS_PRIVATE_KEY  }}
       run: |
 
         ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
@@ -299,9 +300,11 @@ jobs:
           status=$(aws ec2 describe-instance-status --instance-ids i-059a0baa5fb90a263 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
         done
 
-        ssh -o StrictHostKeyChecking=accept-new -i "${{ secrets.AWS_PRIVATE_KEY }}" ubuntu@$public_ip 'cat test.txt; uname -m; cd steampipe-postgres-fdw; git checkout main; git pull; git checkout $VERSION; rm -rf build-Linux; ./build.sh; exit'
+        echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
 
-        scp -i "${{ secrets.AWS_PRIVATE_KEY }}" ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
+        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'cat test.txt; uname -m; cd steampipe-postgres-fdw; git checkout main; git pull; git checkout $VERSION; rm -rf build-Linux; ./build.sh; exit'
+
+        scp -i private_key ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
 
         aws ec2 stop-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1
 

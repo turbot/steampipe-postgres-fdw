@@ -281,8 +281,6 @@ jobs:
 
         export PAGER=
 
-        aws sts get-caller-identity --output text
-
         aws ec2 authorize-security-group-ingress \
         --group-name pskr-sg \        
         --protocol tcp \

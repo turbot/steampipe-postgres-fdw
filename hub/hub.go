@@ -400,7 +400,12 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	schema := connectionPlugin.ConnectionMap[connectionName].Schema.Schema[table]
+
+	connectionSchema, ok := connectionPlugin.ConnectionMap[connectionName]
+	if !ok {
+		return nil, fmt.Errorf("no schema loaded for connection '%s'", connectionName)
+	}
+	schema := connectionSchema.Schema.Schema[table]
 	var allColumns = make([]string, len(schema.Columns))
 	for i, c := range schema.Columns {
 		allColumns[i] = c.Name
@@ -715,7 +720,7 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	pluginFQN := connectionConfig.Plugin
 
 	// ask connection map to get or create this connection
-	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
+	c, err := h.connections.createConnectionPlugin(pluginFQN, connectionName)
 	if err != nil {
 		return nil, err
 	}

@@ -68,18 +68,15 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 	f.connectionLock.Lock()
 	defer f.connectionLock.Unlock()
 
-	// build a map key for the plugin
-	var key string
-	// if we have already loaded this plugin and it supports multi connections, just use FQN
+	// if we have already loaded this plugin and it supports multi connections, we do not cache it locally
+	// (as the connection list may have changed)
 	if f.multiConnectionPlugins[pluginFQN] {
-		log.Printf("[TRACE] %s supports multi connections, using pluginFQN for key", pluginFQN)
-		key = pluginFQN
-	} else {
-		// otherwise try looking for a legacy connection plugin
-		key = f.legacyConnectionPluginKey(pluginFQN, connectionName)
-		log.Printf("[TRACE] %s is a legacy connections, using key %s", connectionName, key)
-
+		log.Printf("[TRACE] %s supports multi connections, refetching from plugin manager", pluginFQN)
+		return nil, nil
 	}
+	// build a map key for the plugin
+	key := f.legacyConnectionPluginKey(pluginFQN, connectionName)
+	log.Printf("[TRACE] %s is a legacy connections, using key %s", connectionName, key)
 
 	c, gotConnectionPlugin := f.connectionPlugins[key]
 	if gotConnectionPlugin && !c.PluginClient.Exited() {
@@ -147,18 +144,15 @@ func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionN
 }
 
 func (f *connectionFactory) add(connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName string) {
-	// key to add the connection with
-	var connectionPluginKey string
-
 	if connectionPlugin.SupportedOperations.MultipleConnections {
-		// if this plugin supports multiple connections, add to multiConnectionPlugins map
+		// if this plugin supports multiple connections, add to multiConnectionPlugins map but not to connectionPlugins
+		// ( we cannot cache the conneciton plugin as the associated connections may change
+		// based on connection config changes)
 		f.multiConnectionPlugins[connectionPlugin.PluginName] = true
-		// use plugin name as key
-		connectionPluginKey = connectionPlugin.PluginName
-	} else {
-		// for legacy plugins, include the connection name in the key
-		connectionPluginKey = f.legacyConnectionPluginKey(connectionPlugin.PluginName, connectionName)
+		return
 	}
+	// for legacy plugins, include the connection name in the key
+	connectionPluginKey := f.legacyConnectionPluginKey(connectionPlugin.PluginName, connectionName)
 
 	// add to map
 	f.connectionPlugins[connectionPluginKey] = connectionPlugin

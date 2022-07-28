@@ -269,12 +269,9 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@master
-      with:
-        audience: sigstore
-        aws-access-key-id: ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-south-1
+      run: |
+        mkdir ~/.aws
+        echo -e "[default]\naws_access_key_id = ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}\naws_secret_access_key = ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}\nregion = ap-south-1" > ~/.aws/credentials
 
     - name: SSH into the system and build binary
       run: |

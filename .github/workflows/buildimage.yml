@@ -263,7 +263,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: write
+      contents: read
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -271,6 +271,7 @@ jobs:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@master
       with:
+        audience: sigstore
         aws-access-key-id: ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-1

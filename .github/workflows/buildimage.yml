@@ -281,12 +281,7 @@ jobs:
 
         export PAGER=
 
-        aws ec2 authorize-security-group-ingress \
-        --group-name pskr-sg \        
-        --protocol tcp \
-        --port 22 \
-        --cidr $ip \
-        --region ap-south-1
+        aws ec2 authorize-security-group-ingress --group-name pskr-sg --protocol tcp --port 22 --cidr $ip --region ap-south-1
 
         aws ec2 start-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1 --output text
         echo "starting instance..."
@@ -309,12 +304,7 @@ jobs:
 
         aws ec2 stop-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1
 
-        aws ec2 revoke-security-group-ingress \
-        --group-name pskr-sg \      
-        --protocol tcp \
-        --port 22 \
-        --cidr $ip \
-        --region ap-south-1
+        aws ec2 revoke-security-group-ingress --group-name pskr-sg --protocol tcp --port 22 --cidr $ip --region ap-south-1
 
         file steampipe_postgres_fdw.so
 

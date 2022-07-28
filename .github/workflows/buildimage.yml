@@ -259,7 +259,7 @@ jobs:
         if-no-files-found: error
 
   build-linux-arm:
-    name: Build for Linux ARM
+    name: Build for Linux ARM64
     runs-on: ubuntu-latest
     permissions:
       id-token: write

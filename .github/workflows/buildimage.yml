@@ -258,11 +258,70 @@ jobs:
         path: ./fdw/steampipe_postgres_fdw.so.linux_amd64.gz
         if-no-files-found: error
 
+  build-linux-arm:
+    name: Build for Linux ARM
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-south-1
+
+    - name: SSH into the system and build binary
+      run: |
+        ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
+        echo $ip
+
+        export PAGER=
+
+        aws sts get-caller-identity --output text
+
+        aws ec2 start-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1 --output text
+        echo "starting instance..."
+        sleep 60
+
+        public_ip=$(aws ec2 describe-instances --instance-ids i-059a0baa5fb90a263 --query 'Reservations[*].Instances[*].PublicDnsName' --region ap-south-1 --output text)
+        status=$(aws ec2 describe-instance-status --instance-ids i-059a0baa5fb90a263 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
+        echo $public_ip
+        echo $status
+
+        while [ $status != "running" ] ; do
+          echo "instance not yet available"
+          sleep 5
+          status=$(aws ec2 describe-instance-status --instance-ids i-059a0baa5fb90a263 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
+        done
+
+        ssh -o StrictHostKeyChecking=accept-new -i "${{ secrets.REDHOOD_PRIVATE_KEY }}" ubuntu@$public_ip 'cat test.txt; uname -m; cd steampipe-postgres-fdw; git checkout main; git pull; git checkout $VERSION; rm -rf build-Linux; ./build.sh; exit'
+
+        scp -i "${{ secrets.REDHOOD_PRIVATE_KEY }}" ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
+
+        aws ec2 stop-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1
+
+        file steampipe_postgres_fdw.so
+
+    - name: gzip the steampipe_postgres_fdw.so
+      run: |-
+        gzip steampipe_postgres_fdw.so
+        mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_arm64.gz
+
+    - name: Save Linux Build Artifact - ARM64
+      uses: actions/upload-artifact@v3
+      with:
+        name: steampipe_postgres_fdw.so.linux_arm64
+        path: steampipe_postgres_fdw.so.linux_arm64.gz
+        if-no-files-found: error
+
   build-draft-release:
     name: Build Draft Release
     runs-on: ubuntu-latest
     needs:
       - build-linux
+      - build-linux-arm
       - build-osx
     steps:
 
@@ -290,6 +349,12 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: steampipe_postgres_fdw.so.linux_amd64
+
+      - name: Download steampipe_postgres_fdw.so - linux_arm64
+        id: download_fdw_so_linux_arm64
+        uses: actions/download-artifact@v3
+        with:
+          name: steampipe_postgres_fdw.so.linux_arm64
 
       - name: Download steampipe_postgres_fdw.control
         id: download_fdw_control
@@ -320,4 +385,5 @@ jobs:
             ${{ steps.download_fdw_sql.outputs.download-path }}/steampipe_postgres_fdw--1.0.sql
             ${{ steps.download_fdw_control.outputs.download-path }}/steampipe_postgres_fdw.control
             ${{ steps.download_fdw_so_linux_amd64.outputs.download-path }}/steampipe_postgres_fdw.so.linux_amd64.gz
+            ${{ steps.download_fdw_so_linux_arm64.outputs.download-path }}/steampipe_postgres_fdw.so.linux_arm64.gz
             ${{ steps.download_fdw_so_darwin_amd64.outputs.download-path }}/steampipe_postgres_fdw.so.darwin_amd64.gz

@@ -281,7 +281,7 @@ jobs:
         echo $ip
 
         export PAGER=
-
+        
         aws ec2 authorize-security-group-ingress --group-name pskr-sg --protocol tcp --port 22 --cidr $ip --region ap-south-1
 
         aws ec2 start-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1 --output text
@@ -299,9 +299,9 @@ jobs:
           status=$(aws ec2 describe-instance-status --instance-ids i-059a0baa5fb90a263 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
         done
 
-        ssh -o StrictHostKeyChecking=accept-new -i "${{ secrets.REDHOOD_PRIVATE_KEY }}" ubuntu@$public_ip 'cat test.txt; uname -m; cd steampipe-postgres-fdw; git checkout main; git pull; git checkout $VERSION; rm -rf build-Linux; ./build.sh; exit'
+        ssh -o StrictHostKeyChecking=accept-new -i "${{ secrets.AWS_PRIVATE_KEY }}" ubuntu@$public_ip 'cat test.txt; uname -m; cd steampipe-postgres-fdw; git checkout main; git pull; git checkout $VERSION; rm -rf build-Linux; ./build.sh; exit'
 
-        scp -i "${{ secrets.REDHOOD_PRIVATE_KEY }}" ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
+        scp -i "${{ secrets.AWS_PRIVATE_KEY }}" ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
 
         aws ec2 stop-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1
 

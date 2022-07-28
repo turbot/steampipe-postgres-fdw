@@ -268,12 +268,12 @@ jobs:
     - name: Configure AWS Credentials
       run: |
         mkdir ~/.aws
-        echo -e "[default]\naws_access_key_id = ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}\naws_secret_access_key = ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}\nregion = ap-south-1" > ~/.aws/credentials
+        echo -e "[default]\naws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}\naws_secret_access_key = ${{ secrets.AWS_SECRET_ACCESS_KEY }}\nregion = ap-south-1" > ~/.aws/credentials
 
     - name: SSH into the system and build binary
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.REDHOOD_AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.REDHOOD_AWS_SECRET_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: 'ap-south-1'
       run: |
 

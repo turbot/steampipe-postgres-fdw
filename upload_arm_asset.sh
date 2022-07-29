@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 
+# Must have these commands for the script to run
+declare -a required_commands=("gh" "gzip")
+
+for required_command in "${required_commands[@]}"
+do
+  if [[ $(command -v $required_command | head -c1 | wc -c) -eq 0 ]]; then
+    echo "$required_command is required for this script to run."
+    exit -1
+  fi
+done
+
 ARCH=$(uname -m)
 # exit if the architecture is not arm64(darwin) or aarch64(linux)
 if [[ "$ARCH" != "arm64" ]] && [[ "$ARCH" != "aarch64" ]]; then

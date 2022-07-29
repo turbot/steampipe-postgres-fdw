@@ -278,38 +278,50 @@ jobs:
         PRIVATE_KEY: ${{ secrets.AWS_PRIVATE_KEY  }}
       run: |
 
+        # get public IP of the linux machine
         ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
         echo $ip
 
+        # set PAGER to empty to not get cli output automatically being sent to vim
         export PAGER=
         
+        # whitelist the ip, add the ip to the security group to allow access into the instance
         aws ec2 authorize-security-group-ingress --group-name pskr-sg --protocol tcp --port 22 --cidr $ip/32 --region ap-south-1
 
+        #start instance
         aws ec2 start-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1 --output text
         echo "starting instance..."
         sleep 60
 
+        # get the public ip and status of the instance
         public_ip=$(aws ec2 describe-instances --instance-ids i-059a0baa5fb90a263 --query 'Reservations[*].Instances[*].PublicDnsName' --region ap-south-1 --output text)
         status=$(aws ec2 describe-instance-status --instance-ids i-059a0baa5fb90a263 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
         echo $public_ip
         echo $status
 
+        # check if the instance is available for use, if not, then wait for it
         while [ $status != "running" ] ; do
           echo "instance not yet available"
           sleep 5
           status=$(aws ec2 describe-instance-status --instance-ids i-059a0baa5fb90a263 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
         done
-
+        
+        # set up the private key
         echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
-
+        
+        # ssh into the instance and run the set of commands to build
         ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'cat test.txt; uname -m; cd steampipe-postgres-fdw; git checkout main; git pull; git checkout $VERSION; rm -rf build-Linux; ./build.sh; exit 0'
 
+        # use scp to fetch the built binary out of the instance
         scp -i private_key ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
-
+        
+        # stop instance
         aws ec2 stop-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1
 
+        # remove the ip from the security group
         aws ec2 revoke-security-group-ingress --group-name pskr-sg --protocol tcp --port 22 --cidr $ip/32 --region ap-south-1
 
+        # check binary exists
         file steampipe_postgres_fdw.so
 
     - name: gzip the steampipe_postgres_fdw.so

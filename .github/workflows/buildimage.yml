@@ -302,7 +302,7 @@ jobs:
 
         echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
 
-        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'cat test.txt; uname -m; cd steampipe-postgres-fdw; git checkout main; git pull; git checkout $VERSION; rm -rf build-Linux; ./build.sh; exit 2'
+        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'cat test.txt; uname -m; cd steampipe-postgres-fdw; git checkout main; git pull; git checkout $VERSION; rm -rf build-Linux; ./build.sh; exit 0'
 
         scp -i private_key ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
 

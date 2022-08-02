@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Must have these commands for the script to run
-declare -a required_commands=("gh" "gzip")
+declare -a required_commands=("gh" "gzip" "postgres")
 
 for required_command in "${required_commands[@]}"
 do

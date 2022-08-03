@@ -1,6 +1,6 @@
 module github.com/turbot/steampipe-postgres-fdw
 
-go 1.18
+go 1.19
 
 replace github.com/turbot/steampipe-plugin-sdk/v3 => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk
 

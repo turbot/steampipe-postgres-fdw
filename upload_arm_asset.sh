@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+ARCH=$(uname -m)
+# exit if the architecture is not arm64(darwin) or aarch64(linux)
+if [[ "$ARCH" != "arm64" ]] && [[ "$ARCH" != "aarch64" ]]; then
+  echo "Not an ARM64 system"
+  exit
+fi
+
 # Must have these commands for the script to run
 declare -a required_commands=("gh" "gzip" "postgres")
 
@@ -10,13 +17,6 @@ do
     exit -1
   fi
 done
-
-ARCH=$(uname -m)
-# exit if the architecture is not arm64(darwin) or aarch64(linux)
-if [[ "$ARCH" != "arm64" ]] && [[ "$ARCH" != "aarch64" ]]; then
-  echo "Not an ARM64 system"
-  exit
-fi
 
 # get the tag_names of draft releases
 TAG=$(gh api -X GET /repos/{owner}/{repo}/releases -F owner=turbot -F repo=steampipe --jq '.[] | select(.draft == true) | .tag_name')

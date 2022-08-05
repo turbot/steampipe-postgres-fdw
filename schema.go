@@ -12,7 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	"github.com/turbot/steampipe-postgres-fdw/sql"
 )
 
@@ -64,7 +64,7 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 			FdwError(err)
 			return nil
 		}
-		log.Printf("[INFO] Table sql: \n%s\n", sql)
+
 		commands = C.lappend(commands, unsafe.Pointer(C.CString(sql)))
 	}
 

@@ -7,6 +7,8 @@ import (
 	"log"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
@@ -17,71 +19,64 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// TODO think about when we reset status from complete to ready
-
-type queryStatus string
-
-const (
-	QueryStatusReady    queryStatus = "ready"
-	QueryStatusStarted  queryStatus = "started"
-	QueryStatusError    queryStatus = "error"
-	QueryStatusComplete queryStatus = "complete"
-)
-
-type scanIterator struct {
-	status             queryStatus
-	err                error
-	rows               chan *proto.Row
-	scanMetadata       map[string]*proto.QueryMetadata
-	columns            []string
-	pluginRowStream    proto.WrapperPlugin_ExecuteClient
-	rel                *types.Relation
-	qualMap            map[string]*proto.Quals
-	hub                *Hub
-	table              string
-	connectionName     string
-	connectionLimitMap map[string]int64
-	connectionPlugin   *steampipeconfig.ConnectionPlugin
-	cancel             context.CancelFunc
-	traceCtx           *telemetry.TraceCtx
+type legacyScanIterator struct {
+	status           queryStatus
+	err              error
+	rows             chan *proto.Row
+	scanMetadata     *proto.QueryMetadata
+	columns          []string
+	limit            int64
+	pluginRowStream  proto.WrapperPlugin_ExecuteClient
+	rel              *types.Relation
+	qualMap          map[string]*proto.Quals
+	hub              *Hub
+	cacheEnabled     bool
+	cacheTTL         time.Duration
+	table            string
+	connectionName   string
+	connectionPlugin *steampipeconfig.ConnectionPlugin
+	cancel           context.CancelFunc
+	traceCtx         *telemetry.TraceCtx
 
 	startTime time.Time
 }
 
-func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, traceCtx *telemetry.TraceCtx) *scanIterator {
-	return &scanIterator{
-		status:             QueryStatusReady,
-		rows:               make(chan *proto.Row, rowBufferSize),
-		scanMetadata:       make(map[string]*proto.QueryMetadata),
-		hub:                hub,
-		columns:            columns,
-		qualMap:            qualMap,
-		table:              table,
-		connectionName:     connectionName,
-		connectionLimitMap: connectionLimitMap,
-		connectionPlugin:   connectionPlugin,
-		traceCtx:           traceCtx,
-		startTime:          time.Now(),
+func newLegacyScanIterator(hub *Hub, connection *steampipeconfig.ConnectionPlugin, connectionName, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx) *legacyScanIterator {
+	cacheTTL := hub.cacheTTL(connectionName)
+
+	return &legacyScanIterator{
+		status:           QueryStatusReady,
+		rows:             make(chan *proto.Row, rowBufferSize),
+		hub:              hub,
+		columns:          columns,
+		limit:            limit,
+		qualMap:          qualMap,
+		cacheTTL:         cacheTTL,
+		table:            table,
+		connectionName:   connectionName,
+		connectionPlugin: connection,
+		traceCtx:         traceCtx,
+		startTime:        time.Now(),
 	}
 }
 
 // access functions
 
-func (i *scanIterator) ConnectionName() string {
+func (i *legacyScanIterator) ConnectionName() string {
 	return i.connectionName
 }
 
-func (i *scanIterator) Status() queryStatus {
+func (i *legacyScanIterator) Status() queryStatus {
 	return i.status
 }
 
-func (i *scanIterator) Error() error {
+func (i *legacyScanIterator) Error() error {
 	return i.err
 }
 
 // Next implements Iterator
 // return the next row. Nil row means there are no more rows to scan.
-func (i *scanIterator) Next() (map[string]interface{}, error) {
+func (i *legacyScanIterator) Next() (map[string]interface{}, error) {
 	// check the iterator state - has an error occurred
 	if i.status == QueryStatusError {
 		return nil, i.err
@@ -90,8 +85,8 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 
 	if !i.CanIterate() {
 		// this is a bug
-		log.Printf("[WARN] scanIterator cannot iterate: connection %s, status: %s", i.ConnectionName(), i.Status())
-		return nil, fmt.Errorf("scanIterator cannot iterate: connection %s, status: %s", i.ConnectionName(), i.Status())
+		log.Printf("[WARN] legacyScanIterator cannot iterate: connection %s, status: %s", i.ConnectionName(), i.Status())
+		return nil, fmt.Errorf("legacyScanIterator cannot iterate: connection %s, status: %s", i.ConnectionName(), i.Status())
 	}
 
 	row := <-i.rows
@@ -123,21 +118,20 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	return res, nil
 }
 
-func (i *scanIterator) closeSpan() {
+func (i *legacyScanIterator) closeSpan() {
 	// if we have scan metadata, add to span
-	// TODO SUM ALL metadata
-	//if i.scanMetadata != nil {
-	//	i.traceCtx.Span.SetAttributes(
-	//		attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
-	//		attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
-	//		attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
-	//	)
-	//}
+	if i.scanMetadata != nil {
+		i.traceCtx.Span.SetAttributes(
+			attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
+			attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
+			attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
+		)
+	}
 
 	i.traceCtx.Span.End()
 }
 
-func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
+func (i *legacyScanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
 	logging.LogTime("[hub] start")
 	i.status = QueryStatusStarted
 	i.pluginRowStream = stream
@@ -147,7 +141,7 @@ func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx conte
 	go i.readThread(ctx)
 }
 
-func (i *scanIterator) Close() {
+func (i *legacyScanIterator) Close() {
 	// call the context cancellation function
 	i.cancel()
 
@@ -161,7 +155,7 @@ func (i *scanIterator) Close() {
 }
 
 // CanIterate returns true if this iterator has results available to iterate
-func (i *scanIterator) CanIterate() bool {
+func (i *legacyScanIterator) CanIterate() bool {
 	switch i.status {
 	case QueryStatusError, QueryStatusReady, QueryStatusComplete:
 		// scan iterator must be explicitly started - so we cannot iterate is in ready state
@@ -172,31 +166,29 @@ func (i *scanIterator) CanIterate() bool {
 
 }
 
-func (i *scanIterator) GetScanMetadata() []ScanMetadata {
-
-	res := make([]ScanMetadata, len(i.scanMetadata))
-	idx := 0
-	for _, m := range i.scanMetadata {
-		res[idx] = ScanMetadata{
-			Table:        i.table,
-			CacheHit:     m.CacheHit,
-			RowsFetched:  m.RowsFetched,
-			HydrateCalls: m.HydrateCalls,
-			Columns:      i.columns,
-			Quals:        i.qualMap,
-			StartTime:    i.startTime,
-			Duration:     time.Since(i.startTime),
-		}
-		idx++
+func (i *legacyScanIterator) GetScanMetadata() []ScanMetadata {
+	// scan metadata will only be populated for plugins using latest sdk
+	if i.scanMetadata == nil {
+		return nil
 	}
-	return res
+	return []ScanMetadata{{
+		Table:        i.table,
+		CacheHit:     i.scanMetadata.CacheHit,
+		RowsFetched:  i.scanMetadata.RowsFetched,
+		HydrateCalls: i.scanMetadata.HydrateCalls,
+		Columns:      i.columns,
+		Quals:        i.qualMap,
+		Limit:        i.limit,
+		StartTime:    i.startTime,
+		Duration:     time.Since(i.startTime),
+	}}
 }
 
-func (i *scanIterator) GetTraceContext() *telemetry.TraceCtx {
+func (i *legacyScanIterator) GetTraceContext() *telemetry.TraceCtx {
 	return i.traceCtx
 }
 
-func (i *scanIterator) populateRow(row *proto.Row) (map[string]interface{}, error) {
+func (i *legacyScanIterator) populateRow(row *proto.Row) (map[string]interface{}, error) {
 	res := make(map[string]interface{}, len(row.Columns))
 	for columnName, column := range row.Columns {
 		// extract column value as interface from protobuf message
@@ -231,7 +223,7 @@ func (i *scanIterator) populateRow(row *proto.Row) (map[string]interface{}, erro
 // - the stream is complete
 // - there stream returns an error
 // there is a signal on the cancel channel
-func (i *scanIterator) readThread(ctx context.Context) {
+func (i *legacyScanIterator) readThread(ctx context.Context) {
 	// if the iterator is not in a started state, skip
 	// (this can happen if postgres cancels the scan before receiving any results)
 	if i.status == QueryStatusStarted {
@@ -244,7 +236,7 @@ func (i *scanIterator) readThread(ctx context.Context) {
 	close(i.rows)
 }
 
-func (i *scanIterator) readPluginResult(ctx context.Context) bool {
+func (i *legacyScanIterator) readPluginResult(ctx context.Context) bool {
 	continueReading := true
 	var rcvChan = make(chan *proto.ExecuteResponse)
 	var errChan = make(chan error)
@@ -276,8 +268,8 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 			// stop reading
 			continueReading = false
 		} else {
-			// update the scan metadata for this connection (this will overwrite any existing from the previous row)
-			i.scanMetadata[rowResult.Connection] = rowResult.Metadata
+			// update the scan metadata (this will overwrite any existing from the previous row)
+			i.scanMetadata = rowResult.Metadata
 
 			// so we have a row
 			i.rows <- rowResult.Row
@@ -296,7 +288,7 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 }
 
 // if there is an error other than EOF, save error and set state to QueryStatusError
-func (i *scanIterator) setError(err error) {
+func (i *legacyScanIterator) setError(err error) {
 	if err != nil && err.Error() != "EOF" {
 		i.status = QueryStatusError
 		i.err = err

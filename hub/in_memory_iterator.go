@@ -4,41 +4,40 @@ import (
 	"context"
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
-	"github.com/turbot/steampipe-postgres-fdw/hub/cache"
+	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 )
 
-type cacheIterator struct {
+type inMemoryIterator struct {
 	name   string
 	rows   []map[string]interface{}
 	index  int
 	status queryStatus
 }
 
-func newCacheIterator(name string, cachedResult *cache.QueryResult) *cacheIterator {
-	return &cacheIterator{
+func newInMemoryIterator(name string, result *QueryResult) *inMemoryIterator {
+	return &inMemoryIterator{
 		name:   name,
-		rows:   cachedResult.Rows,
+		rows:   result.Rows,
 		status: QueryStatusReady,
 	}
 }
 
 // ConnectionName implements Iterator
-func (i *cacheIterator) ConnectionName() string {
+func (i *inMemoryIterator) ConnectionName() string {
 	return i.name
 }
 
-func (i *cacheIterator) Status() queryStatus {
+func (i *inMemoryIterator) Status() queryStatus {
 	return i.status
 }
 
-func (i *cacheIterator) Error() error {
+func (i *inMemoryIterator) Error() error {
 	return nil
 }
 
 // Next implements Iterator
 // return next row (tuple). Nil slice means there is no more rows to scan.
-func (i *cacheIterator) Next() (map[string]interface{}, error) {
+func (i *inMemoryIterator) Next() (map[string]interface{}, error) {
 	if i.status == QueryStatusReady {
 		i.status = QueryStatusStarted
 	}
@@ -47,21 +46,21 @@ func (i *cacheIterator) Next() (map[string]interface{}, error) {
 		i.index++
 		return i.rows[idx], nil
 	}
-	log.Printf("[TRACE] cacheIterator Next() complete (%p)", i)
+	log.Printf("[TRACE] inMemoryIterator Next() complete (%p)", i)
 	i.status = QueryStatusComplete
 	return nil, nil
 }
 
 // Close implements Iterator
 // clear the rows and the index
-func (i *cacheIterator) Close(bool) {
-	log.Printf("[TRACE] cacheIterator Close() (%p)", i)
+func (i *inMemoryIterator) Close() {
+	log.Printf("[TRACE] inMemoryIterator Close() (%p)", i)
 	i.index = 0
 	i.rows = nil
 	i.status = QueryStatusReady
 }
 
-func (i *cacheIterator) CanIterate() bool {
+func (i *inMemoryIterator) CanIterate() bool {
 	switch i.status {
 	case QueryStatusError, QueryStatusComplete:
 		return false
@@ -70,9 +69,9 @@ func (i *cacheIterator) CanIterate() bool {
 	}
 }
 
-func (i *cacheIterator) GetScanMetadata() []ScanMetadata {
+func (i *inMemoryIterator) GetScanMetadata() []ScanMetadata {
 	return nil
 }
-func (i *cacheIterator) GetTraceContext() *telemetry.TraceCtx {
+func (i *inMemoryIterator) GetTraceContext() *telemetry.TraceCtx {
 	return &telemetry.TraceCtx{Ctx: context.Background()}
 }

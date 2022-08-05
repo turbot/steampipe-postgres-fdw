@@ -1,3 +1,7 @@
+## v1.3.0 [2022-08-05]
+_What's new?_
+* Add support for a single plugin instance hosting multiple Steampipe connections, rather than an instance per connection. ([#226](https://github.com/turbot/steampipe-postgres-fdw/issues/226))
+
 ## v1.2.2 [2022-07-21]
 _Bug fixes_
 * Fix build issue which causes failure to load FDW on Arm Docker images. ([#219](https://github.com/turbot/steampipe-postgres-fdw/issues/219))

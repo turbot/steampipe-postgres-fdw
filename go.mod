@@ -2,20 +2,15 @@ module github.com/turbot/steampipe-postgres-fdw
 
 go 1.19
 
-replace github.com/turbot/steampipe-plugin-sdk/v3 => /Users/kai/Dev/github/turbot/steampipe-plugin-sdk
-
-replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
-
 require (
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/go-hclog v1.2.2
 	github.com/hashicorp/go-version v1.6.0
 	github.com/turbot/go-kit v0.4.0
-	// main
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20220627103827-5c71612f5753
-	github.com/turbot/steampipe-plugin-sdk/v3 v3.3.0
-	go.opentelemetry.io/otel v1.8.0
+	github.com/turbot/steampipe v0.16.0-rc.6
+	github.com/turbot/steampipe-plugin-sdk/v4 v4.0.1-alpha.0
+	go.opentelemetry.io/otel v1.7.0
 	google.golang.org/protobuf v1.28.1
 )
 
@@ -38,18 +33,19 @@ require (
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/bradfitz/gomemcache v0.0.0-20220106215444-fb4bf637b56d // indirect
-	github.com/briandowns/spinner v1.18.1 // indirect
+	github.com/briandowns/spinner v1.19.0 // indirect
 	github.com/btubbs/datetime v0.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/cgroups v1.0.1 // indirect
-	github.com/containerd/containerd v1.4.12 // indirect
+	github.com/containerd/containerd v1.4.13 // indirect
 	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
-	github.com/deislabs/oras v0.8.1 // indirect
+	github.com/deislabs/oras v0.9.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eko/gocache/v3 v3.1.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
+	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
@@ -158,3 +154,9 @@ require (
 	k8s.io/apimachinery v0.23.5 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/docker/distribution => github.com/distribution/distribution v2.7.1+incompatible
+
+replace github.com/deislabs/oras => github.com/oras-project/oras v0.9.0
+
+replace github.com/docker/docker => github.com/moby/moby v20.10.17+incompatible

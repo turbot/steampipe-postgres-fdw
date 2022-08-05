@@ -146,7 +146,7 @@ func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionN
 func (f *connectionFactory) add(connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName string) {
 	if connectionPlugin.SupportedOperations.MultipleConnections {
 		// if this plugin supports multiple connections, add to multiConnectionPlugins map but not to connectionPlugins
-		// ( we cannot cache the conneciton plugin as the associated connections may change
+		// ( we cannot cache the connection plugin as the associated connections may change
 		// based on connection config changes)
 		f.multiConnectionPlugins[connectionPlugin.PluginName] = true
 		return

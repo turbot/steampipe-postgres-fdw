@@ -68,15 +68,8 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 	f.connectionLock.Lock()
 	defer f.connectionLock.Unlock()
 
-	// if we have already loaded this plugin and it supports multi connections, we do not cache it locally
-	// (as the connection list may have changed)
-	if f.multiConnectionPlugins[pluginFQN] {
-		log.Printf("[TRACE] %s supports multi connections, refetching from plugin manager", pluginFQN)
-		return nil, nil
-	}
 	// build a map key for the plugin
-	key := f.legacyConnectionPluginKey(pluginFQN, connectionName)
-	log.Printf("[TRACE] %s is a legacy connections, using key %s", connectionName, key)
+	key := f.connectionPluginKey(pluginFQN, connectionName)
 
 	c, gotConnectionPlugin := f.connectionPlugins[key]
 	if gotConnectionPlugin && !c.PluginClient.Exited() {
@@ -94,7 +87,7 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 	return nil, nil
 }
 
-func (f *connectionFactory) legacyConnectionPluginKey(pluginFQN string, connectionName string) string {
+func (f *connectionFactory) connectionPluginKey(pluginFQN string, connectionName string) string {
 	return fmt.Sprintf("%s%s%s", pluginFQN, keySeparator, connectionName)
 }
 
@@ -144,18 +137,24 @@ func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionN
 }
 
 func (f *connectionFactory) add(connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName string) {
+	// for multi connections, add entry for all connections supported
 	if connectionPlugin.SupportedOperations.MultipleConnections {
+		log.Printf("[TRACE] connectionFactory add %s - supported multi connections so adding all connections", connectionName)
 		// if this plugin supports multiple connections, add to multiConnectionPlugins map but not to connectionPlugins
 		// ( we cannot cache the connection plugin as the associated connections may change
 		// based on connection config changes)
 		f.multiConnectionPlugins[connectionPlugin.PluginName] = true
-		return
+		for c := range connectionPlugin.ConnectionMap {
+			log.Printf("[TRACE] add %s", c)
+			connectionPluginKey := f.connectionPluginKey(connectionPlugin.PluginName, c)
+			// TODO check works when adding a new connection
+			f.connectionPlugins[connectionPluginKey] = connectionPlugin
+		}
+	} else {
+		// add single connection to map
+		connectionPluginKey := f.connectionPluginKey(connectionPlugin.PluginName, connectionName)
+		f.connectionPlugins[connectionPluginKey] = connectionPlugin
 	}
-	// for legacy plugins, include the connection name in the key
-	connectionPluginKey := f.legacyConnectionPluginKey(connectionPlugin.PluginName, connectionName)
-
-	// add to map
-	f.connectionPlugins[connectionPluginKey] = connectionPlugin
 }
 
 func (f *connectionFactory) getSchema(pluginFQN, connectionName string) (*proto.Schema, error) {

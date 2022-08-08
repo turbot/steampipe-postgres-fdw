@@ -325,14 +325,15 @@ func (h *Hub) LoadConnectionConfig() (bool, error) {
 }
 
 // GetRelSize is a method called from the planner to estimate the resulting relation size for a scan.
-//        It will help the planner in deciding between different types of plans,
-//        according to their costs.
-//        Args:
-//            columns (list): The list of columns that must be returned.
-//            quals (list): A list of Qual instances describing the filters
-//                applied to this scan.
-//        Returns:
-//            A struct of the form (expected_number_of_rows, avg_row_width (in bytes))
+//
+//	It will help the planner in deciding between different types of plans,
+//	according to their costs.
+//	Args:
+//	    columns (list): The list of columns that must be returned.
+//	    quals (list): A list of Qual instances describing the filters
+//	        applied to this scan.
+//	Returns:
+//	    A struct of the form (expected_number_of_rows, avg_row_width (in bytes))
 func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Options) (types.RelSize, error) {
 	result := types.RelSize{
 		// Default to 1M rows, because these tables are typically expensive
@@ -345,43 +346,44 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 }
 
 // GetPathKeys Is a method called from the planner to add additional Path to the planner.
-//        By default, the planner generates an (unparameterized) path, which
-//        can be reasoned about like a SequentialScan, optionally filtered.
-//        This method allows the implementor to declare other Paths,
-//        corresponding to faster access methods for specific attributes.
-//        Such a parameterized path can be reasoned about like an IndexScan.
-//        For example, with the following query::
-//            select * from foreign_table inner join local_table using(id);
-//        where foreign_table is a foreign table containing 100000 rows, and
-//        local_table is a regular table containing 100 rows.
-//        The previous query would probably be transformed to a plan similar to
-//        this one::
-//            ┌────────────────────────────────────────────────────────────────────────────────────┐
-//            │                                     QUERY PLAN                                     │
-//            ├────────────────────────────────────────────────────────────────────────────────────┤
-//            │ Hash Join  (cost=57.67..4021812.67 rows=615000 width=68)                           │
-//            │   Hash Cond: (foreign_table.id = local_table.id)                                   │
-//            │   ->  Foreign Scan on foreign_table (cost=20.00..4000000.00 rows=100000 width=40)  │
-//            │   ->  Hash  (cost=22.30..22.30 rows=1230 width=36)                                 │
-//            │         ->  Seq Scan on local_table (cost=0.00..22.30 rows=1230 width=36)          │
-//            └────────────────────────────────────────────────────────────────────────────────────┘
-//        But with a parameterized path declared on the id key, with the knowledge that this key
-//        is unique on the foreign side, the following plan might get chosen::
-//            ┌───────────────────────────────────────────────────────────────────────┐
-//            │                              QUERY PLAN                               │
-//            ├───────────────────────────────────────────────────────────────────────┤
-//            │ Nested Loop  (cost=20.00..49234.60 rows=615000 width=68)              │
-//            │   ->  Seq Scan on local_table (cost=0.00..22.30 rows=1230 width=36)   │
-//            │   ->  Foreign Scan on remote_table (cost=20.00..40.00 rows=1 width=40)│
-//            │         Filter: (id = local_table.id)                                 │
-//            └───────────────────────────────────────────────────────────────────────┘
-//        Returns:
-//            A list of tuples of the form: (key_columns, expected_rows),
-//            where key_columns is a tuple containing the columns on which
-//            the path can be used, and expected_rows is the number of rows
-//            this path might return for a simple lookup.
-//            For example, the return value corresponding to the previous scenario would be::
-//                [(('id',), 1)]
+//
+//	By default, the planner generates an (unparameterized) path, which
+//	can be reasoned about like a SequentialScan, optionally filtered.
+//	This method allows the implementor to declare other Paths,
+//	corresponding to faster access methods for specific attributes.
+//	Such a parameterized path can be reasoned about like an IndexScan.
+//	For example, with the following query::
+//	    select * from foreign_table inner join local_table using(id);
+//	where foreign_table is a foreign table containing 100000 rows, and
+//	local_table is a regular table containing 100 rows.
+//	The previous query would probably be transformed to a plan similar to
+//	this one::
+//	    ┌────────────────────────────────────────────────────────────────────────────────────┐
+//	    │                                     QUERY PLAN                                     │
+//	    ├────────────────────────────────────────────────────────────────────────────────────┤
+//	    │ Hash Join  (cost=57.67..4021812.67 rows=615000 width=68)                           │
+//	    │   Hash Cond: (foreign_table.id = local_table.id)                                   │
+//	    │   ->  Foreign Scan on foreign_table (cost=20.00..4000000.00 rows=100000 width=40)  │
+//	    │   ->  Hash  (cost=22.30..22.30 rows=1230 width=36)                                 │
+//	    │         ->  Seq Scan on local_table (cost=0.00..22.30 rows=1230 width=36)          │
+//	    └────────────────────────────────────────────────────────────────────────────────────┘
+//	But with a parameterized path declared on the id key, with the knowledge that this key
+//	is unique on the foreign side, the following plan might get chosen::
+//	    ┌───────────────────────────────────────────────────────────────────────┐
+//	    │                              QUERY PLAN                               │
+//	    ├───────────────────────────────────────────────────────────────────────┤
+//	    │ Nested Loop  (cost=20.00..49234.60 rows=615000 width=68)              │
+//	    │   ->  Seq Scan on local_table (cost=0.00..22.30 rows=1230 width=36)   │
+//	    │   ->  Foreign Scan on remote_table (cost=20.00..40.00 rows=1 width=40)│
+//	    │         Filter: (id = local_table.id)                                 │
+//	    └───────────────────────────────────────────────────────────────────────┘
+//	Returns:
+//	    A list of tuples of the form: (key_columns, expected_rows),
+//	    where key_columns is a tuple containing the columns on which
+//	    the path can be used, and expected_rows is the number of rows
+//	    this path might return for a simple lookup.
+//	    For example, the return value corresponding to the previous scenario would be::
+//	        [(('id',), 1)]
 func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 
 	connectionName := opts["connection"]
@@ -440,8 +442,9 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 }
 
 // Explain ::  hook called on explain.
-//        Returns:
-//            An iterable of strings to display in the EXPLAIN output.
+//
+//	Returns:
+//	    An iterable of strings to display in the EXPLAIN output.
 func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, verbose bool, opts types.Options) ([]string, error) {
 	return make([]string, 0), nil
 }
@@ -715,12 +718,13 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	// get the plugin FQN
 	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
 	if !ok {
+		log.Printf("[WARN] no connection config loaded for connection '%s'", connectionName)
 		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
 	}
 	pluginFQN := connectionConfig.Plugin
 
 	// ask connection map to get or create this connection
-	c, err := h.connections.createConnectionPlugin(pluginFQN, connectionName)
+	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
 	if err != nil {
 		return nil, err
 	}

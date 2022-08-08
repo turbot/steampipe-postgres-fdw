@@ -28,6 +28,7 @@ import (
 var logger hclog.Logger
 
 // force loading of this module
+//
 //export goInit
 func goInit() {}
 

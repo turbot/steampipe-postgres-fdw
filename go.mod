@@ -16,7 +16,7 @@ require (
 
 require (
 	github.com/Masterminds/semver v1.5.0
-	go.opentelemetry.io/otel/metric v0.30.0
+	go.opentelemetry.io/otel/metric v0.31.0
 )
 
 require (

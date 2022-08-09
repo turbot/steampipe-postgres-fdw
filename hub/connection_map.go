@@ -147,8 +147,11 @@ func (f *connectionFactory) add(connectionPlugin *steampipeconfig.ConnectionPlug
 		for c := range connectionPlugin.ConnectionMap {
 			log.Printf("[TRACE] add %s", c)
 			connectionPluginKey := f.connectionPluginKey(connectionPlugin.PluginName, c)
-			// TODO check works when adding a new connection
-			f.connectionPlugins[connectionPluginKey] = connectionPlugin
+			// NOTE: there may already be map entries for some connections
+			// - this could occur if the filewatcher detects a connection added for a plugin
+			if _, ok := f.connectionPlugins[connectionPluginKey]; !ok {
+				f.connectionPlugins[connectionPluginKey] = connectionPlugin
+			}
 		}
 	} else {
 		// add single connection to map

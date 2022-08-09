@@ -111,8 +111,6 @@ func LegacyKeyColumnsToPathKeys(requiredColumns, optionalColumns *proto.KeyColum
 
 	// otherwise build paths based just on required columns
 	return columnPathsToPathKeys(requiredColumnSets, allColumns, 1)
-
-	// TODO consider whether we need to add  paths for required+optional+other columns as well??
 }
 
 // LegacyKeyColumnsToColumnPaths returns a list of all the column sets to use in path keys

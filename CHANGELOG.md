@@ -1,3 +1,7 @@
+## v1.3.1 [2022-08-09]
+_Bug fixes_
+* Ensure ConnectionPlugins (i.e. plugin GRPC clients) are cached by the hub. ([#230](https://github.com/turbot/steampipe-postgres-fdw/issues/230))
+
 ## v1.3.0 [2022-08-05]
 _What's new?_
 * Add support for a single plugin instance hosting multiple Steampipe connections, rather than an instance per connection. ([#226](https://github.com/turbot/steampipe-postgres-fdw/issues/226))

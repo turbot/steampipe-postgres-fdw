@@ -125,7 +125,7 @@ func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionN
 func (f *connectionFactory) add(connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName string) {
 	log.Printf("[TRACE] connectionFactory add %s - adding all connections supported by plugin", connectionName)
 
-	// for multi connections, add entry for all connections supported
+	// add a map entry for all connections supported by the plugib
 	for c := range connectionPlugin.ConnectionMap {
 		log.Printf("[TRACE] add %s", c)
 		connectionPluginKey := f.connectionPluginKey(connectionPlugin.PluginName, c)

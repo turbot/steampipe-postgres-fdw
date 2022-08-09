@@ -176,6 +176,10 @@ func (i *legacyGroupIterator) Close() {
 	i.traceCtx.Span.End()
 }
 
+func (i *legacyGroupIterator) Abort() {
+	// for legacy iterator just call close
+	i.Close()
+}
 func (i *legacyGroupIterator) CanIterate() bool {
 	switch i.Status() {
 	case QueryStatusError, QueryStatusComplete:

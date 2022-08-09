@@ -19,29 +19,15 @@ const keySeparator = `\\`
 // connectionFactory is responsible for creating and storing connectionPlugins
 type connectionFactory struct {
 	connectionPlugins map[string]*steampipeconfig.ConnectionPlugin
-	// map of loaded multi-connection plugins, keyed by plugin FQN
-	multiConnectionPlugins map[string]bool
-	hub                    *Hub
-	connectionLock         sync.Mutex
+	hub               *Hub
+	connectionLock    sync.Mutex
 }
 
 func newConnectionFactory(hub *Hub) *connectionFactory {
 	return &connectionFactory{
-		connectionPlugins:      make(map[string]*steampipeconfig.ConnectionPlugin),
-		multiConnectionPlugins: make(map[string]bool),
-		hub:                    hub,
+		connectionPlugins: make(map[string]*steampipeconfig.ConnectionPlugin),
+		hub:               hub,
 	}
-}
-
-// build a map key for the plugin
-func (f *connectionFactory) getPluginKey(pluginFQN, connectionName string) string {
-	// if we have already loaded this plugin and it supports multi connections, just use FQN
-	if f.multiConnectionPlugins[pluginFQN] {
-		return pluginFQN
-	}
-
-	// otherwise assume a legacy plugin and include connection name in key
-	return fmt.Sprintf("%s%s%s", pluginFQN, keySeparator, connectionName)
 }
 
 // extract the plugin FQN and connection name from a map key
@@ -137,26 +123,17 @@ func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionN
 }
 
 func (f *connectionFactory) add(connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName string) {
+	log.Printf("[TRACE] connectionFactory add %s - adding all connections supported by plugin", connectionName)
+
 	// for multi connections, add entry for all connections supported
-	if connectionPlugin.SupportedOperations.MultipleConnections {
-		log.Printf("[TRACE] connectionFactory add %s - supported multi connections so adding all connections", connectionName)
-		// if this plugin supports multiple connections, add to multiConnectionPlugins map but not to connectionPlugins
-		// ( we cannot cache the connection plugin as the associated connections may change
-		// based on connection config changes)
-		f.multiConnectionPlugins[connectionPlugin.PluginName] = true
-		for c := range connectionPlugin.ConnectionMap {
-			log.Printf("[TRACE] add %s", c)
-			connectionPluginKey := f.connectionPluginKey(connectionPlugin.PluginName, c)
-			// NOTE: there may already be map entries for some connections
-			// - this could occur if the filewatcher detects a connection added for a plugin
-			if _, ok := f.connectionPlugins[connectionPluginKey]; !ok {
-				f.connectionPlugins[connectionPluginKey] = connectionPlugin
-			}
+	for c := range connectionPlugin.ConnectionMap {
+		log.Printf("[TRACE] add %s", c)
+		connectionPluginKey := f.connectionPluginKey(connectionPlugin.PluginName, c)
+		// NOTE: there may already be map entries for some connections
+		// - this could occur if the filewatcher detects a connection added for a plugin
+		if _, ok := f.connectionPlugins[connectionPluginKey]; !ok {
+			f.connectionPlugins[connectionPluginKey] = connectionPlugin
 		}
-	} else {
-		// add single connection to map
-		connectionPluginKey := f.connectionPluginKey(connectionPlugin.PluginName, connectionName)
-		f.connectionPlugins[connectionPluginKey] = connectionPlugin
 	}
 }
 

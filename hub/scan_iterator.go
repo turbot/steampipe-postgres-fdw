@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"log"
 	"time"
 
@@ -45,8 +44,8 @@ type scanIterator struct {
 	connectionPlugin   *steampipeconfig.ConnectionPlugin
 	cancel             context.CancelFunc
 	traceCtx           *telemetry.TraceCtx
-	startTime          time.Time
-	callId             string
+
+	startTime time.Time
 }
 
 func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, traceCtx *telemetry.TraceCtx) *scanIterator {
@@ -63,7 +62,6 @@ func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugi
 		connectionPlugin:   connectionPlugin,
 		traceCtx:           traceCtx,
 		startTime:          time.Now(),
-		callId:             grpc.BuildCallId(),
 	}
 }
 
@@ -150,21 +148,6 @@ func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx conte
 }
 
 func (i *scanIterator) Close() {
-	// first, send a message to our plugin terminating execution
-	// (to ensure that after the context is cancelled, data is written to the cache)
-	req := &proto.EndExecuteRequest{
-		CallId: i.callId,
-	}
-	err := i.connectionPlugin.PluginClient.EndExecute(req)
-	if err != nil {
-		log.Printf("[WARN] EndExecute failed: %s", err.Error())
-	}
-
-	// now call abort to shut down the iterator and cancel the context
-	i.Abort()
-}
-
-func (i *scanIterator) Abort() {
 	// call the context cancellation function
 	i.cancel()
 

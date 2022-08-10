@@ -9,10 +9,8 @@ type Iterator interface {
 	ConnectionName() string
 	// Next returns next row. Nil slice means there is no more rows to scan.
 	Next() (map[string]interface{}, error)
-	// Close stops an iteration, ensures the plugin writes outstanding data to the cache and frees any resources.
+	// Close stops an iteration and frees any resources.
 	Close()
-	// Abort stops an iteration,and frees any resources.
-	Abort()
 	Status() queryStatus
 	Error() error
 	CanIterate() bool

@@ -1,6 +1,5 @@
-## v1.4.0 [tbd]
-_What's new_
-* Call plugin `EndExecute` when Postgres calls `EndForeignScan`, to ensure plugin caches all data. ([#232](https://github.com/turbot/steampipe-postgres-fdw/issues/232))
+## v1.3.2 [2022-08-23]
+* Update referenced `steampipe-plugin-sdk` and `steampipe` version
 
 ## v1.3.1 [2022-08-09]
 _Bug fixes_

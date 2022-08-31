@@ -18,7 +18,7 @@ func newInMemoryIterator(name string, result *QueryResult) *inMemoryIterator {
 	return &inMemoryIterator{
 		name:   name,
 		rows:   result.Rows,
-		status: QueryStatusReady,
+		status: QueryStatusStarted, // set as started
 	}
 }
 
@@ -38,10 +38,6 @@ func (i *inMemoryIterator) Error() error {
 // Next implements Iterator
 // return next row (tuple). Nil slice means there is no more rows to scan.
 func (i *inMemoryIterator) Next() (map[string]interface{}, error) {
-	if i.status == QueryStatusReady {
-		i.status = QueryStatusStarted
-	}
-
 	if idx := i.index; idx < len(i.rows) {
 		i.index++
 		return i.rows[idx], nil

@@ -184,6 +184,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
+	// read the explain flag
+	explain := eflags&C.EXEC_FLAG_EXPLAIN_ONLY == C.EXEC_FLAG_EXPLAIN_ONLY
 
 	logging.LogTime("[fdw] BeginForeignScan start")
 	rel := BuildRelation(node.ss.ss_currentRelation)
@@ -191,7 +193,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = rel.Namespace
 
-	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s' \n", opts["connection"], opts["table"])
+	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s', explain: %v \n", opts["connection"], opts["table"], explain)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -224,18 +226,21 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 		FdwError(err)
 	}
 
-	iter, err := pluginHub.Scan(columns, quals, int64(execState.limit), opts)
-	if err != nil {
-		log.Printf("[WARN] pluginHub.Scan FAILED: %s", err)
-		FdwError(err)
-		return
-	}
-
 	s := &ExecState{
-		Rel:   rel,
-		Opts:  opts,
-		Iter:  iter,
+		Rel:  rel,
+		Opts: opts,
+
 		State: execState,
+	}
+	// if we are NOT explaining, create an iterator to scan for us
+	if !explain {
+		iter, err := pluginHub.GetIterator(columns, quals, int64(execState.limit), opts)
+		if err != nil {
+			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
+			FdwError(err)
+			return
+		}
+		s.Iter = iter
 	}
 
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
@@ -258,7 +263,16 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
+	pluginHub, _ := hub.GetHub()
 
+	// if the iterator has not started, start
+	if s.Iter.Status() == hub.QueryStatusReady {
+		log.Printf("[TRACE] goFdwIterateForeignScan calling pluginHub.StartScan")
+		if err := pluginHub.StartScan(s.Iter); err != nil {
+			FdwError(err)
+			return slot
+		}
+	}
 	// call the iterator
 	// row is a map of column name to value (as an interface)
 	row, err := s.Iter.Next()
@@ -270,7 +284,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	if len(row) == 0 {
 		log.Printf("[TRACE] goFdwIterateForeignScan returned empty row - this scan complete (%p)", s.Iter)
 		// add scan metadata to hub
-		pluginHub, _ := hub.GetHub()
 		pluginHub.AddScanMetadata(s.Iter)
 		logging.LogTime("[fdw] IterateForeignScan end")
 		// show profiling - ignore intervals less than 1ms

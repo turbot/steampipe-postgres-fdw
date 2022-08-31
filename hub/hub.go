@@ -175,6 +175,18 @@ func (h *Hub) EndScan(iter Iterator, limit int64) {
 // we append to this every time a scan completes (either due to end of data, or Postgres terminating)
 // the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
 func (h *Hub) AddScanMetadata(iter Iterator) {
+	// nothing to do for an in memory iterator
+	if _, ok := iter.(*inMemoryIterator); ok {
+		return
+	}
+	// if this is a group iterator, recurse into AddScanMetadata for each underlying iterator
+	if g, ok := iter.(*legacyGroupIterator); ok {
+		for _, i := range g.Iterators {
+			h.AddScanMetadata(i)
+		}
+		return
+	}
+
 	log.Printf("[TRACE] AddScanMetadata for iterator %p (%s)", iter, iter.ConnectionName())
 	// get the id of the last metadata item we currently have
 	// (id starts at 1)
@@ -184,14 +196,6 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 		id = h.scanMetadata[metadataLen-1].Id + 1
 	}
 	ctx := iter.GetTraceContext().Ctx
-
-	// if this is a group iterator, recurse into AddScanMetadata for each underlying iterator
-	if g, ok := iter.(*legacyGroupIterator); ok {
-		for _, i := range g.Iterators {
-			h.AddScanMetadata(i)
-		}
-		return
-	}
 
 	connectionName := iter.ConnectionName()
 	connectionPlugin, _ := h.getConnectionPlugin(connectionName)
@@ -274,13 +278,13 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 	return h.connections.getSchema(pluginFQN, connectionName)
 }
 
-// Scan starts a table scan and returns an iterator
-func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types.Options) (Iterator, error) {
-	logging.LogTime("Scan start")
+// GetIterator creates and returns an iterator
+func (h *Hub) GetIterator(columns []string, quals *proto.Quals, limit int64, opts types.Options) (Iterator, error) {
+	logging.LogTime("GetIterator start")
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
 	table := opts["table"]
-	log.Printf("[TRACE] Hub Scan() table '%s'", table)
+	log.Printf("[TRACE] Hub GetIterator() table '%s'", table)
 
 	if connectionName == constants.CommandSchema {
 		return h.executeCommandScan(table)
@@ -293,14 +297,14 @@ func (h *Hub) Scan(columns []string, quals *proto.Quals, limit int64, opts types
 	// if this is an aggregate connection, create a group iterator
 	if h.IsLegacyAggregatorConnection(connectionName) {
 		iterator, err = newLegacyGroupIterator(connectionName, table, qualMap, columns, limit, h, scanTraceCtx)
-		log.Printf("[TRACE] Hub Scan() created aggregate iterator (%p)", iterator)
+		log.Printf("[TRACE] Hub GetIterator() created aggregate iterator (%p)", iterator)
 
 	} else {
 		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit, scanTraceCtx)
-		log.Printf("[TRACE] Hub Scan() created iterator (%p)", iterator)
+		log.Printf("[TRACE] Hub GetIterator() created iterator (%p)", iterator)
 	}
 	if err != nil {
-		log.Printf("[TRACE] Hub Scan() failed :( %s", err)
+		log.Printf("[TRACE] Hub GetIterator() failed :( %s", err)
 		return nil, err
 	}
 
@@ -363,9 +367,9 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //	    ├────────────────────────────────────────────────────────────────────────────────────┤
 //	    │ Hash Join  (cost=57.67..4021812.67 rows=615000 width=68)                           │
 //	    │   Hash Cond: (foreign_table.id = local_table.id)                                   │
-//	    │   ->  Foreign Scan on foreign_table (cost=20.00..4000000.00 rows=100000 width=40)  │
+//	    │   ->  Foreign GetIterator on foreign_table (cost=20.00..4000000.00 rows=100000 width=40)  │
 //	    │   ->  Hash  (cost=22.30..22.30 rows=1230 width=36)                                 │
-//	    │         ->  Seq Scan on local_table (cost=0.00..22.30 rows=1230 width=36)          │
+//	    │         ->  Seq GetIterator on local_table (cost=0.00..22.30 rows=1230 width=36)          │
 //	    └────────────────────────────────────────────────────────────────────────────────────┘
 //	But with a parameterized path declared on the id key, with the knowledge that this key
 //	is unique on the foreign side, the following plan might get chosen::
@@ -373,8 +377,8 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //	    │                              QUERY PLAN                               │
 //	    ├───────────────────────────────────────────────────────────────────────┤
 //	    │ Nested Loop  (cost=20.00..49234.60 rows=615000 width=68)              │
-//	    │   ->  Seq Scan on local_table (cost=0.00..22.30 rows=1230 width=36)   │
-//	    │   ->  Foreign Scan on remote_table (cost=20.00..40.00 rows=1 width=40)│
+//	    │   ->  Seq GetIterator on local_table (cost=0.00..22.30 rows=1230 width=36)   │
+//	    │   ->  Foreign GetIterator on remote_table (cost=20.00..40.00 rows=1 width=40)│
 //	    │         Filter: (id = local_table.id)                                 │
 //	    └───────────────────────────────────────────────────────────────────────┘
 //	Returns:
@@ -452,7 +456,7 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 //// internal implementation ////
 
 func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *telemetry.TraceCtx {
-	ctx, span := telemetry.StartSpan(context.Background(), constants.FdwName, "Hub.Scan (%s)", table)
+	ctx, span := telemetry.StartSpan(context.Background(), constants.FdwName, "Hub.GetIterator (%s)", table)
 	span.SetAttributes(
 		attribute.StringSlice("columns", columns),
 		attribute.String("table", table),
@@ -510,13 +514,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	}
 
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-	iterator := newScanIterator(h, connectionPlugin, connectionName, table, connectionLimitMap, qualMap, columns, scanTraceCtx)
-
-	if err := h.startScan(iterator, queryContext, scanTraceCtx); err != nil {
-		return nil, err
-	}
-
+	iterator := newScanIterator(h, connectionPlugin, connectionName, table, connectionLimitMap, qualMap, columns, limit, scanTraceCtx)
 	return iterator, nil
 }
 
@@ -634,8 +632,15 @@ func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals,
 	return true
 }
 
-// split startScan into a separate function to allow iterator to restart the scan
-func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext, traceCtx *telemetry.TraceCtx) error {
+// StartScan starts a scan (for scanIterators only = legacy iterators will have already started)
+func (h *Hub) StartScan(i Iterator) error {
+	// if iterator is not a scan iterator, do nothing
+	iterator, ok := i.(*scanIterator)
+	if !ok {
+		return nil
+	}
+
+	// iterator must be a scan iterator
 	// ensure we do not call execute too frequently
 	h.throttle()
 
@@ -645,9 +650,9 @@ func (h *Hub) startScan(iterator *scanIterator, queryContext *proto.QueryContext
 
 	req := &proto.ExecuteRequest{
 		Table:                 table,
-		QueryContext:          queryContext,
+		QueryContext:          iterator.queryContext,
 		CallId:                callId,
-		TraceContext:          grpc.CreateCarrierFromContext(traceCtx.Ctx),
+		TraceContext:          grpc.CreateCarrierFromContext(iterator.traceCtx.Ctx),
 		ExecuteConnectionData: make(map[string]*proto.ExecuteConnectionData),
 	}
 

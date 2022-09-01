@@ -97,8 +97,8 @@ jobs:
         run: |-
           REF="$CORE_REPO/$IMAGE_NAME:$GITHUB_RUN_ID"
           oras push $REF \
-              --manifest-config config.json:application/vnd.turbot.steampipe.config.v1+json \
-              --manifest-annotations annotations.json \
+              --config config.json:application/vnd.turbot.steampipe.config.v1+json \
+              --annotation-file annotations.json \
                 steampipe_postgres_fdw.so.darwin_amd64.gz:application/vnd.turbot.steampipe.fdw.darwin-amd64.layer.v1+gzip \
                 steampipe_postgres_fdw.so.linux_amd64.gz:application/vnd.turbot.steampipe.fdw.linux-amd64.layer.v1+gzip \
                 steampipe_postgres_fdw.so.darwin_arm64.gz:application/vnd.turbot.steampipe.fdw.darwin-arm64.layer.v1+gzip \

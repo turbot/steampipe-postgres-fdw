@@ -227,9 +227,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	}
 
 	s := &ExecState{
-		Rel:  rel,
-		Opts: opts,
-
+		Rel:   rel,
+		Opts:  opts,
 		State: execState,
 	}
 	// if we are NOT explaining, create an iterator to scan for us

@@ -1,3 +1,6 @@
+## v1.4.0 [tbd]
+* Do not start scan until the first time `IterateForeignScan` is called. Do not create an iterator in `StartForeignScan` if flag `EXEC_FLAG_EXPLAIN_ONLY` is set. ([#237](https://github.com/turbot/steampipe-postgres-fdw/issues/237))
+
 ## v1.3.2 [2022-08-23]
 * Update referenced `steampipe-plugin-sdk` and `steampipe` version
 

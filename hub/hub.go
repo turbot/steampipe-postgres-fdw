@@ -456,7 +456,7 @@ func (h *Hub) Explain(columns []string, quals []*proto.Qual, sortKeys []string, 
 //// internal implementation ////
 
 func (h *Hub) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *telemetry.TraceCtx {
-	ctx, span := telemetry.StartSpan(context.Background(), constants.FdwName, "Hub.GetIterator (%s)", table)
+	ctx, span := telemetry.StartSpan(context.Background(), constants.FdwName, "Hub.Scan (%s)", table)
 	span.SetAttributes(
 		attribute.StringSlice("columns", columns),
 		attribute.String("table", table),

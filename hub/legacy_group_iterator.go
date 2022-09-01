@@ -42,7 +42,7 @@ func newLegacyGroupIterator(name string, table string, qualMap map[string]*proto
 	var errors []error
 	for connectionName := range connectionConfig.Connections {
 		// create a child span for this connection
-		ctx, span := telemetry.StartSpan(scanTraceCtx.Ctx, constants.FdwName, "ChildConnection.GetIterator (%s)", table)
+		ctx, span := telemetry.StartSpan(scanTraceCtx.Ctx, constants.FdwName, "ChildConnection.Scan (%s)", table)
 		span.SetAttributes(
 			attribute.String("connection", connectionName),
 		)

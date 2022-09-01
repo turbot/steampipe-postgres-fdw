@@ -26,8 +26,8 @@ jobs:
         which pg_config
         ls -l $(which pg_config)
         PGXS=$(pg_config --pgxs)
-        SERVER_LIB=$(pg_config --includedir)/postgresql/server
-        INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+        SERVER_LIB=$(pg_config --includedir)/server
+        INTERNAL_LIB=$(pg_config --includedir)/internal
 
         echo $PGXS
         echo $SERVER_LIB
@@ -76,8 +76,8 @@ jobs:
         export PATH=$(pg_config --bindir):$PATH
         export PGXS=$(pg_config --pgxs)
     
-        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
-        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
 
         export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
         export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
@@ -102,8 +102,8 @@ jobs:
         export PATH=$(pg_config --bindir):$PATH
         export PGXS=$(pg_config --pgxs)
     
-        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
-        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
 
         export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
         export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
@@ -127,8 +127,8 @@ jobs:
         export PATH=$(pg_config --bindir):$PATH
         export PGXS=$(pg_config --pgxs)
     
-        export SERVER_LIB=$(pg_config --includedir)/postgresql/server
-        export INTERNAL_LIB=$(pg_config --includedir)/postgresql/internal
+        export SERVER_LIB=$(pg_config --includedir)/server
+        export INTERNAL_LIB=$(pg_config --includedir)/internal
 
         export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
         export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"

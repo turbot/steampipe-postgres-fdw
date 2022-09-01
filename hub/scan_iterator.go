@@ -33,10 +33,8 @@ type scanIterator struct {
 	err                error
 	rows               chan *proto.Row
 	scanMetadata       map[string]*proto.QueryMetadata
-	columns            []string
 	pluginRowStream    proto.WrapperPlugin_ExecuteClient
 	rel                *types.Relation
-	qualMap            map[string]*proto.Quals
 	hub                *Hub
 	table              string
 	connectionName     string
@@ -44,24 +42,24 @@ type scanIterator struct {
 	connectionPlugin   *steampipeconfig.ConnectionPlugin
 	cancel             context.CancelFunc
 	traceCtx           *telemetry.TraceCtx
+	queryContext       *proto.QueryContext
 
 	startTime time.Time
 }
 
-func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, traceCtx *telemetry.TraceCtx) *scanIterator {
+func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx) *scanIterator {
 	return &scanIterator{
 		status:             QueryStatusReady,
 		rows:               make(chan *proto.Row, rowBufferSize),
 		scanMetadata:       make(map[string]*proto.QueryMetadata),
 		hub:                hub,
-		columns:            columns,
-		qualMap:            qualMap,
 		table:              table,
 		connectionName:     connectionName,
 		connectionLimitMap: connectionLimitMap,
 		connectionPlugin:   connectionPlugin,
 		traceCtx:           traceCtx,
 		startTime:          time.Now(),
+		queryContext:       proto.NewQueryContext(columns, qualMap, limit),
 	}
 }
 
@@ -173,7 +171,6 @@ func (i *scanIterator) CanIterate() bool {
 }
 
 func (i *scanIterator) GetScanMetadata() []ScanMetadata {
-
 	res := make([]ScanMetadata, len(i.scanMetadata))
 	idx := 0
 	for _, m := range i.scanMetadata {
@@ -182,8 +179,8 @@ func (i *scanIterator) GetScanMetadata() []ScanMetadata {
 			CacheHit:     m.CacheHit,
 			RowsFetched:  m.RowsFetched,
 			HydrateCalls: m.HydrateCalls,
-			Columns:      i.columns,
-			Quals:        i.qualMap,
+			Columns:      i.queryContext.Columns,
+			Quals:        i.queryContext.Quals,
 			StartTime:    i.startTime,
 			Duration:     time.Since(i.startTime),
 		}

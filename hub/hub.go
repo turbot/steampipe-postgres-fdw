@@ -294,15 +294,15 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, limit int64, opt
 	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
 
 	var iterator Iterator
-	// if this is an aggregate connection, create a group iterator
+	// if this is a legacy aggregator connection, create a group iterator
 	if h.IsLegacyAggregatorConnection(connectionName) {
 		iterator, err = newLegacyGroupIterator(connectionName, table, qualMap, columns, limit, h, scanTraceCtx)
 		log.Printf("[TRACE] Hub GetIterator() created aggregate iterator (%p)", iterator)
-
 	} else {
 		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit, scanTraceCtx)
 		log.Printf("[TRACE] Hub GetIterator() created iterator (%p)", iterator)
 	}
+
 	if err != nil {
 		log.Printf("[TRACE] Hub GetIterator() failed :( %s", err)
 		return nil, err
@@ -469,7 +469,7 @@ func (h *Hub) traceContextForScan(table string, columns []string, limit int64, q
 	return &telemetry.TraceCtx{Ctx: ctx, Span: span}
 }
 
-// startScanForConnection starts a scan for a single connection, using a legacyScanIterator
+// startScanForConnection starts a scan for a single connection, using a scanIterator or a legacyScanIterator
 func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {
@@ -480,24 +480,24 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 
 	log.Printf("[TRACE] Hub startScanForConnection '%s'", connectionName)
 	// get connection plugin for this connection
-	// TODO check behavior for legacy aggregator
-	// we could always get connectionPlugin for first child if aggregator
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
 		return nil, err
 	}
-
+	// if this is a legacy plugin, create legacy iterator
 	if !connectionPlugin.SupportedOperations.MultipleConnections {
 		return h.startScanForLegacyConnection(connectionName, table, qualMap, columns, limit, scanTraceCtx)
 	}
 
+	// ok so this is a multi connection plugin, build list of connections,
+	// if this connection is NOT an aggregator, only execute for the named connection
+
+	// get connection config
 	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
 	if !ok {
 		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
 	}
 
-	// ok so this is a multi connection plugin, build list of connections,
-	// if this connection is NOT an aggregator, only execute for the named connection
 	var connectionNames = []string{connectionName}
 	if connectionConfig.Type == modconfig.ConnectionTypeAggregator {
 		connectionNames = connectionConfig.GetResolveConnectionNames()

@@ -367,9 +367,9 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //	    ├────────────────────────────────────────────────────────────────────────────────────┤
 //	    │ Hash Join  (cost=57.67..4021812.67 rows=615000 width=68)                           │
 //	    │   Hash Cond: (foreign_table.id = local_table.id)                                   │
-//	    │   ->  Foreign GetIterator on foreign_table (cost=20.00..4000000.00 rows=100000 width=40)  │
+//	    │   ->  Foreign Scan on foreign_table (cost=20.00..4000000.00 rows=100000 width=40)  │
 //	    │   ->  Hash  (cost=22.30..22.30 rows=1230 width=36)                                 │
-//	    │         ->  Seq GetIterator on local_table (cost=0.00..22.30 rows=1230 width=36)          │
+//	    │         ->  Seq Scan on local_table (cost=0.00..22.30 rows=1230 width=36)          │
 //	    └────────────────────────────────────────────────────────────────────────────────────┘
 //	But with a parameterized path declared on the id key, with the knowledge that this key
 //	is unique on the foreign side, the following plan might get chosen::
@@ -377,8 +377,8 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //	    │                              QUERY PLAN                               │
 //	    ├───────────────────────────────────────────────────────────────────────┤
 //	    │ Nested Loop  (cost=20.00..49234.60 rows=615000 width=68)              │
-//	    │   ->  Seq GetIterator on local_table (cost=0.00..22.30 rows=1230 width=36)   │
-//	    │   ->  Foreign GetIterator on remote_table (cost=20.00..40.00 rows=1 width=40)│
+//	    │   ->  Seq Scan on local_table (cost=0.00..22.30 rows=1230 width=36)   │
+//	    │   ->  Foreign Scan on remote_table (cost=20.00..40.00 rows=1 width=40)│
 //	    │         Filter: (id = local_table.id)                                 │
 //	    └───────────────────────────────────────────────────────────────────────┘
 //	Returns:

@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.4.0
 	github.com/turbot/steampipe v0.16.0-rc.12
-	github.com/turbot/steampipe-plugin-sdk/v4 v4.1.4
+	github.com/turbot/steampipe-plugin-sdk/v4 v4.1.7
 	go.opentelemetry.io/otel v1.9.0
 	google.golang.org/protobuf v1.28.1
 )

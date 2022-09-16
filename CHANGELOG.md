@@ -1,3 +1,7 @@
+## v1.4.1 [2022-09-16]
+_Bug fixes_
+* Fix `double` qual values not being passed to plugin. ([#243](https://github.com/turbot/steampipe-postgres-fdw/issues/243))
+
 ## v1.4.0 [2022-09-09]
 _Bug fixes_
 * Do not start scan until the first time `IterateForeignScan` is called. Do not create an iterator in `StartForeignScan` if flag `EXEC_FLAG_EXPLAIN_ONLY` is set. ([#237](https://github.com/turbot/steampipe-postgres-fdw/issues/237))

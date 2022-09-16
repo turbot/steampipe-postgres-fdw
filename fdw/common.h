@@ -93,10 +93,13 @@ typedef struct FdwDeparsedSortGroup
 
 // datum.c
 char *datumString(Datum datum, ConversionInfo *cinfo);
+int64   datumInt16(Datum datum, ConversionInfo *cinfo);
+int64   datumInt32(Datum datum, ConversionInfo *cinfo);
 int64   datumInt64(Datum datum, ConversionInfo *cinfo);
 inet *datumInet(Datum datum, ConversionInfo *cinfo);
 inet *datumCIDR(Datum datum, ConversionInfo *cinfo);
-double  datumDouble(Datum datum, ConversionInfo *cinfo);
+double  datumFloat4(Datum datum, ConversionInfo *cinfo);
+double  datumFloat8(Datum datum, ConversionInfo *cinfo);
 bool  datumBool(Datum datum, ConversionInfo *cinfo);
 Jsonb *datumJsonb(Datum datum, ConversionInfo *cinfo);
 Timestamp datumDate(Datum datum, ConversionInfo *cinfo);

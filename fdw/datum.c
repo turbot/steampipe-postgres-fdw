@@ -18,12 +18,25 @@ inet *datumInet(Datum datum, ConversionInfo *cinfo) {
     return DatumGetInetPP(datum);
 }
 
+
+int64 datumInt16(Datum datum, ConversionInfo *cinfo) {
+    return DatumGetInt16(datum);
+}
+
+int64 datumInt32(Datum datum, ConversionInfo *cinfo) {
+    return DatumGetInt32(datum);
+}
+
 int64 datumInt64(Datum datum, ConversionInfo *cinfo) {
     return DatumGetInt64(datum);
 }
 
-double datumDouble(Datum datum, ConversionInfo *cinfo) {
+double datumFloat4(Datum datum, ConversionInfo *cinfo) {
     return DatumGetFloat4(datum);
+}
+
+double datumFloat8(Datum datum, ConversionInfo *cinfo) {
+    return DatumGetFloat8(datum);
 }
 
 bool datumBool(Datum datum, ConversionInfo *cinfo) {

@@ -427,10 +427,16 @@ func datumToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (re
 			break
 		}
 		result.Value = &proto.QualValue_TimestampValue{TimestampValue: timestamp}
-	case C.INT2OID, C.INT4OID, C.INT8OID:
+	case C.INT2OID:
+		result.Value = &proto.QualValue_Int64Value{Int64Value: int64(C.datumInt16(datum, cinfo))}
+	case C.INT4OID:
+		result.Value = &proto.QualValue_Int64Value{Int64Value: int64(C.datumInt32(datum, cinfo))}
+	case C.INT8OID:
 		result.Value = &proto.QualValue_Int64Value{Int64Value: int64(C.datumInt64(datum, cinfo))}
 	case C.FLOAT4OID:
-		result.Value = &proto.QualValue_DoubleValue{DoubleValue: float64(C.datumDouble(datum, cinfo))}
+		result.Value = &proto.QualValue_DoubleValue{DoubleValue: float64(C.datumFloat4(datum, cinfo))}
+	case C.FLOAT8OID:
+		result.Value = &proto.QualValue_DoubleValue{DoubleValue: float64(C.datumFloat8(datum, cinfo))}
 	case C.BOOLOID:
 		result.Value = &proto.QualValue_BoolValue{BoolValue: bool(C.datumBool(datum, cinfo))}
 	case C.JSONBOID:

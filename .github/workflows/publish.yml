@@ -107,7 +107,7 @@ jobs:
                 steampipe_postgres_fdw--1.0.sql:application/vnd.turbot.steampipe.fdw.sql.layer.v1+text
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set version tags
         uses: ./.github/actions/semver-tags

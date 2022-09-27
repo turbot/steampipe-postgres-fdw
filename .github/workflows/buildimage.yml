@@ -309,8 +309,8 @@ jobs:
         # set up the private key
         echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
         
-        # ssh into the instance and run the set of commands to build
-        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'cat test.txt; uname -m; export GOROOT=/usr/local/go; export PATH=$GOPATH/bin:$GOROOT/bin:$PATH; go version; cd steampipe-postgres-fdw; git fetch; git checkout $VERSION; rm -rf build-Linux; ./build.sh; exit 0'
+        # ssh into the instance and run the script to build the binary
+        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'bash -s' < script_to_build.sh $VERSION
 
         # use scp to fetch the built binary out of the instance
         scp -i private_key ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .

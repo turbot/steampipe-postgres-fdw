@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# This script is used to build FDW binaries for Darwin and Linux. Should be used to build
+# and update FDW locally.
+
 cd fdw
 make clean
 make go

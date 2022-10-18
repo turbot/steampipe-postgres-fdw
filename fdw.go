@@ -71,7 +71,7 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 	}
 
 	// reload connection config
-	_, err = pluginHub.LoadConnectionConfig()
+	err = pluginHub.LoadConnectionConfig()
 	if err != nil {
 		log.Printf("[ERROR] LoadConnectionConfig failed %v ", err)
 		FdwError(err)
@@ -378,6 +378,14 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	// get the plugin hub,
 	pluginHub, err := hub.GetHub()
 	if err != nil {
+		FdwError(err)
+		return nil
+	}
+
+	// reload connection config
+	err = pluginHub.LoadConnectionConfig()
+	if err != nil {
+		log.Printf("[ERROR] LoadConnectionConfig failed %v ", err)
 		FdwError(err)
 		return nil
 	}

@@ -54,7 +54,8 @@ type Hub struct {
 
 	// array of scan metadata
 	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
-	scanMetadata []ScanMetadata
+	scanMetadata     []ScanMetadata
+	connectionConfig map[string]*modconfig.Connection
 }
 
 // global hub instance
@@ -104,7 +105,7 @@ func newHub() (*Hub, error) {
 	}
 	filepaths.SteampipeDir = steampipeDir
 
-	if _, err := hub.LoadConnectionConfig(); err != nil {
+	if err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
 
@@ -264,7 +265,6 @@ func (h *Hub) Abort() {
 // GetSchema returns the schema for a name. Load the plugin for the connection if needed
 func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema, error) {
 	log.Printf("[TRACE] Hub GetSchema %s %s", remoteSchema, localSchema)
-	pluginFQN := remoteSchema
 	connectionName := localSchema
 	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
 
@@ -275,7 +275,7 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 		log.Printf("[TRACE] getSchema %s is an aggregator - getting schema for first child %s\n", localSchema, connectionName)
 	}
 
-	return h.connections.getSchema(pluginFQN, connectionName)
+	return h.connections.getSchema(connectionName)
 }
 
 // GetIterator creates and returns an iterator
@@ -314,18 +314,16 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, limit int64, opt
 }
 
 // LoadConnectionConfig loads the connection config and returns whether it has changed
-func (h *Hub) LoadConnectionConfig() (bool, error) {
+func (h *Hub) LoadConnectionConfig() error {
 	// load connection conFig
 	connectionConfig, err := steampipeconfig.LoadConnectionConfig()
 	if err != nil {
 		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
-		return false, err
+		return err
 	}
 
-	configChanged := steampipeconfig.GlobalConfig == connectionConfig
-	steampipeconfig.GlobalConfig = connectionConfig
-
-	return configChanged, nil
+	h.connectionConfig = connectionConfig.Connections
+	return nil
 }
 
 // GetRelSize is a method called from the planner to estimate the resulting relation size for a scan.
@@ -721,15 +719,15 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
 
 	// get the plugin FQN
-	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
-	if !ok {
-		log.Printf("[WARN] no connection config loaded for connection '%s'", connectionName)
-		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
-	}
-	pluginFQN := connectionConfig.Plugin
+	//connectionConfig_, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
+	//if !ok {
+	//	log.Printf("[WARN] no connection config loaded for connection '%s'", connectionName)
+	//	return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
+	//}
+	//pluginFQN := connectionConfig.Plugin
 
 	// ask connection map to get or create this connection
-	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
+	c, err := h.connections.getOrCreate(connectionName)
 	if err != nil {
 		return nil, err
 	}

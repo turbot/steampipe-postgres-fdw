@@ -374,10 +374,11 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		}
 	}()
 
-	log.Printf("[TRACE] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+	log.Printf("[WARN] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
 	// get the plugin hub,
 	pluginHub, err := hub.GetHub()
 	if err != nil {
+		log.Printf("[WARN] goFdwImportForeignSchema failed: %s", err)
 		FdwError(err)
 		return nil
 	}
@@ -394,10 +395,13 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 
 	schema, err := pluginHub.GetSchema(remoteSchema, localSchema)
 	if err != nil {
+		log.Printf("[WARN] goFdwImportForeignSchema failed: %s", err)
 		FdwError(err)
 		return nil
 	}
-	return SchemaToSql(schema.Schema, stmt, serverOid)
+	res := SchemaToSql(schema.Schema, stmt, serverOid)
+	log.Printf("[WARN] goFdwImportForeignSchema returning import sql")
+	return res
 }
 
 //export goFdwExecForeignInsert

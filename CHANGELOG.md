@@ -1,3 +1,6 @@
+## v1.4.3 [2022-10-20]
+* Add logging to import foreign schema.
+
 ## v1.4.2 [2022-09-26]
 * Republish to fix inconsistently versioned Linux Arm build.
 

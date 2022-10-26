@@ -164,4 +164,4 @@ replace github.com/deislabs/oras => github.com/oras-project/oras v0.9.0
 
 replace github.com/docker/docker => github.com/moby/moby v20.10.17+incompatible
 
-replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
+

@@ -8,8 +8,8 @@ require (
 	github.com/hashicorp/go-hclog v1.3.1
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.5.0-rc.1
-	// main with query-timeout in db options
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20221026090917-b3838186e1bd
+	// main
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20221026135548-81a2cf65af32
 	github.com/turbot/steampipe-plugin-sdk/v4 v4.1.7
 	go.opentelemetry.io/otel v1.9.0
 	google.golang.org/protobuf v1.28.1
@@ -163,3 +163,5 @@ replace github.com/docker/distribution => github.com/distribution/distribution v
 replace github.com/deislabs/oras => github.com/oras-project/oras v0.9.0
 
 replace github.com/docker/docker => github.com/moby/moby v20.10.17+incompatible
+
+replace github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe

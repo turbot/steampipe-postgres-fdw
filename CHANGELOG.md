@@ -1,3 +1,6 @@
+## v1.4.4 [tbc]
+* Update steampipe reference to include connection config schema changes.
+
 ## v1.4.3 [2022-10-20]
 * Add logging to import foreign schema.
 

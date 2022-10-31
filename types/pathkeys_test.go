@@ -73,6 +73,216 @@ var testCasesKeyColumnsToPathKeys = map[string]keyColumnsToPathKeysTest{
 			},
 		},
 	},
+	"multiple any of": {
+		allColumns: []string{"anyof1", "anyof2", "c1", "c2"},
+		keyColumns: []*proto.KeyColumn{
+			{
+				Name:      "anyof1",
+				Operators: []string{"="},
+				Require:   plugin.AnyOf,
+			},
+			{
+				Name:      "anyof2",
+				Operators: []string{"="},
+				Require:   plugin.AnyOf,
+			},
+		},
+		expected: []PathKey{
+			{
+				ColumnNames: []string{"anyof1"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"anyof2"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+		},
+	},
+	"multiple any of and single optional": {
+		allColumns: []string{"anyof1", "anyof2", "opt", "c1", "c2"},
+		keyColumns: []*proto.KeyColumn{
+			{
+				Name:      "anyof1",
+				Operators: []string{"="},
+				Require:   plugin.AnyOf,
+			},
+			{
+				Name:      "anyof2",
+				Operators: []string{"="},
+				Require:   plugin.AnyOf,
+			},
+			{
+				Name:      "opt",
+				Operators: []string{"="},
+				Require:   plugin.Optional,
+			},
+		},
+		expected: []PathKey{
+			{
+				ColumnNames: []string{"anyof1"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"anyof2"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"opt", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "opt", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "opt", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"opt", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "opt", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "opt", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+		},
+	},
+	"multiple any of and multiple optional": {
+		allColumns: []string{"anyof1", "anyof2", "opt1", "opt2", "c1", "c2"},
+		keyColumns: []*proto.KeyColumn{
+			{
+				Name:      "anyof1",
+				Operators: []string{"="},
+				Require:   plugin.AnyOf,
+			},
+			{
+				Name:      "anyof2",
+				Operators: []string{"="},
+				Require:   plugin.AnyOf,
+			},
+			{
+				Name:      "opt1",
+				Operators: []string{"="},
+				Require:   plugin.Optional,
+			},
+			{
+				Name:      "opt2",
+				Operators: []string{"="},
+				Require:   plugin.Optional,
+			},
+		},
+		expected: []PathKey{
+			{
+				ColumnNames: []string{"anyof1"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"anyof2"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"opt1", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "opt1", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "opt1", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"opt1", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "opt1", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "opt1", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"opt2", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "opt2", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "opt2", "anyof1"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"opt2", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost * keyColumnOnlyCostMultiplier,
+			},
+			{
+				ColumnNames: []string{"c1", "opt2", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+			{
+				ColumnNames: []string{"c2", "opt2", "anyof2"},
+				Rows:        requiredKeyColumnBaseCost,
+			},
+		},
+	},
 	"single optional": {
 		allColumns: []string{"id", "c1", "c2"},
 		keyColumns: []*proto.KeyColumn{
@@ -245,6 +455,7 @@ var testCasesKeyColumnsToPathKeys = map[string]keyColumnsToPathKeysTest{
 			},
 		},
 	},
+
 	"multiple required and multiple optional": {
 		allColumns: []string{"id", "req1", "req2", "opt1", "opt2", "opt3", "c1", "c2"},
 		keyColumns: []*proto.KeyColumn{
@@ -351,25 +562,7 @@ func pathKeyArraysEqual(l []PathKey, r []PathKey) bool {
 		if !eq {
 			return false
 		}
-		// does the 'r' array contain this
-		//if !containsPathKey(r, lkey) {
-		//	return false
-		//}
 	}
-	//for _, rkey := range r {
-	//	// does the 'r' array contain this
-	//	if !containsPathKey(l, rkey) {
-	//		return false
-	//	}
-	//}
-	return true
-}
 
-func containsPathKey(keys []PathKey, otherKey PathKey) bool {
-	for _, key := range keys {
-		if key.Equals(otherKey) {
-			return true
-		}
-	}
-	return false
+	return true
 }

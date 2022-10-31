@@ -8,8 +8,7 @@ require (
 	github.com/hashicorp/go-hclog v1.3.1
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.5.0-rc.1
-	// main
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20221026135548-81a2cf65af32
+	github.com/turbot/steampipe v0.17.0-rc.1
 	github.com/turbot/steampipe-plugin-sdk/v4 v4.1.7
 	go.opentelemetry.io/otel v1.9.0
 	google.golang.org/protobuf v1.28.1
@@ -24,7 +23,7 @@ require (
 	github.com/Machiel/slugify v1.0.1 // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/Microsoft/hcsshim v0.8.22 // indirect
-	github.com/XiaoMi/pegasus-go-client v0.0.0-20210427083443-f3b6b08bc4c2 // indirect
+	github.com/XiaoMi/pegasus-go-client v0.0.0-20210427083443-f3b6b08bc4c2 // indirect; indirectUpdate GetPathKeys to treat key columns with AnyOf require property with the same precedence as Required. Closes #254
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/agext/levenshtein v1.2.2 // indirect
 	github.com/allegro/bigcache/v3 v3.0.2 // indirect
@@ -158,8 +157,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/docker/distribution => github.com/distribution/distribution v2.7.1+incompatible
-
-replace github.com/deislabs/oras => github.com/oras-project/oras v0.9.0
-
-replace github.com/docker/docker => github.com/moby/moby v20.10.17+incompatible
+replace (
+	github.com/deislabs/oras => github.com/oras-project/oras v0.9.0
+	github.com/docker/distribution => github.com/distribution/distribution v2.7.1+incompatible
+	github.com/docker/docker => github.com/moby/moby v20.10.17+incompatible
+)

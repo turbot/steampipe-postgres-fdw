@@ -3,14 +3,14 @@ package hub
 import (
 	"fmt"
 	"github.com/turbot/steampipe/pkg/steampipeconfig/modconfig"
-	"github.com/turbot/steampipe/pluginmanager"
+	"github.com/turbot/steampipe/pkg/utils"
 	"log"
 	"runtime/debug"
 	"strings"
 	"sync"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 )
 
@@ -62,9 +62,12 @@ func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipecon
 		return c, nil
 	}
 
-	// so either we have not yet instantiated the conneciton plugin, or it has exited
+	// so either we have not yet instantiated the connection plugin, or it has exited
 	if !gotConnectionPlugin {
-		log.Printf("[TRACE] no connectionPlugin loaded with key %s", key)
+		log.Printf("[TRACE] no connectionPlugin loaded with key %s (len %d)", key, len(f.connectionPlugins))
+		for k := range f.connectionPlugins {
+			log.Printf("[TRACE] key: %s", k)
+		}
 	} else {
 		log.Printf("[TRACE] connectionPluginwith key %s has exited - reloading", key)
 	}
@@ -103,7 +106,7 @@ func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionN
 		return nil, fmt.Errorf("no config found for connection %s", connectionName)
 	}
 
-	log.Printf("[TRACE] createConnectionPlugin plugin %s, connection %s, config: %s\n", pluginmanager.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
+	log.Printf("[TRACE] createConnectionPlugin plugin %s, connection %s, config: %s\n", utils.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
 	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins([]*modconfig.Connection{connection})
 	if res.Error != nil {
@@ -127,8 +130,8 @@ func (f *connectionFactory) add(connectionPlugin *steampipeconfig.ConnectionPlug
 
 	// add a map entry for all connections supported by the plugib
 	for c := range connectionPlugin.ConnectionMap {
-		log.Printf("[TRACE] add %s", c)
 		connectionPluginKey := f.connectionPluginKey(connectionPlugin.PluginName, c)
+		log.Printf("[TRACE] add %s (%s)", c, connectionPluginKey)
 		// NOTE: there may already be map entries for some connections
 		// - this could occur if the filewatcher detects a connection added for a plugin
 		if _, ok := f.connectionPlugins[connectionPluginKey]; !ok {
@@ -159,7 +162,7 @@ func (f *connectionFactory) getSchema(pluginFQN, connectionName string) (*proto.
 	log.Printf("[TRACE] searching for other connections using same plugin")
 	for _, c := range f.connectionPlugins {
 		if c.PluginName == pluginFQN {
-			// this plugin CANNOT suport multiple connections, otherwise f.get would have returned it
+			// this plugin CANNOT support multiple connections, otherwise f.get would have returned it
 			if c.SupportedOperations.MultipleConnections {
 				return nil, fmt.Errorf("unexpected error: plugin %s supports multi connections but was not returned for connection %s", pluginFQN, connectionName)
 			}

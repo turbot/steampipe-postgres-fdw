@@ -14,9 +14,9 @@ import (
 	"unsafe"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 )
 
 func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *proto.Quals {

@@ -3,7 +3,7 @@ package hub
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe/pkg/utils"
 	"log"
 	"os"
@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/pkg/constants"
 	"github.com/turbot/steampipe/pkg/filepaths"
@@ -429,7 +429,7 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 		log.Printf("[TRACE] schema response include ListCallKeyColumnList, it is using the updated protobuff interface ")
 		// generate path keys if there are required list key columns
 		// this increases the chances that Postgres will generate a plan which provides the quals when querying the table
-		pathKeys = types.KeyColumnsToPathKeys(schema.ListCallKeyColumnList, allColumns)
+		pathKeys = types.KeyColumnsToPathKeys(tableSchema.ListCallKeyColumnList, allColumns)
 	}
 	// NOTE: in the future we may (optionally) add in path keys for Get call key columns.
 	// We do not do this by default as it is likely to actually reduce join performance in the general case,
@@ -503,7 +503,10 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		connectionNames = connectionConfig.GetResolveConnectionNames()
 	}
 	// for each connection, determine whether to pushdown the limit
-	connectionLimitMap := h.buildConnectionLimitMap(table, qualMap, connectionNames, limit, connectionPlugin)
+	connectionLimitMap, err := h.buildConnectionLimitMap(table, qualMap, connectionNames, limit, connectionPlugin)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(qualMap) > 0 {
 		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap, true))
@@ -518,17 +521,21 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	return iterator, nil
 }
 
-func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Quals, connectionNames []string, limit int64, connectionPlugin *steampipeconfig.ConnectionPlugin) map[string]int64 {
+func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Quals, connectionNames []string, limit int64, connectionPlugin *steampipeconfig.ConnectionPlugin) (map[string]int64, error) {
 	log.Printf("[TRACE] buildConnectionLimitMap, table: '%s', %d %s, limit: %d", table, len(connectionNames), utils.Pluralize("connection", len(connectionNames)), limit)
 
-	schemaMode := connectionPlugin.ConnectionMap[connectionNames[0]].Schema.Mode
+	connectionSchema, err := connectionPlugin.GetSchema(connectionNames[0])
+	if err != nil {
+		return nil, err
+	}
+	schemaMode := connectionSchema.Mode
 
 	// pushing the limit down or not is dependent on the schema.
 	// for a static schema, the limit will be the same for all connections (i.e. we either pushdown for all or none)
 	// check once whether we should push down
 	if limit != -1 && schemaMode == plugin.SchemaModeStatic {
 		log.Printf("[TRACE] static schema - using same limit for all connections")
-		if !h.shouldPushdownLimit(table, qualMap, connectionNames[0], connectionPlugin) {
+		if !h.shouldPushdownLimit(table, qualMap, connectionSchema) {
 			limit = -1
 		}
 	}
@@ -538,14 +545,14 @@ func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Qu
 	for _, c := range connectionNames {
 		connectionLimit := limit
 		// if schema mode is dynamic, check whether we should push down for each connection
-		if schemaMode == plugin.SchemaModeDynamic && !h.shouldPushdownLimit(table, qualMap, c, connectionPlugin) {
+		if schemaMode == plugin.SchemaModeDynamic && !h.shouldPushdownLimit(table, qualMap, connectionSchema) {
 			log.Printf("[INFO] not pushing limit down for connection %s", c)
 			connectionLimit = -1
 		}
 		connectionLimitMap[c] = connectionLimit
 	}
 
-	return connectionLimitMap
+	return connectionLimitMap, nil
 }
 
 func (h *Hub) startScanForLegacyConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
@@ -559,10 +566,14 @@ func (h *Hub) startScanForLegacyConnection(connectionName string, table string, 
 		return nil, err
 	}
 
+	connectionSchema, err := connectionPlugin.GetSchema(connectionName)
+	if err != nil {
+		return nil, err
+	}
 	// determine whether to include the limit, based on the quals
 	// we ONLY pushdown the limit is all quals have corresponding key columns,
 	// and if the qual operator is supported by the key column
-	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionName, connectionPlugin) {
+	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionSchema) {
 		limit = -1
 	}
 
@@ -588,9 +599,9 @@ func (h *Hub) startScanForLegacyConnection(connectionName string, table string, 
 // determine whether to include the limit, based on the quals
 // we ONLY pushdown the limit if all quals have corresponding key columns,
 // and if the qual operator is supported by the key column
-func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionName string, connectionPlugin *steampipeconfig.ConnectionPlugin) bool {
+func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionSchema *proto.Schema) bool {
 	// build a map of all key columns
-	tableSchema, ok := connectionPlugin.ConnectionMap[connectionName].Schema.Schema[table]
+	tableSchema, ok := connectionSchema.Schema[table]
 	if !ok {
 		// any errors, just default to NOT pushing down the limit
 		return false
@@ -781,7 +792,7 @@ func (h *Hub) IsLegacyAggregatorConnection(connectionName string) (res bool) {
 		if !ok {
 			log.Printf("[WARN] IsLegacyAggregatorConnection: connection %s not found", connectionName)
 		} else {
-			log.Printf("[TRACE] connectionConfig.Type is NOT 'aggregator'")
+			log.Printf("[TRACE] connectionConfig.Type is NOT legacy 'aggregator'")
 		}
 		return false
 	}

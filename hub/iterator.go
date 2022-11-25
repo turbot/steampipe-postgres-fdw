@@ -1,6 +1,6 @@
 package hub
 
-import "github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+import "github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 
 // Iterator is an interface for table scanner implementations.
 type Iterator interface {

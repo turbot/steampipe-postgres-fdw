@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 )
 
 type inMemoryIterator struct {

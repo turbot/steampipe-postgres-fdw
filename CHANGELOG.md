@@ -1,6 +1,10 @@
+## v1.4.5 [2022-10-31]
+_Whats new_
+* Update to work with sdk version 5 and dynamic updating of dynamic schemas. ([#259](https://github.com/turbot/steampipe-postgres-fdw/issues/259))
+* 
 ## v1.4.4 [2022-10-31]
 _Bug fixes_
-* Update GetPathKeys to treat key columns with AnyOf require property with the same precedence as Required ([#254](https://github.com/turbot/steampipe-postgres-fdw/issues/254))
+* Update GetPathKeys to treat key columns with `AnyOf` require property with the same precedence as `Required`. ([#254](https://github.com/turbot/steampipe-postgres-fdw/issues/254))
 
 ## v1.4.3 [2022-10-20]
 * Add logging to import foreign schema.

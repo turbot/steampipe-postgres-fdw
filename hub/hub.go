@@ -407,13 +407,16 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 		return nil, err
 	}
 
-	connectionSchema, ok := connectionPlugin.ConnectionMap[connectionName]
-	if !ok {
-		return nil, fmt.Errorf("no schema loaded for connection '%s'", connectionName)
+	connectionSchema, err := connectionPlugin.GetSchema(connectionName)
+	if err != nil {
+		return nil, err
 	}
-	schema := connectionSchema.Schema.Schema[table]
-	var allColumns = make([]string, len(schema.Columns))
-	for i, c := range schema.Columns {
+	tableSchema, ok := connectionSchema.Schema[table]
+	if !ok {
+		return nil, fmt.Errorf("no schema loaded for connection '%s', table '%s'", connectionName, table)
+	}
+	var allColumns = make([]string, len(tableSchema.Columns))
+	for i, c := range tableSchema.Columns {
 		allColumns[i] = c.Name
 	}
 
@@ -422,10 +425,10 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	// build path keys based on the table key columns
 	// NOTE: the schema data has changed in SDK version 1.3 - we must handle plugins using legacy sdk explicitly
 	// check for legacy sdk versions
-	if schema.ListCallKeyColumns != nil {
+	if tableSchema.ListCallKeyColumns != nil {
 		log.Printf("[TRACE] schema response include ListCallKeyColumns, it is using legacy protobuff interface ")
-		pathKeys = types.LegacyKeyColumnsToPathKeys(schema.ListCallKeyColumns, schema.ListCallOptionalKeyColumns, allColumns)
-	} else if schema.ListCallKeyColumnList != nil {
+		pathKeys = types.LegacyKeyColumnsToPathKeys(tableSchema.ListCallKeyColumns, tableSchema.ListCallOptionalKeyColumns, allColumns)
+	} else if tableSchema.ListCallKeyColumnList != nil {
 		log.Printf("[TRACE] schema response include ListCallKeyColumnList, it is using the updated protobuff interface ")
 		// generate path keys if there are required list key columns
 		// this increases the chances that Postgres will generate a plan which provides the quals when querying the table

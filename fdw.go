@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"runtime/debug"
 	"time"
 	"unsafe"
 
@@ -103,6 +104,8 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwGetPathKeys failed with panic: %v", r)
+			log.Printf("[WARN] %s", debug.Stack())
+
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()

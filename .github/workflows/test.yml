@@ -21,8 +21,8 @@ jobs:
       - name: Build Steampipe
         run: |
           echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
-          ls /home/runner/work/steampipe-postgres-fdw
-          cd /home/runner/work/steampipe-postgres-fdw/steampipe
+          ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
+          cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
           go get
           go build -o /home/runner/steampipe
           steampipe -v

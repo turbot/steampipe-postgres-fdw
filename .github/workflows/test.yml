@@ -1,0 +1,39 @@
+name: FDW Acceptance Tests
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+
+      - name: Checkout Steampipe
+        uses: actions/checkout@v3
+        with:
+          repository: turbot/steampipe
+          path: steampipe
+
+      - name: Build Steampipe
+        run: |
+          echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
+          ls /home/runner/work/
+          cd /home/runner/work/steampipe
+          go get
+          go build -o /home/runner/steampipe
+          steampipe -v
+
+      - name: Setup BATS
+        uses: mig4/setup-bats@v1
+        with:
+          bats-version: 1.2.1
+
+      - name: Run a query
+        run: |
+          steampipe query "select 1 as col"
+          pwd
+          ls -al

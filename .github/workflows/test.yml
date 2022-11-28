@@ -25,7 +25,9 @@ jobs:
           cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
           go get
           go build -o /home/runner/steampipe
-          steampipe -v
+      
+      - name: Install Chaos plugin from registry
+        run: steampipe plugin install chaos
 
       - name: Setup BATS
         uses: mig4/setup-bats@v1

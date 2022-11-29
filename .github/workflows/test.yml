@@ -25,30 +25,21 @@ jobs:
           cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
           go get
           go build -o /home/runner/steampipe
-      
-      - name: Install Chaos plugin from registry
-        run: steampipe plugin install chaos
 
       - name: Setup BATS
         uses: mig4/setup-bats@v1
         with:
           bats-version: 1.2.1
 
-      - name: Run a query
+      - name: Run steampipe
         run: |
           steampipe query "select 1 as col"
-          pwd
-          ls -al
 
       - name: Checkout FDW
         uses: actions/checkout@v3
         with:
           repository: turbot/steampipe-postgres-fdw
           path: steampipe-postgres-fdw
-
-      - name: Check FDW version
-        run: |
-          cat ~/.steampipe/db/versions.json | jq '.fdw_extension.version'
 
       - name: Fetching Go Cache Paths
         id: go-cache-paths
@@ -104,11 +95,6 @@ jobs:
 
       - name: Build FDW
         run: |
-          cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/
-          ls
           chmod +x build.sh
           ./build.sh
 
-      - name: Check FDW version after build
-        run: |
-          cat ~/.steampipe/db/versions.json | jq '.fdw_extension.version'

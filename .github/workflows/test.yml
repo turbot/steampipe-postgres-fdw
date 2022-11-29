@@ -48,8 +48,13 @@ jobs:
 
       - name: Check FDW version
         run: |
-          cat /home/runner/.steampipe/db/versions.json | jq '.fdw_extension.version'
+          cat ~/.steampipe/db/versions.json | jq '.fdw_extension.version'
 
       - name: Build FDW
         run: |
-          ls ~/.steampipe
+          chmod +x ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/build.sh
+          ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/build.sh
+
+      - name: Check FDW version after build
+        run: |
+          cat ~/.steampipe/db/versions.json | jq '.fdw_extension.version'

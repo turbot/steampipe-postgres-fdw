@@ -26,11 +26,6 @@ jobs:
           go get
           go build -o /home/runner/steampipe
 
-      - name: Setup BATS
-        uses: mig4/setup-bats@v1
-        with:
-          bats-version: 1.2.1
-
       - name: Run steampipe
         run: |
           steampipe query "select 1 as col"
@@ -98,6 +93,11 @@ jobs:
           cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/
           chmod +x build.sh
           ./build.sh
+
+      - name: Setup BATS
+        uses: mig4/setup-bats@v1
+        with:
+          bats-version: 1.2.1
 
       - name: Run tests
         timeout-minutes: 6

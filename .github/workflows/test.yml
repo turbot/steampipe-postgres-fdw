@@ -110,3 +110,10 @@ jobs:
           chmod +x tests/acceptance/run.sh
           ./tests/acceptance/run.sh chaos_and_query.bats
 
+      - name: Check fdw version just for sanity
+        run: |
+          cd /home/runner/.steampipe
+          rm -f logs/database-2022-11-29.log
+          STEAMPIPE_LOG=info steampipe query "select 1 as col"
+          cat logs/database-2022-11-29.log
+

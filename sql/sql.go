@@ -47,8 +47,8 @@ server %s OPTIONS (table %s)`,
 
 func sqlTypeForColumnType(columnType proto.ColumnType) (string, error) {
 	switch columnType {
-	case proto.ColumnType_BOOL:
-		return "bool", nil
+	// case proto.ColumnType_BOOL:
+	// 	return "bool", nil
 	case proto.ColumnType_INT:
 		return "bigint", nil
 	case proto.ColumnType_DOUBLE:

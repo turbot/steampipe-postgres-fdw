@@ -49,3 +49,8 @@ jobs:
       - name: Check FDW location
         run: |
           ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
+          cat /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/version/version.go
+
+      - name: Find .steampipe dir location
+        run: |
+          find /home/ -name .steampipe

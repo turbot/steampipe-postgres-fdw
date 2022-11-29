@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  run:
+  build:
     name: Build
     runs-on: ubuntu-latest
     steps:
@@ -98,4 +98,11 @@ jobs:
           cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/
           chmod +x build.sh
           ./build.sh
+
+      - name: Run tests
+        timeout-minutes: 6
+        run: |
+          cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
+          chmod +x tests/acceptance/run.sh
+          ./run.sh chaos_and_query.bats
 

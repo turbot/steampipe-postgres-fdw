@@ -16,8 +16,8 @@ type inMemoryIterator struct {
 
 func newInMemoryIterator(name string, result *QueryResult) *inMemoryIterator {
 	return &inMemoryIterator{
-		name:   name,
-		rows:   result.Rows,
+		name: name,
+		// rows:   result.Rows,
 		status: QueryStatusStarted, // set as started
 	}
 }

@@ -52,8 +52,10 @@ jobs:
 
       - name: Build FDW
         run: |
-          chmod +x ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/build.sh
-          ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/build.sh
+          cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/
+          ls
+          chmod +x build.sh
+          build.sh
 
       - name: Check FDW version after build
         run: |

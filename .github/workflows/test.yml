@@ -46,11 +46,6 @@ jobs:
           repository: turbot/steampipe-postgres-fdw
           path: steampipe-postgres-fdw
 
-      - name: Check FDW location
+      - name: Check FDW version
         run: |
-          ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
-          cat /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/version/version.go
-
-      - name: Find .steampipe dir location
-        run: |
-          find /home/ -name .steampipe
+          cat /home/runner/.steampipe/db/versions.json | jq '.fdw_extension.version'

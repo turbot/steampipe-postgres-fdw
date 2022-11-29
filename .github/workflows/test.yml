@@ -95,6 +95,7 @@ jobs:
 
       - name: Build FDW
         run: |
+          cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/
           chmod +x build.sh
           ./build.sh
 

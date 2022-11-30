@@ -1,10 +1,10 @@
 name: FDW Acceptance Tests
 on:
-  workflow_dispatch:
+  pull_request:
 
 jobs:
-  run:
-    name: Build
+  build_and_test:
+    name: Build and run tests
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go
@@ -15,25 +15,98 @@ jobs:
       - name: Checkout Steampipe
         uses: actions/checkout@v3
         with:
+          submodules: true
           repository: turbot/steampipe
           path: steampipe
 
       - name: Build Steampipe
         run: |
           echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
-          ls /home/runner/work/
-          cd /home/runner/work/steampipe
+          ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
+          cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
           go get
           go build -o /home/runner/steampipe
-          steampipe -v
+
+      - name: Run steampipe
+        run: |
+          steampipe query "select 1 as col"
+
+      - name: Checkout FDW
+        uses: actions/checkout@v3
+        with:
+          repository: turbot/steampipe-postgres-fdw
+          path: steampipe-postgres-fdw
+
+      - name: Fetching Go Cache Paths
+        id: go-cache-paths
+        run: |
+          echo "::set-output name=go-build::$(go env GOCACHE)"
+          echo "::set-output name=go-mod::$(go env GOMODCACHE)"
+
+      - name: Go Build Cache
+        id: build-cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+
+      - name: Go Mod Cache
+        id: mod-cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+      - name: Setup apt-get
+        run: |-
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo env ACCEPT_EULA=Y apt-get update
+          sudo env ACCEPT_EULA=Y apt-get upgrade
+
+      - name: Install PostgreSQL14 Dev
+        run: |-
+          sudo apt-get -y install postgresql-server-dev-14
+
+      - name: Find stuff and set env
+        run: |-
+          
+          which pg_config
+          pg_config --version
+
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
+      
+          export SERVER_LIB=$(pg_config --includedir)/14/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
+
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+      
+          export LDFLAGS=$(pg_config --ldflags)
+          export PG_LDFLAGS=$(pg_config --ldflags)
+
+          ls -la $SERVER_LIB
+          ls -la $INTERNAL_LIB
+
+      - name: Build FDW
+        run: |
+          cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/
+          chmod +x build.sh
+          ./build.sh
 
       - name: Setup BATS
         uses: mig4/setup-bats@v1
         with:
           bats-version: 1.2.1
 
-      - name: Run a query
+      - name: Install Chaos plugin from registry
+        run: steampipe plugin install chaos
+
+      - name: Run tests
+        timeout-minutes: 6
         run: |
-          steampipe query "select 1 as col"
-          pwd
-          ls -al
+          cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
+          chmod +x tests/acceptance/run.sh
+          ./tests/acceptance/run.sh chaos_and_query.bats
+

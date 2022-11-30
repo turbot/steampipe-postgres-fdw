@@ -162,9 +162,11 @@ func (f *connectionFactory) getSchema(pluginFQN, connectionName string) (*proto.
 	log.Printf("[TRACE] searching for other connections using same plugin")
 	for _, c := range f.connectionPlugins {
 		if c.PluginName == pluginFQN {
-			// this plugin CANNOT support multiple connections, otherwise f.get would have returned it
+			// if this plugin support multiple connections but does not have the schema for this connection
+			// there must have been an issue setting connection config
+			// the CLI should not have called importForeignSchema for this connection - so just return an error
 			if c.SupportedOperations.MultipleConnections {
-				return nil, fmt.Errorf("unexpected error: plugin %s supports multi connections but was not returned for connection %s", pluginFQN, connectionName)
+				return nil, fmt.Errorf("plugin %s is not returning schema for connection %s - check logs for a connection initialisation error", pluginFQN, connectionName)
 			}
 
 			log.Printf("[TRACE] found connectionPlugin with same pluginFQN: %s, conneciton map: %v ", c.PluginName, c.ConnectionMap)

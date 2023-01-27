@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.5.0
 	// dynamic_aggregator
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20230127171459-eb1b1e6c44a1
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20230127185820-ac7df87fa95b
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.2.0-rc.2
 	go.opentelemetry.io/otel v1.10.0
 	google.golang.org/protobuf v1.28.1

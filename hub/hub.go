@@ -666,6 +666,8 @@ func (h *Hub) StartScan(i Iterator) error {
 		Table:                 table,
 		QueryContext:          iterator.queryContext,
 		CallId:                callId,
+		// pass connection name - used for aggregators
+		Connection:            iterator.ConnectionName(),
 		TraceContext:          grpc.CreateCarrierFromContext(iterator.traceCtx.Ctx),
 		ExecuteConnectionData: make(map[string]*proto.ExecuteConnectionData),
 	}
@@ -819,7 +821,12 @@ func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
 	}
 	aggregateConnection := steampipeconfig.GlobalConfig.Connections[connectionName]
 	// get first child
-	return aggregateConnection.FirstChild().Name
+	for connectionName := range aggregateConnection.Connections {
+		return connectionName
+	}
+
+	// not expected
+	return ""
 }
 
 func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {

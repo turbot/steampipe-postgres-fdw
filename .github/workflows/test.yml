@@ -103,6 +103,10 @@ jobs:
       - name: Install Chaos plugin from registry
         run: steampipe plugin install chaos
 
+      - name: Go install jd
+        run: |
+          go install github.com/josephburnett/jd@latest
+
       - name: Run tests
         timeout-minutes: 6
         run: |

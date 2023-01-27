@@ -1,3 +1,7 @@
+## v1.6.0 [tbd]
+_Whats new_
+* Add support for dynamic aggregators - pass connection name in ExecuteRequest - used to resolve aggregator config. ([#273](https://github.com/turbot/steampipe-postgres-fdw/issues/273))
+
 ## v1.5.0 [2022-11-30]
 _Whats new_
 * Update to work with sdk version 5 and dynamic updating of dynamic schemas. ([#259](https://github.com/turbot/steampipe-postgres-fdw/issues/259))

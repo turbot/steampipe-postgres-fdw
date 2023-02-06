@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.5.0
 	// dynamic_aggregator
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20230127185820-ac7df87fa95b
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20230206143709-eeab68136aae
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.2.0-rc.2
 	go.opentelemetry.io/otel v1.10.0
 	google.golang.org/protobuf v1.28.1
@@ -59,7 +59,7 @@ require (
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/bradfitz/gomemcache v0.0.0-20221031212613-62deef7fc822 // indirect
-	github.com/briandowns/spinner v1.20.0 // indirect
+	github.com/briandowns/spinner v1.21.0 // indirect
 	github.com/btubbs/datetime v0.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
@@ -92,7 +92,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.5.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hashicorp/hcl/v2 v2.15.0 // indirect
+	github.com/hashicorp/hcl/v2 v2.16.0 // indirect
 	github.com/hashicorp/terraform v0.15.1 // indirect
 	github.com/hashicorp/terraform-svchost v0.0.0-20200729002733-f050f53b9734 // indirect
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect

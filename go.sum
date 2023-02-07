@@ -917,10 +917,10 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1
 github.com/tombuildsstuff/giovanni v0.15.1/go.mod h1:0TZugJPEtqzPlMpuJHYfXY6Dq2uLPrXf98D2XQSxNbA=
 github.com/turbot/go-kit v0.5.0 h1:bulbpYGyOQWt4/qFAULPBdrLis//sf3VFz5mTZelv0k=
 github.com/turbot/go-kit v0.5.0/go.mod h1:oP9gLk6bETL4nkEuujZZbOlcv9jnHQlf7DYcI/+Ke8Q=
-github.com/turbot/steampipe v1.7.0-rc.0.0.20230206143709-eeab68136aae h1:3Tux0R/LvrsDUVHIgLGwdTfvwSoJI8BpuoQId2omvZE=
-github.com/turbot/steampipe v1.7.0-rc.0.0.20230206143709-eeab68136aae/go.mod h1:TlMduC7qI0Fpby44w268wnbZ6NrraJrUmfS5NJLU/88=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.2.0-rc.2 h1:bZqCfxLYfXnyY8XxFVGeXsjUzpSOpKSSGmF4mnmtMK0=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.2.0-rc.2/go.mod h1:bfvdKaLwemr13EPOMbnr7/hOQOO7m4oM7HnVMdNotgY=
+github.com/turbot/steampipe v1.7.0-rc.0.0.20230207163030-fba7162cddae h1:H8Qg8iEa4glf9mzPJ1lCuQQemtwSyjWbrtQjQlDjIl0=
+github.com/turbot/steampipe v1.7.0-rc.0.0.20230207163030-fba7162cddae/go.mod h1:OurQczi2DYpg6vxYS7eAcgbTZ4JpapyiheXas/cKDDw=
+github.com/turbot/steampipe-plugin-sdk/v5 v5.2.0-rc.4 h1:+jBUL7ykAQQXxajpa1AH0meztvbU/TDlDQsP+FC5nY4=
+github.com/turbot/steampipe-plugin-sdk/v5 v5.2.0-rc.4/go.mod h1:bfvdKaLwemr13EPOMbnr7/hOQOO7m4oM7HnVMdNotgY=
 github.com/ugorji/go v0.0.0-20180813092308-00b869d2f4a5/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ulikunitz/xz v0.5.8 h1:ERv8V6GKqVi23rgu5cj9pVfVzJbOqAY2Ntl88O6c2nQ=

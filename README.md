@@ -33,6 +33,27 @@ Our [Code of Conduct](https://github.com/turbot/steampipe/blob/main/CODE_OF_COND
 
 Please see [CONTRIBUTING.md](https://github.com/turbot/steampipe/blob/main/CONTRIBUTING.md).
 
+### Building the FDW
+
+Make sure that you have the following installed in your system:
+1. `Postgresql v14` 
+1. `go`
+1. `Steampipe`
+
+> For instructions on how to install PostgreSQL, please visit: https://www.postgresql.org/download/
+> 
+> For instruction on how to install `golang`, please visit: https://go.dev/dl/
+
+Steps:
+1. Clone this repository onto your system
+1. Change to the cloned directory
+1. Run the following commands:
+```
+$ go generate ./...
+$ chmod +x build.sh
+$ ./build.sh
+```
+
 ### License
 
-This open source library is licensed under the [GNU Affero General Public License v3](https://opensource.org/licenses/AGPL-3.0), except for the `fdw/include` directory which is included directly from the Postgres project and subject to the [PostgreSQL License](https://opensource.org/licenses/postgresql).
+This open source library is licensed under the [GNU Affero General Public License v3](https://opensource.org/licenses/AGPL-3.0).

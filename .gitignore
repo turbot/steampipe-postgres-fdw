@@ -5,6 +5,8 @@
 *.gz
 # generated header
 steampipe_postgres_fdw.h
+# generated C imports
+0_prebuild.go
 
 # Binaries for programs and plugins
 *.exe

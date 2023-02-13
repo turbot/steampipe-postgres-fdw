@@ -26,7 +26,10 @@ import "C"
 
 This file is tactically named so that it gets read and compiled at the start of the build chain.
 
-This file includes the necessary libs and headers required for the compilation of the rest
+This is generated on make or by running go generate ./generate in the repository root and as such
+does not need to be check in to version control
+
+It includes the necessary libs and headers required for the compilation of the rest
 of the project
 
 **/

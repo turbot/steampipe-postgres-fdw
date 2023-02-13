@@ -38,7 +38,7 @@ Please see [CONTRIBUTING.md](https://github.com/turbot/steampipe/blob/main/CONTR
 Make sure that you have the following installed in your system:
 1. `Postgresql v14` 
 1. `go`
-1. `Steampipe`
+1. `gcc` for Linux
 
 > For instructions on how to install PostgreSQL, please visit: https://www.postgresql.org/download/
 > 
@@ -49,10 +49,10 @@ Steps:
 1. Change to the cloned directory
 1. Run the following commands:
 ```
-$ go generate ./...
-$ chmod +x build.sh
-$ ./build.sh
+$ make
 ```
+
+This will install the compiled FDW (`steampipe_postgres_fdw.so`) into the default Steampipe installation directory (`~/.steampipe`) - if it exists.
 
 ### License
 

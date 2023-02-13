@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"io"
 	"os"
@@ -15,7 +16,7 @@ import (
 var queueTemplate = `package main
 
 /*
-#cgo {{.Goos}} CFLAGS: -Ifdw -I{{.IncludeDir}}/server -I{{.IncludeDir}}/internal -g
+#cgo {{.Goos}} CFLAGS: -Ifdw -I{{.ServerIncludeDir}} -I{{.InternalIncludeDir}} -g
 #include "postgres.h"
 #include "common.h"
 #include "fdw_helpers.h"
@@ -36,8 +37,9 @@ of the project
 `
 
 type data struct {
-	Goos       string
-	IncludeDir string
+	Goos               string
+	ServerIncludeDir   string
+	InternalIncludeDir string
 }
 
 func main() {
@@ -48,8 +50,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	includeDir := string(output)
-	includeDir = strings.TrimSpace(includeDir)
+	includeDir := strings.TrimSpace(string(output))
+
+	cmd = exec.CommandContext(ctx, "pg_config", "--includedir-server")
+	output, err = cmd.Output()
+	if err != nil {
+		panic(err)
+	}
+	serverIncludeDir := string(output)
+	serverIncludeDir = strings.TrimSpace(serverIncludeDir)
 
 	outputFile, err := os.Create("./0_prebuild.go")
 	if err != nil {
@@ -61,7 +70,8 @@ func main() {
 
 	t := template.Must(template.New("prebuild").Parse(queueTemplate))
 	t.Execute(writer, data{
-		Goos:       runtime.GOOS,
-		IncludeDir: string(includeDir),
+		Goos:               runtime.GOOS,
+		InternalIncludeDir: fmt.Sprintf("%s/internal", includeDir),
+		ServerIncludeDir:   serverIncludeDir,
 	})
 }

@@ -112,8 +112,7 @@ jobs:
       - name: Build FDW
         run: |
           cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/
-          chmod +x build.sh
-          ./build.sh
+          make install
 
       - name: Setup BATS
         uses: mig4/setup-bats@v1

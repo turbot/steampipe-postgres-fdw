@@ -25,4 +25,6 @@ clean:
 	rm -f 0_prebuild.go
 	rm -f steampipe_postgres_fdw.a
 	rm -f steampipe_postgres_fdw.h
-	
+
+release:
+	./upload_arm_asset.sh

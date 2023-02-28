@@ -689,7 +689,7 @@ func (h *Hub) StartScan(i Iterator) error {
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
 	err = grpc.HandleGrpcError(err, connectionPlugin.PluginName, "Execute")
 	if err != nil {
-		log.Printf("[WARN] startScan: plugin Execute function callId: %s returned error: %v\n", callId, err)
+		log.Printf("[WARN] startScan: plugin Execute function callId: %s returned error: %v\n", iterator.callId, err)
 		iterator.setError(err)
 		return err
 	}

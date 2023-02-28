@@ -410,7 +410,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		return nil
 	}
 	res := SchemaToSql(schema.Schema, stmt, serverOid)
-	log.Printf("[TRACE] goFdwImportForeignSchema returning import sql: %s", res)
+
 	return res
 }
 

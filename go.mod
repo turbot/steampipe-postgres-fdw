@@ -10,7 +10,7 @@ require (
 	github.com/turbot/go-kit v0.5.0
 	// main (about to tag v0.19.0-rc.4)
 	github.com/turbot/steampipe v1.7.0-rc.0.0.20230228115003-a936a6d2c8f6
-	github.com/turbot/steampipe-plugin-sdk/v5 v5.2.0-rc.9
+	github.com/turbot/steampipe-plugin-sdk/v5 v5.3.0-alpha.1
 	go.opentelemetry.io/otel v1.10.0
 	google.golang.org/protobuf v1.28.1
 )
@@ -28,6 +28,7 @@ require (
 	cloud.google.com/go/storage v1.27.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.183 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
+	github.com/gertd/wild v0.0.1 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
 	github.com/hashicorp/go-getter v1.6.2 // indirect

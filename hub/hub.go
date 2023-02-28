@@ -648,24 +648,23 @@ func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals,
 
 // StartScan starts a scan (for scanIterators only = legacy iterators will have already started)
 func (h *Hub) StartScan(i Iterator) error {
+	// iterator must be a scan iterator
 	// if iterator is not a scan iterator, do nothing
 	iterator, ok := i.(*scanIterator)
 	if !ok {
 		return nil
 	}
 
-	// iterator must be a scan iterator
 	// ensure we do not call execute too frequently
 	h.throttle()
 
 	table := iterator.table
 	connectionPlugin := iterator.connectionPlugin
-	callId := grpc.BuildCallId()
 
 	req := &proto.ExecuteRequest{
-		Table:                 table,
-		QueryContext:          iterator.queryContext,
-		CallId:                callId,
+		Table:        table,
+		QueryContext: iterator.queryContext,
+		CallId:       iterator.callId,
 		// pass connection name - used for aggregators
 		Connection:            iterator.ConnectionName(),
 		TraceContext:          grpc.CreateCarrierFromContext(iterator.traceCtx.Ctx),
@@ -684,7 +683,7 @@ func (h *Hub) StartScan(i Iterator) error {
 		req.ExecuteConnectionData[connectionName] = data
 	}
 
-	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v, iterator %p", table, callId, req.CacheEnabled, iterator)
+	log.Printf("[INFO] StartScan for table: %s, cache enabled: %v, iterator %p, %d quals (%s)", table, req.CacheEnabled, iterator, len(iterator.queryContext.Quals), iterator.callId)
 	stream, ctx, cancel, err := connectionPlugin.PluginClient.Execute(req)
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
 	err = grpc.HandleGrpcError(err, connectionPlugin.PluginName, "Execute")
@@ -773,7 +772,7 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
 
-	// the config loading code shouls ALWAYS populate the connection options, using defaults if needed
+	// the config loading code should ALWAYS populate the connection options, using defaults if needed
 	if connectionOptions.CacheTTL == nil {
 		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
 	}

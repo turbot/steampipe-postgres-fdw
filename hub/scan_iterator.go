@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"log"
 	"time"
 
@@ -45,6 +46,7 @@ type scanIterator struct {
 	queryContext       *proto.QueryContext
 
 	startTime time.Time
+	callId    string
 }
 
 func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx) *scanIterator {
@@ -60,6 +62,7 @@ func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugi
 		traceCtx:           traceCtx,
 		startTime:          time.Now(),
 		queryContext:       proto.NewQueryContext(columns, qualMap, limit),
+		callId:             grpc.BuildCallId(),
 	}
 }
 
@@ -269,7 +272,7 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 		continueReading = false
 	case rowResult := <-rcvChan:
 		if rowResult == nil {
-			log.Printf("[TRACE] readPluginResult nil row received - stop reading (%p)", i)
+			log.Printf("[TRACE] readPluginResult nil row received - stop reading (%p) (%s)", i, i.callId)
 			// stop reading
 			continueReading = false
 		} else {
@@ -281,7 +284,7 @@ func (i *scanIterator) readPluginResult(ctx context.Context) bool {
 		}
 	case err := <-errChan:
 		if err.Error() == "EOF" {
-			log.Printf("[TRACE] readPluginResult EOF error received - stop reading (%p)", i)
+			log.Printf("[TRACE] readPluginResult EOF error received - stop reading (%p) (%s)", i, i.callId)
 		} else {
 			log.Printf("[WARN] stream receive error %v (%p)\n", err, i)
 			i.setError(err)

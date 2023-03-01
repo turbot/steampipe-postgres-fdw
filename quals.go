@@ -9,6 +9,7 @@ import "C"
 
 import (
 	"fmt"
+	"github.com/gertd/go-pluralize"
 	"log"
 	"net"
 	"unsafe"
@@ -19,7 +20,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 )
 
-func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *proto.Quals {
+func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) (qualsList *proto.Quals, unhandledRestrictions int) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] restrictionsToQuals recovered from panic: %v", r)
@@ -29,9 +30,9 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *pro
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	restrictions := plan.fdw_exprs
 
-	qualsList := &proto.Quals{}
+	qualsList = &proto.Quals{}
 	if restrictions == nil {
-		return qualsList
+		return qualsList, 0
 	}
 
 	for it := C.list_head(restrictions); it != nil; it = C.lnext(restrictions, it) {
@@ -39,33 +40,30 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *pro
 
 		log.Printf("[TRACE] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
 
+		var q *proto.Qual
 		switch C.fdw_nodeTag(restriction) {
 		case C.T_OpExpr:
-			if q := qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos); q != nil {
-				qualsList.Append(q)
-			}
+			q = qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos)
 		case C.T_Var:
-			q := qualFromVar(C.cellGetVar(it), node, cinfos)
-			qualsList.Append(q)
+			q = qualFromVar(C.cellGetVar(it), node, cinfos)
 
 		case C.T_ScalarArrayOpExpr:
-			if q := qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos); q != nil {
-				qualsList.Append(q)
-			}
+			q = qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos)
 		case C.T_NullTest:
-			q := qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
-			if q != nil {
-				qualsList.Append(q)
-			}
+			q = qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
+
 			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
 		case C.T_BooleanTest:
-			if q := qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
-				qualsList.Append(q)
-			}
+			q = qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos)
 		case C.T_BoolExpr:
-			if q := qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos); q != nil {
-				qualsList.Append(q)
-			}
+			q = qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos)
+		}
+
+		if q != nil {
+			qualsList.Append(q)
+		} else {
+			// we failed to handle this restriction
+			unhandledRestrictions++
 		}
 
 	}
@@ -73,7 +71,12 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) *pro
 	for _, q := range qualsList.Quals {
 		log.Printf("[TRACE] %s", grpc.QualToString(q))
 	}
-	return qualsList
+	if unhandledRestrictions > 0 {
+		log.Printf("[WARN] RestrictionsToQuals: failed to convert %s %s to quals",
+			unhandledRestrictions,
+			pluralize.NewClient().Pluralize("restriction", unhandledRestrictions, false))
+	}
+	return qualsList, unhandledRestrictions
 }
 
 // build a protobuf qual from an OpExpr

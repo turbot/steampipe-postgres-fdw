@@ -222,7 +222,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	// create a wrapper struct for cinfos
 	cinfos := newConversionInfos(execState)
-	quals := restrictionsToQuals(node, cinfos)
+	quals, unhandledRestrictions := restrictionsToQuals(node, cinfos)
 
 	// start the plugin hub
 	var err error
@@ -238,7 +238,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	}
 	// if we are NOT explaining, create an iterator to scan for us
 	if !explain {
-		iter, err := pluginHub.GetIterator(columns, quals, int64(execState.limit), opts)
+		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), opts)
 		if err != nil {
 			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
 			FdwError(err)

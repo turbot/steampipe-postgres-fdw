@@ -24,7 +24,7 @@ type legacyGroupIterator struct {
 	traceCtx          *telemetry.TraceCtx
 }
 
-func newLegacyGroupIterator(name string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, h *Hub, scanTraceCtx *telemetry.TraceCtx) (Iterator, error) {
+func newLegacyGroupIterator(name string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, h *Hub, scanTraceCtx *telemetry.TraceCtx) (Iterator, error) {
 	res := &legacyGroupIterator{
 		Name: name,
 		// create a buffered channel
@@ -48,7 +48,7 @@ func newLegacyGroupIterator(name string, table string, qualMap map[string]*proto
 		)
 		connectionTraceCtx := &telemetry.TraceCtx{Ctx: ctx, Span: span}
 
-		iterator, err := h.startScanForLegacyConnection(connectionName, table, qualMap, columns, limit, connectionTraceCtx)
+		iterator, err := h.startScanForLegacyConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, connectionTraceCtx)
 		if err != nil {
 			errors = append(errors, err)
 		} else {

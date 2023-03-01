@@ -279,7 +279,7 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 }
 
 // GetIterator creates and returns an iterator
-func (h *Hub) GetIterator(columns []string, quals *proto.Quals, limit int64, opts types.Options) (Iterator, error) {
+func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
@@ -296,10 +296,10 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, limit int64, opt
 	var iterator Iterator
 	// if this is a legacy aggregator connection, create a group iterator
 	if h.IsLegacyAggregatorConnection(connectionName) {
-		iterator, err = newLegacyGroupIterator(connectionName, table, qualMap, columns, limit, h, scanTraceCtx)
+		iterator, err = newLegacyGroupIterator(connectionName, table, qualMap, unhandledRestrictions, columns, limit, h, scanTraceCtx)
 		log.Printf("[TRACE] Hub GetIterator() created aggregate iterator (%p)", iterator)
 	} else {
-		iterator, err = h.startScanForConnection(connectionName, table, qualMap, columns, limit, scanTraceCtx)
+		iterator, err = h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx)
 		log.Printf("[TRACE] Hub GetIterator() created iterator (%p)", iterator)
 	}
 
@@ -473,7 +473,7 @@ func (h *Hub) traceContextForScan(table string, columns []string, limit int64, q
 }
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator or a legacyScanIterator
-func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
+func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {
 			// close the span in case of errir
@@ -489,7 +489,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	}
 	// if this is a legacy plugin, create legacy iterator
 	if !connectionPlugin.SupportedOperations.MultipleConnections {
-		return h.startScanForLegacyConnection(connectionName, table, qualMap, columns, limit, scanTraceCtx)
+		return h.startScanForLegacyConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx)
 	}
 
 	// ok so this is a multi connection plugin, build list of connections,
@@ -506,7 +506,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		connectionNames = connectionConfig.GetResolveConnectionNames()
 	}
 	// for each connection, determine whether to pushdown the limit
-	connectionLimitMap, err := h.buildConnectionLimitMap(table, qualMap, connectionNames, limit, connectionPlugin)
+	connectionLimitMap, err := h.buildConnectionLimitMap(table, qualMap, unhandledRestrictions, connectionNames, limit, connectionPlugin)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +524,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	return iterator, nil
 }
 
-func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Quals, connectionNames []string, limit int64, connectionPlugin *steampipeconfig.ConnectionPlugin) (map[string]int64, error) {
+func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, connectionNames []string, limit int64, connectionPlugin *steampipeconfig.ConnectionPlugin) (map[string]int64, error) {
 	log.Printf("[TRACE] buildConnectionLimitMap, table: '%s', %d %s, limit: %d", table, len(connectionNames), utils.Pluralize("connection", len(connectionNames)), limit)
 
 	connectionSchema, err := connectionPlugin.GetSchema(connectionNames[0])
@@ -538,7 +538,7 @@ func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Qu
 	// check once whether we should push down
 	if limit != -1 && schemaMode == plugin.SchemaModeStatic {
 		log.Printf("[TRACE] static schema - using same limit for all connections")
-		if !h.shouldPushdownLimit(table, qualMap, connectionSchema) {
+		if !h.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
 			limit = -1
 		}
 	}
@@ -548,7 +548,7 @@ func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Qu
 	for _, c := range connectionNames {
 		connectionLimit := limit
 		// if schema mode is dynamic, check whether we should push down for each connection
-		if schemaMode == plugin.SchemaModeDynamic && !h.shouldPushdownLimit(table, qualMap, connectionSchema) {
+		if schemaMode == plugin.SchemaModeDynamic && !h.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
 			log.Printf("[INFO] not pushing limit down for connection %s", c)
 			connectionLimit = -1
 		}
@@ -558,10 +558,10 @@ func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Qu
 	return connectionLimitMap, nil
 }
 
-func (h *Hub) startScanForLegacyConnection(connectionName string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
+func (h *Hub) startScanForLegacyConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
 	// if this is an aggregate connection, create a group iterator
 	if h.IsLegacyAggregatorConnection(connectionName) {
-		return newLegacyGroupIterator(connectionName, table, qualMap, columns, limit, h, scanTraceCtx)
+		return newLegacyGroupIterator(connectionName, table, qualMap, unhandledRestrictions, columns, limit, h, scanTraceCtx)
 	}
 
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
@@ -576,7 +576,7 @@ func (h *Hub) startScanForLegacyConnection(connectionName string, table string, 
 	// determine whether to include the limit, based on the quals
 	// we ONLY pushdown the limit is all quals have corresponding key columns,
 	// and if the qual operator is supported by the key column
-	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, connectionSchema) {
+	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
 		limit = -1
 	}
 
@@ -602,7 +602,12 @@ func (h *Hub) startScanForLegacyConnection(connectionName string, table string, 
 // determine whether to include the limit, based on the quals
 // we ONLY pushdown the limit if all quals have corresponding key columns,
 // and if the qual operator is supported by the key column
-func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, connectionSchema *proto.Schema) bool {
+func (h *Hub) shouldPushdownLimit(table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, connectionSchema *proto.Schema) bool {
+	// if we have any unhandled restrictions, we CANNOT push limit down
+	if unhandledRestrictions > 0 {
+		return false
+	}
+
 	// build a map of all key columns
 	tableSchema, ok := connectionSchema.Schema[table]
 	if !ok {

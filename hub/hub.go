@@ -574,7 +574,7 @@ func (h *Hub) startScanForLegacyConnection(connectionName string, table string, 
 		return nil, err
 	}
 	// determine whether to include the limit, based on the quals
-	// we ONLY pushdown the limit is all quals have corresponding key columns,
+	// we ONLY pushdown the limit if all quals have corresponding key columns,
 	// and if the qual operator is supported by the key column
 	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
 		limit = -1

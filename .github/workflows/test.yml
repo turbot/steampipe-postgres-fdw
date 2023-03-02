@@ -29,7 +29,7 @@ jobs:
 
       - name: Run steampipe
         run: |
-          steampipe query "select 1 as col"
+          STEAMPIPE LOG=trace steampipe query "select 1 as col"
 
       - name: Checkout FDW
         uses: actions/checkout@v3

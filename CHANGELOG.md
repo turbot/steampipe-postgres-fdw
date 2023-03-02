@@ -1,4 +1,8 @@
-## v1.6.0 [tbd]
+## v1.6.1 [2023-03-2]
+_Bug fixes_
+* Fix build issue which caused failure to install FDW on Linux x86_64 systems. ([#295](https://github.com/turbot/steampipe-postgres-fdw/issues/295))
+
+## v1.6.0 [2023-03-1]
 _Whats new_
 * Add support for dynamic aggregators. Pass connection name in `ExecuteRequest`, this is used to resolve aggregator config. ([#273](https://github.com/turbot/steampipe-postgres-fdw/issues/273))
 

@@ -72,7 +72,7 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) (qua
 		log.Printf("[TRACE] %s", grpc.QualToString(q))
 	}
 	if unhandledRestrictions > 0 {
-		log.Printf("[WARN] RestrictionsToQuals: failed to convert %s %s to quals",
+		log.Printf("[WARN] RestrictionsToQuals: failed to convert %d %s to quals",
 			unhandledRestrictions,
 			pluralize.NewClient().Pluralize("restriction", unhandledRestrictions, false))
 	}

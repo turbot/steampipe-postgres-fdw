@@ -192,6 +192,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
+	log.Printf("[TRACE] goFdwBeginForeignScan")
 	// read the explain flag
 	explain := eflags&C.EXEC_FLAG_EXPLAIN_ONLY == C.EXEC_FLAG_EXPLAIN_ONLY
 

@@ -259,7 +259,7 @@ jobs:
         if-no-files-found: error
 
   build-linux-arm:
-    name: Build for Linux ARM64
+    name: Build for Linux ARM64 (on AWS EC2)
     runs-on: ubuntu-latest
     steps:
     - name: Checkout

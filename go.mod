@@ -8,9 +8,8 @@ require (
 	github.com/hashicorp/go-hclog v1.4.0
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.5.0
-	// main (about to tag v0.19.0-rc.4)
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20230228115003-a936a6d2c8f6
-	github.com/turbot/steampipe-plugin-sdk/v5 v5.2.0-rc.9
+	github.com/turbot/steampipe v0.19.0-rc.10
+	github.com/turbot/steampipe-plugin-sdk/v5 v5.2.1-alpha.0
 	go.opentelemetry.io/otel v1.10.0
 	google.golang.org/protobuf v1.28.1
 )
@@ -69,7 +68,7 @@ require (
 	github.com/fatih/color v1.14.1 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/gertd/go-pluralize v0.2.1 // indirect
+	github.com/gertd/go-pluralize v0.2.1
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

@@ -64,6 +64,8 @@ func init() {
 func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double, width *C.int, baserel *C.RelOptInfo) {
 	logging.ClearProfileData()
 
+	log.Printf("[TRACE] goFdwGetRelSize")
+
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
@@ -110,6 +112,7 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 		}
 	}()
 
+	log.Printf("[TRACE] goFdwGetPathKeys")
 	pluginHub, err := hub.GetHub()
 	if err != nil {
 		FdwError(err)
@@ -167,6 +170,7 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 		}
 	}()
 
+	log.Printf("[TRACE] goFdwExplainForeignScan")
 	s := GetExecState(node.fdw_state)
 	if s == nil {
 		return
@@ -188,6 +192,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
+	log.Printf("[TRACE] goFdwBeginForeignScan")
 	// read the explain flag
 	explain := eflags&C.EXEC_FLAG_EXPLAIN_ONLY == C.EXEC_FLAG_EXPLAIN_ONLY
 

@@ -34,7 +34,9 @@ const (
 
 // Hub is a structure representing plugin hub
 type Hub struct {
-	connections      *connectionFactory
+	connections *connectionFactory
+
+	// list of iterators currently executing scans
 	runningIterators []Iterator
 
 	// if the cache is enabled/disabled by a metacommand, this will be non null
@@ -308,8 +310,6 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestric
 		return nil, err
 	}
 
-	// store the iterator
-	h.addIterator(iterator)
 	return iterator, nil
 }
 
@@ -389,7 +389,6 @@ func (h *Hub) GetRelSize(columns []string, quals []*proto.Qual, opts types.Optio
 //	    For example, the return value corresponding to the previous scenario would be::
 //	        [(('id',), 1)]
 func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
-
 	connectionName := opts["connection"]
 	table := opts["table"]
 
@@ -698,6 +697,10 @@ func (h *Hub) StartScan(i Iterator) error {
 		return err
 	}
 	iterator.Start(stream, ctx, cancel)
+
+	// add iterator to running list
+	h.addIterator(iterator)
+
 	return nil
 }
 

@@ -13,6 +13,14 @@ import (
 	"strings"
 )
 
+// This program is used to generate a single go file with the necessary include directives for postgres libraries
+// It uses 'pg_config' to locate the libraries that are necessary to build the FDW and creates a go source file
+// which is used by cgo to refer to the postgres libraries.
+//
+// This is done with a go generator, since it is non-trivial to generate template based output with 'make'
+// and we already have access to the golang eco-system in this project
+//
+// This is invoked by 'make'
 var queueTemplate = `package main
 
 /*
@@ -24,15 +32,8 @@ var queueTemplate = `package main
 import "C"
 
 /**
-
-This file is tactically named so that it gets read and compiled at the start of the build chain.
-
-This is generated on make or by running go generate ./generate in the repository root and as such
-does not need to be check in to version control
-
-It includes the necessary libs and headers required for the compilation of the rest
-of the project
-
+This is auto-generated and does not need to be checked in to version control
+It provides the directive to include the necessary libs and headers required for the compilation of the rest of the project
 **/
 `
 
@@ -60,6 +61,9 @@ func main() {
 	serverIncludeDir := string(output)
 	serverIncludeDir = strings.TrimSpace(serverIncludeDir)
 
+	// the file should be tactically named so that it gets read and compiled at the start of the build chain.
+	// this is necessary since this file will contain the necessary includes that the rest of the build needs to
+	// work properly
 	outputFile, err := os.Create("./0_prebuild.go")
 	if err != nil {
 		panic(err)

@@ -4,19 +4,11 @@ import (
 	"log"
 )
 
-type HubSettingKey string
-
-const (
-	SettingKeyCacheEnabledOverride     HubSettingKey = "cache"
-	SettingKeyCacheTtlOverride         HubSettingKey = "cache_ttl"
-	SettingKeyMinimumCacheTimeOverride HubSettingKey = "cache_latest"
-)
-
 type HubSettings map[HubSettingKey]interface{}
 
 func (s HubSettings) Apply(key string, value string) error {
-	if applier, found := setters[HubSettingKey(key)]; found {
-		return applier(s, value)
+	if applySetting, found := setters[HubSettingKey(key)]; found {
+		return applySetting(s, value)
 	}
 	log.Println("[WARN] trying to apply unknown setting:", key, "=>", value)
 	return nil

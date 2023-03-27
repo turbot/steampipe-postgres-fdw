@@ -447,6 +447,62 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 	opts := GetFTableOptions(types.Oid(relid))
 
 	switch opts["table"] {
+	case constants.CommandTableSettings:
+		tupleDesc := buildTupleDesc(rel.rd_att)
+		attributes := tupleDesc.Attrs
+		hub, err := hub.GetHub()
+		if err != nil {
+			FdwError(err)
+			return nil
+		}
+		var key *string
+		var value *string
+
+		// iterate through the attributes
+		for i, a := range attributes {
+			var isNull C.bool
+			datum := C.slot_getattr(slot, C.int(i+1), &isNull)
+			if isNull {
+				continue
+			}
+			// get a string from the memory slot
+			datumStr := C.GoString(C.fdw_datumGetString(datum))
+
+			log.Println("[TRACE] name", a.Name)
+			log.Println("[TRACE] datum", datum)
+			log.Println("[TRACE] datumstr", datumStr)
+
+			// map it to one of key/value
+			switch a.Name {
+			case constants.CommandTableSettingsKeyColumn:
+				key = &datumStr
+			case constants.CommandTableSettingsValueColumn:
+				// this is a JSONB column
+				// serialize the value as a string
+				// insert into steampipe_command.settings("name","value") values ('cache_ttl','300')
+				// Error: valid value for 'cache_ttl' is the number of seconds, got '"\u0001"' (SQLSTATE HV000)
+				// v, convErr := jsonValueString(datumStr)
+				// if convErr != nil {
+				// 	FdwError(convErr)
+				// 	return nil
+				// }
+				// log.Println("[TRACE] converted", v)
+				value = &datumStr
+			}
+		}
+
+		// if both key and value are not set, ERROR
+		if key == nil || value == nil {
+			FdwError(fmt.Errorf("both 'key' and 'value' columns need to be set"))
+			return nil
+		}
+
+		// apply the setting
+		if err = hub.ApplySetting(*key, *value); err != nil {
+			FdwError(err)
+		}
+		return nil
+
 	case constants.CommandTableCache:
 		// we know there is just a single column - operation
 		var isNull C.bool

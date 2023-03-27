@@ -3,8 +3,6 @@ package hub
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-	"github.com/turbot/steampipe/pkg/utils"
 	"log"
 	"os"
 	"path"
@@ -16,12 +14,15 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-postgres-fdw/settings"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/pkg/constants"
 	"github.com/turbot/steampipe/pkg/filepaths"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 	"github.com/turbot/steampipe/pkg/steampipeconfig/modconfig"
+	"github.com/turbot/steampipe/pkg/utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/metric/instrument"
@@ -39,8 +40,8 @@ type Hub struct {
 	// list of iterators currently executing scans
 	runningIterators []Iterator
 
-	// if the cache is enabled/disabled by a metacommand, this will be non null
-	overrideCacheEnabled *bool
+	// settings
+	settings settings.HubSettings
 
 	// the earliest time we will accept cached data from
 	// when the there is a cache clear command, this is reset to time.Now()
@@ -91,6 +92,8 @@ func GetHub() (*Hub, error) {
 func newHub() (*Hub, error) {
 	hub := &Hub{}
 	hub.connections = newConnectionFactory(hub)
+
+	hub.settings = settings.NewSettings()
 
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {
@@ -316,10 +319,10 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestric
 // LoadConnectionConfig loads the connection config and returns whether it has changed
 func (h *Hub) LoadConnectionConfig() (bool, error) {
 	// load connection conFig
-	connectionConfig, err := steampipeconfig.LoadConnectionConfig()
-	if err != nil {
-		log.Printf("[WARN] LoadConnectionConfig failed %v ", err)
-		return false, err
+	connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig()
+	if errorsAndWarnings.GetError() != nil {
+		log.Printf("[WARN] LoadConnectionConfig failed %v ", errorsAndWarnings)
+		return false, errorsAndWarnings.GetError()
 	}
 
 	configChanged := steampipeconfig.GlobalConfig == connectionConfig
@@ -761,9 +764,9 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 }
 
 func (h *Hub) cacheEnabled(connectionName string) bool {
-	if h.overrideCacheEnabled != nil {
-		res := *h.overrideCacheEnabled
-		log.Printf("[TRACE] cacheEnabled overrideCacheEnabled %v", *h.overrideCacheEnabled)
+	if v, found := h.settings.Get(settings.SettingKeyCacheEnabledOverride); found {
+		res := v.(bool)
+		log.Printf("[TRACE] cacheEnabled overrideCacheEnabled %v", res)
 		return res
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
@@ -777,6 +780,11 @@ func (h *Hub) cacheEnabled(connectionName string) bool {
 }
 
 func (h *Hub) cacheTTL(connectionName string) time.Duration {
+	// if the cache ttl has been overridden, then enforce the value
+	if v, found := h.settings.Get(settings.SettingKeyCacheTtlOverride); found {
+		return v.(time.Duration)
+	}
+
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
 
@@ -836,8 +844,19 @@ func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
 	return ""
 }
 
+func (h *Hub) ApplySetting(key string, value string) error {
+	log.Printf("[TRACE] ApplySetting [%s => %s]", key, value)
+	return h.settings.Apply(key, value)
+}
+
 func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
 	return map[string]*proto.TableSchema{
+		constants.CommandTableSettings: {
+			Columns: []*proto.ColumnDefinition{
+				{Name: constants.CommandTableSettingsKeyColumn, Type: proto.ColumnType_STRING},
+				{Name: constants.CommandTableSettingsValueColumn, Type: proto.ColumnType_STRING},
+			},
+		},
 		constants.CommandTableCache: {
 			Columns: []*proto.ColumnDefinition{
 				{Name: constants.CommandTableCacheOperationColumn, Type: proto.ColumnType_STRING},
@@ -870,16 +889,14 @@ func (h *Hub) HandleCacheCommand(command string) error {
 	switch command {
 	case constants.CommandCacheClear:
 		log.Printf("[TRACE] commandCacheClear")
+		//TODO: BINAEK - we should be able to store this as well
+		// then we can completely remove the cache table
 		// set the cache clear time for the remote query cache
 		h.cacheClearTime = time.Now()
 	case constants.CommandCacheOn:
-		enabled := true
-		h.overrideCacheEnabled = &enabled
-		log.Printf("[TRACE] commandCacheOn, overrideCacheEnabled: %v", enabled)
+		h.settings.Set(settings.SettingKeyCacheEnabledOverride, true)
 	case constants.CommandCacheOff:
-		enabled := false
-		h.overrideCacheEnabled = &enabled
-		log.Printf("[TRACE] commandCacheOff, overrideCacheEnabled: %v", enabled)
+		h.settings.Set(settings.SettingKeyCacheEnabledOverride, false)
 	}
 	return nil
 }

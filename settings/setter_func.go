@@ -25,6 +25,7 @@ func setCacheOverride(hs HubSettings, value string) error {
 	}
 	return nil
 }
+
 func setCacheClearTime(hs HubSettings, _ string) error {
 	hs.Set(SettingKeyCacheClearTimeOverride, time.Now())
 	return nil

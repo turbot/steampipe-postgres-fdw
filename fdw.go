@@ -503,20 +503,6 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 		}
 		return nil
 
-	case constants.CommandTableCache:
-		// we know there is just a single column - operation
-		var isNull C.bool
-		datum := C.slot_getattr(slot, 1, &isNull)
-		operation := C.GoString(C.fdw_datumGetString(datum))
-		hub, err := hub.GetHub()
-		if err != nil {
-			FdwError(err)
-			return nil
-		}
-		if err := hub.HandleCacheCommand(operation); err != nil {
-			FdwError(err)
-			return nil
-		}
 	}
 
 	return nil

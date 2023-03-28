@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -857,11 +856,6 @@ func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
 				{Name: constants.CommandTableSettingsValueColumn, Type: proto.ColumnType_STRING},
 			},
 		},
-		constants.CommandTableCache: {
-			Columns: []*proto.ColumnDefinition{
-				{Name: constants.CommandTableCacheOperationColumn, Type: proto.ColumnType_STRING},
-			},
-		},
 		constants.CommandTableScanMetadata: {
 			Columns: []*proto.ColumnDefinition{
 				{Name: "id", Type: proto.ColumnType_INT},
@@ -877,37 +871,6 @@ func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
 			},
 		},
 	}
-}
-
-func (h *Hub) HandleCacheCommand(command string) error {
-	if err := h.ValidateCacheCommand(command); err != nil {
-		return err
-	}
-
-	log.Printf("[TRACE] HandleCacheCommand %s", command)
-
-	switch command {
-	case constants.CommandCacheClear:
-		log.Printf("[TRACE] commandCacheClear")
-		//TODO: BINAEK - we should be able to store this as well
-		// then we can completely remove the cache table
-		// set the cache clear time for the remote query cache
-		h.cacheClearTime = time.Now()
-	case constants.CommandCacheOn:
-		h.settings.Set(settings.SettingKeyCacheEnabledOverride, true)
-	case constants.CommandCacheOff:
-		h.settings.Set(settings.SettingKeyCacheEnabledOverride, false)
-	}
-	return nil
-}
-
-func (h *Hub) ValidateCacheCommand(command string) error {
-	validCommands := []string{constants.CommandCacheClear, constants.CommandCacheOn, constants.CommandCacheOff}
-
-	if !helpers.StringSliceContains(validCommands, command) {
-		return fmt.Errorf("invalid command '%s' - supported commands are %s", command, strings.Join(validCommands, ","))
-	}
-	return nil
 }
 
 // ensure we do not call execute too frequently

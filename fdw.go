@@ -477,16 +477,6 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 			case constants.CommandTableSettingsKeyColumn:
 				key = &datumStr
 			case constants.CommandTableSettingsValueColumn:
-				// this is a JSONB column
-				// serialize the value as a string
-				// insert into steampipe_command.settings("name","value") values ('cache_ttl','300')
-				// Error: valid value for 'cache_ttl' is the number of seconds, got '"\u0001"' (SQLSTATE HV000)
-				// v, convErr := jsonValueString(datumStr)
-				// if convErr != nil {
-				// 	FdwError(convErr)
-				// 	return nil
-				// }
-				// log.Println("[TRACE] converted", v)
 				value = &datumStr
 			}
 		}

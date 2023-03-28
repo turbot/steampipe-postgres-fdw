@@ -1,41 +1,30 @@
 package settings
 
 import (
-	"fmt"
-	"strconv"
+	"encoding/json"
 	"time"
 )
 
-type setterFunc func(HubSettings, string) error
-
-var setters map[HubSettingKey]setterFunc = map[HubSettingKey]setterFunc{
-	SettingKeyCacheEnabledOverride:   setCacheOverride,
-	SettingKeyCacheTtlOverride:       setCacheTTL,
-	SettingKeyCacheClearTimeOverride: setCacheClearTime,
-}
-
-// define the handler functions
-func setCacheOverride(hs HubSettings, value string) error {
-	if value == "true" {
-		hs.Set(SettingKeyCacheEnabledOverride, true)
-	} else if value == "false" {
-		hs.Set(SettingKeyCacheEnabledOverride, false)
-	} else {
-		return fmt.Errorf("valid values for '%s' are 'true' and 'false', got '%v'", string(SettingKeyCacheEnabledOverride), value)
+func (s *HubCacheSettings) SetCache(jsonValue string) error {
+	var enable bool
+	if err := json.Unmarshal([]byte(jsonValue), &enable); err != nil {
+		return err
 	}
+	s.CacheEnabled = &enable
 	return nil
 }
 
-func setCacheClearTime(hs HubSettings, _ string) error {
-	hs.Set(SettingKeyCacheClearTimeOverride, time.Now())
+func (s *HubCacheSettings) SetCacheTtl(jsonValue string) error {
+	var enable int
+	if err := json.Unmarshal([]byte(jsonValue), &enable); err != nil {
+		return err
+	}
+	ttl := time.Duration(enable) * time.Second
+	s.CacheTtl = &ttl
 	return nil
 }
 
-func setCacheTTL(hs HubSettings, value string) error {
-	atoi, err := strconv.Atoi(value)
-	if err != nil {
-		return fmt.Errorf("valid value for '%s' is the number of seconds, got '%s'", string(SettingKeyCacheTtlOverride), value)
-	}
-	hs.Set(SettingKeyCacheTtlOverride, time.Duration(atoi)*time.Second)
+func (s *HubCacheSettings) SetCacheClearTime(_ string) error {
+	s.CacheClearTime = time.Now()
 	return nil
 }

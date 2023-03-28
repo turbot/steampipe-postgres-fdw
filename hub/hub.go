@@ -40,11 +40,7 @@ type Hub struct {
 	runningIterators []Iterator
 
 	// settings
-	settings settings.HubSettings
-
-	// the earliest time we will accept cached data from
-	// when the there is a cache clear command, this is reset to time.Now()
-	cacheClearTime time.Time
+	settings *settings.HubCacheSettings
 
 	timingLock   sync.Mutex
 	lastScanTime time.Time
@@ -92,7 +88,7 @@ func newHub() (*Hub, error) {
 	hub := &Hub{}
 	hub.connections = newConnectionFactory(hub)
 
-	hub.settings = settings.NewSettings()
+	hub.settings = settings.NewCacheSettings()
 
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {
@@ -763,10 +759,8 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 }
 
 func (h *Hub) cacheEnabled(connectionName string) bool {
-	if v, found := h.settings.Get(settings.SettingKeyCacheEnabledOverride); found {
-		res := v.(bool)
-		log.Printf("[TRACE] cacheEnabled overrideCacheEnabled %v", res)
-		return res
+	if h.settings.CacheEnabled != nil {
+		return *h.settings.CacheEnabled
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
@@ -780,8 +774,8 @@ func (h *Hub) cacheEnabled(connectionName string) bool {
 
 func (h *Hub) cacheTTL(connectionName string) time.Duration {
 	// if the cache ttl has been overridden, then enforce the value
-	if v, found := h.settings.Get(settings.SettingKeyCacheTtlOverride); found {
-		return v.(time.Duration)
+	if h.settings.CacheTtl != nil {
+		return *h.settings.CacheTtl
 	}
 
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
@@ -796,8 +790,8 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 
 	// would this give data earlier than the cacheClearTime
 	now := time.Now()
-	if now.Add(-ttl).Before(h.cacheClearTime) {
-		ttl = now.Sub(h.cacheClearTime)
+	if now.Add(-ttl).Before(h.settings.CacheClearTime) {
+		ttl = now.Sub(h.settings.CacheClearTime)
 	}
 	return ttl
 }

@@ -39,8 +39,8 @@ type Hub struct {
 	// list of iterators currently executing scans
 	runningIterators []Iterator
 
-	// settings
-	settings *settings.HubCacheSettings
+	// cacheSettings
+	cacheSettings *settings.HubCacheSettings
 
 	timingLock   sync.Mutex
 	lastScanTime time.Time
@@ -88,7 +88,7 @@ func newHub() (*Hub, error) {
 	hub := &Hub{}
 	hub.connections = newConnectionFactory(hub)
 
-	hub.settings = settings.NewCacheSettings()
+	hub.cacheSettings = settings.NewCacheSettings()
 
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {
@@ -759,8 +759,8 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 }
 
 func (h *Hub) cacheEnabled(connectionName string) bool {
-	if h.settings.CacheEnabled != nil {
-		return *h.settings.CacheEnabled
+	if h.cacheSettings.Enabled != nil {
+		return *h.cacheSettings.Enabled
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
@@ -774,8 +774,8 @@ func (h *Hub) cacheEnabled(connectionName string) bool {
 
 func (h *Hub) cacheTTL(connectionName string) time.Duration {
 	// if the cache ttl has been overridden, then enforce the value
-	if h.settings.CacheTtl != nil {
-		return *h.settings.CacheTtl
+	if h.cacheSettings.Ttl != nil {
+		return *h.cacheSettings.Ttl
 	}
 
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
@@ -790,8 +790,8 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 
 	// would this give data earlier than the cacheClearTime
 	now := time.Now()
-	if now.Add(-ttl).Before(h.settings.CacheClearTime) {
-		ttl = now.Sub(h.settings.CacheClearTime)
+	if now.Add(-ttl).Before(h.cacheSettings.ClearTime) {
+		ttl = now.Sub(h.cacheSettings.ClearTime)
 	}
 	return ttl
 }
@@ -839,7 +839,7 @@ func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
 
 func (h *Hub) ApplySetting(key string, value string) error {
 	log.Printf("[TRACE] ApplySetting [%s => %s]", key, value)
-	return h.settings.Apply(key, value)
+	return h.cacheSettings.Apply(key, value)
 }
 
 func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {

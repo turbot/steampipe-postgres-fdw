@@ -8,9 +8,9 @@ import (
 type setterFunc func(string) error
 
 type HubCacheSettings struct {
-	CacheEnabled   *bool
-	CacheTtl       *time.Duration
-	CacheClearTime time.Time
+	Enabled   *bool
+	Ttl       *time.Duration
+	ClearTime time.Time
 
 	// a map of handler function which map settings key to setter functions
 	// for individual properties
@@ -20,7 +20,7 @@ type HubCacheSettings struct {
 func NewCacheSettings() *HubCacheSettings {
 	hs := &HubCacheSettings{}
 	hs.setters = map[HubSettingKey]setterFunc{
-		SettingKeyCacheEnabledOverride:   hs.SetCache,
+		SettingKeyCacheEnabledOverride:   hs.SetEnabled,
 		SettingKeyCacheTtlOverride:       hs.SetCacheTtl,
 		SettingKeyCacheClearTimeOverride: hs.SetCacheClearTime,
 	}

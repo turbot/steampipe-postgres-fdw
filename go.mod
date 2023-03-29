@@ -182,5 +182,6 @@ replace (
 	github.com/docker/distribution => github.com/distribution/distribution v2.7.1+incompatible
 	github.com/docker/docker => github.com/moby/moby v20.10.17+incompatible
 
+	// 3258-updates-in-caching-behaviour
 	github.com/turbot/steampipe => github.com/turbot/steampipe v1.7.0-rc.0.0.20230327152311-88e87507e979
 )

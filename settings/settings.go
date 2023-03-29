@@ -20,9 +20,9 @@ type HubCacheSettings struct {
 func NewCacheSettings() *HubCacheSettings {
 	hs := &HubCacheSettings{}
 	hs.setters = map[HubSettingKey]setterFunc{
-		SettingKeyCacheEnabledOverride:   hs.SetEnabled,
-		SettingKeyCacheTtlOverride:       hs.SetCacheTtl,
-		SettingKeyCacheClearTimeOverride: hs.SetCacheClearTime,
+		SettingKeyCacheEnabled:           hs.SetEnabled,
+		SettingKeyCacheTtlOverride:       hs.SetTtl,
+		SettingKeyCacheClearTimeOverride: hs.SetClearTime,
 	}
 	return hs
 }

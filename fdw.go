@@ -483,7 +483,7 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 
 		// if both key and value are not set, ERROR
 		if key == nil || value == nil {
-			FdwError(fmt.Errorf("both 'key' and 'value' columns need to be set"))
+			FdwError(fmt.Errorf("invalid setting: both 'key' and 'value' columns need to be set"))
 			return nil
 		}
 

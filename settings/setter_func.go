@@ -14,7 +14,7 @@ func (s *HubCacheSettings) SetEnabled(jsonValue string) error {
 	return nil
 }
 
-func (s *HubCacheSettings) SetCacheTtl(jsonValue string) error {
+func (s *HubCacheSettings) SetTtl(jsonValue string) error {
 	var enable int
 	if err := json.Unmarshal([]byte(jsonValue), &enable); err != nil {
 		return err
@@ -24,7 +24,7 @@ func (s *HubCacheSettings) SetCacheTtl(jsonValue string) error {
 	return nil
 }
 
-func (s *HubCacheSettings) SetCacheClearTime(_ string) error {
+func (s *HubCacheSettings) SetClearTime(_ string) error {
 	s.ClearTime = time.Now()
 	return nil
 }

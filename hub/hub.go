@@ -503,7 +503,12 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	var connectionNames = []string{connectionName}
 	if connectionConfig.Type == modconfig.ConnectionTypeAggregator {
 		connectionNames = connectionConfig.GetResolveConnectionNames()
+		// if there are no connections, do not proceed
+		if len(connectionNames) == 0 {
+			return nil, getEmptyAggregatorError(connectionConfig)
+		}
 	}
+
 	// for each connection, determine whether to pushdown the limit
 	connectionLimitMap, err := h.buildConnectionLimitMap(table, qualMap, unhandledRestrictions, connectionNames, limit, connectionPlugin)
 	if err != nil {

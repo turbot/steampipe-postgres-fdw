@@ -5,19 +5,16 @@ go 1.19
 require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/golang/protobuf v1.5.2
-	github.com/hashicorp/go-hclog v1.4.0
+	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-version v1.6.0 // indirect
-	github.com/turbot/go-kit v0.5.0
-	github.com/turbot/steampipe v0.19.0-rc.10
-	github.com/turbot/steampipe-plugin-sdk/v5 v5.3.0-rc.0
+	github.com/turbot/go-kit v0.6.0-alpha.1
+	github.com/turbot/steampipe v0.20.0-alpha.6
+	github.com/turbot/steampipe-plugin-sdk/v5 v5.4.0-rc.1
 	go.opentelemetry.io/otel v1.10.0
-	google.golang.org/protobuf v1.29.1
+	google.golang.org/protobuf v1.30.0
 )
 
-require (
-	github.com/Masterminds/semver v1.5.0
-	go.opentelemetry.io/otel/metric v0.30.0
-)
+require go.opentelemetry.io/otel/metric v0.30.0
 
 require (
 	cloud.google.com/go v0.107.0 // indirect
@@ -25,6 +22,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v0.8.0 // indirect
 	cloud.google.com/go/storage v1.27.0 // indirect
+	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/aws/aws-sdk-go v1.44.183 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/briandowns/spinner v1.23.0 // indirect
@@ -32,13 +30,13 @@ require (
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
 	github.com/hashicorp/go-getter v1.6.2 // indirect
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
-	github.com/inconshreveable/mousetrap v1.0.1 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgx/v5 v5.3.1 // indirect
 	github.com/jackc/puddle/v2 v2.2.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/karrick/gows v0.3.0 // indirect
 	github.com/klauspost/compress v1.11.2 // indirect
-	github.com/spf13/cobra v1.6.1 // indirect
+	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/ulikunitz/xz v0.5.8 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
@@ -164,7 +162,7 @@ require (
 	golang.org/x/oauth2 v0.4.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
 	google.golang.org/grpc v1.54.0 // indirect
@@ -182,6 +180,4 @@ replace (
 	github.com/docker/distribution => github.com/distribution/distribution v2.7.1+incompatible
 	github.com/docker/docker => github.com/moby/moby v20.10.17+incompatible
 
-	// 3258-updates-in-caching-behaviour
-	github.com/turbot/steampipe => github.com/turbot/steampipe v1.7.0-rc.0.0.20230327152311-88e87507e979
 )

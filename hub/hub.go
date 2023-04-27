@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -503,7 +504,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 		connectionNames = connectionConfig.GetResolveConnectionNames()
 		// if there are no connections, do not proceed
 		if len(connectionNames) == 0 {
-			return nil, getEmptyAggregatorError(connectionConfig)
+			return nil, errors.New(connectionConfig.GetEmptyAggregatorError())
 		}
 	}
 

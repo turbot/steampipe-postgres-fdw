@@ -1,3 +1,7 @@
+## v1.6.3 [2023-04-27]
+_Bug fixes_
+* Fix array bounds error when querying with an aggregator with no children. Show useful error instead. Closes #303. ([#303](https://github.com/turbot/steampipe-postgres-fdw/issues/303))
+
 ## v1.6.2 [2023-03-08]
 _Bug fixes_
 * Fix nil reference panic when a scan fails to start - do not add an iterator to `Hub.runningIterators` until scan is started successfully. ([#298](https://github.com/turbot/steampipe-postgres-fdw/issues/298))

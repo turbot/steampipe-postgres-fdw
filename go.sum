@@ -904,8 +904,8 @@ github.com/turbot/go-kit v0.6.0-alpha.1 h1:mm1QpkwknuJQfA7oKzyzMiDRx5GsKlzxwsNa7
 github.com/turbot/go-kit v0.6.0-alpha.1/go.mod h1:oP9gLk6bETL4nkEuujZZbOlcv9jnHQlf7DYcI/+Ke8Q=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20230427143948-32b222151c67 h1:M6uDo97Mh7PTEu0IOuYMHSwLYB5sZHgowlO47u4bz/o=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20230427143948-32b222151c67/go.mod h1:hhpIN8ARXlBEqhrt5o4+5Y1cnXMT6C7ll+OxLp7hYXU=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.4.0-rc.1 h1:X1mJovPJLyCiLDe12CN+XLoXica0elNz0LltSShn/WI=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.4.0-rc.1/go.mod h1:bfvdKaLwemr13EPOMbnr7/hOQOO7m4oM7HnVMdNotgY=
+github.com/turbot/steampipe-plugin-sdk/v5 v5.4.1-rc.0 h1:qgLMgBMGuA5t1Y26h4CH64eZPalmOdLRC0bV1TcSgqQ=
+github.com/turbot/steampipe-plugin-sdk/v5 v5.4.1-rc.0/go.mod h1:bfvdKaLwemr13EPOMbnr7/hOQOO7m4oM7HnVMdNotgY=
 github.com/ugorji/go v0.0.0-20180813092308-00b869d2f4a5/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ulikunitz/xz v0.5.8 h1:ERv8V6GKqVi23rgu5cj9pVfVzJbOqAY2Ntl88O6c2nQ=

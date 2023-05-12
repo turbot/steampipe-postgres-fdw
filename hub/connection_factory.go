@@ -2,7 +2,6 @@ package hub
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe/pkg/steampipeconfig/modconfig"
 	"github.com/turbot/steampipe/pkg/utils"
 	"log"
 	"runtime/debug"
@@ -108,7 +107,7 @@ func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionN
 
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, connection %s, config: %s\n", utils.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)
 
-	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins([]*modconfig.Connection{connection})
+	connectionPlugins, res := steampipeconfig.CreateConnectionPlugins([]string{connection.Name})
 	if res.Error != nil {
 		return nil, res.Error
 	}

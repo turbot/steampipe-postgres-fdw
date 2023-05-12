@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.6.0-alpha.1
 	// async_refresh
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20230427143948-32b222151c67
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20230512150826-45ead97f521d
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.4.1
 	go.opentelemetry.io/otel v1.10.0
 	google.golang.org/protobuf v1.30.0
@@ -182,5 +182,4 @@ replace (
 	github.com/deislabs/oras => github.com/oras-project/oras v0.9.0
 	github.com/docker/distribution => github.com/distribution/distribution v2.7.1+incompatible
 	github.com/docker/docker => github.com/moby/moby v20.10.17+incompatible
-	github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
 )

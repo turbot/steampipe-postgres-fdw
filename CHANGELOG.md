@@ -1,3 +1,6 @@
+## v1.7.0 [tbd]
+* Add support for configuring 'cache' and 'cache_ttl' per instance. ([#287](https://github.com/turbot/steampipe-postgres-fdw/issues/287))
+
 ## v1.6.3 [2023-04-27]
 _Bug fixes_
 * Fix array bounds error when querying with an aggregator with no children. Show useful error instead. Closes #303. ([#303](https://github.com/turbot/steampipe-postgres-fdw/issues/303))

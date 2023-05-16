@@ -31,11 +31,11 @@ func GetSQLForTable(table string, tableSchema *proto.TableSchema, localSchema st
 		columnsString = append(columnsString, fmt.Sprintf("%s %s%s", column, t, trailing))
 	}
 
-	sql := fmt.Sprintf(`create foreign table %s.%s
+	sql := fmt.Sprintf(`CREATE FOREIGN TABLE IF NOT EXISTS %s.%s
 (
   %s
 )
-server %s OPTIONS (table %s)`,
+SERVER %s OPTIONS (table %s)`,
 		localSchema,
 		escapedTableName,
 		strings.Join(columnsString, "\n  "),

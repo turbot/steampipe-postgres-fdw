@@ -125,7 +125,7 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = getNamespace(rel)
 
-	if opts["connection"] == constants.CommandSchema {
+	if opts["connection"] == constants.InternalSchema {
 		return result
 	}
 
@@ -389,7 +389,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		}
 	}()
 
-	log.Printf("[WARN] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
+	log.Printf("[INFO] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
 	// get the plugin hub,
 	pluginHub, err := hub.GetHub()
 	if err != nil {
@@ -402,9 +402,10 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	localSchema := C.GoString(stmt.local_schema)
 
 	// special handling for the command schema
-	if remoteSchema == constants.CommandSchema {
-		commandSchema := pluginHub.GetCommandSchema()
-		sql := SchemaToSql(commandSchema, stmt, serverOid)
+	if remoteSchema == constants.InternalSchema {
+		log.Printf("[INFO] importing setting tables into steampipe_internal schema")
+		settingsSchema := pluginHub.GetSettingsSchema()
+		sql := SchemaToSql(settingsSchema, stmt, serverOid)
 		return sql
 	}
 
@@ -435,7 +436,7 @@ func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.Tu
 	defer C.RelationClose(rel)
 	connection := getNamespace(rel)
 	// if this is a command insert, handle it
-	if connection == constants.CommandSchema {
+	if connection == constants.InternalSchema {
 		return handleCommandInsert(rinfo, slot, rel)
 	}
 

@@ -287,7 +287,7 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestric
 	table := opts["table"]
 	log.Printf("[TRACE] Hub GetIterator() table '%s'", table)
 
-	if connectionName == constants.CommandSchema {
+	if connectionName == constants.InternalSchema {
 		return h.executeCommandScan(table)
 	}
 
@@ -848,7 +848,7 @@ func (h *Hub) ApplySetting(key string, value string) error {
 	return h.cacheSettings.Apply(key, value)
 }
 
-func (h *Hub) GetCommandSchema() map[string]*proto.TableSchema {
+func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 	return map[string]*proto.TableSchema{
 		constants.CommandTableSettings: {
 			Columns: []*proto.ColumnDefinition{
@@ -896,7 +896,7 @@ func (h *Hub) executeCommandScan(table string) (Iterator, error) {
 		for i, m := range h.scanMetadata {
 			res.Rows[i] = m.AsResultRow()
 		}
-		return newInMemoryIterator(constants.CommandSchema, res), nil
+		return newInMemoryIterator(constants.InternalSchema, res), nil
 	default:
 		return nil, fmt.Errorf("cannot select from command table '%s'", table)
 	}

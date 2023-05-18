@@ -1,5 +1,6 @@
-## v1.7.0 [tbd]
-* Add support for configuring 'cache' and 'cache_ttl' per instance. ([#287](https://github.com/turbot/steampipe-postgres-fdw/issues/287))
+## v1.7.0 [2023-05-18]
+* Add support for configuring 'cache' and 'cache_ttl' per instance. 
+* Remove 'steampipe_command' schema and move settings and scan_metadata foreign tables to `steampipe_internal` schema. ([#310](https://github.com/turbot/steampipe-postgres-fdw/issues/310))
 
 ## v1.6.3 [2023-04-27]
 _Bug fixes_

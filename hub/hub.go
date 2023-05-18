@@ -850,13 +850,13 @@ func (h *Hub) ApplySetting(key string, value string) error {
 
 func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 	return map[string]*proto.TableSchema{
-		constants.CommandTableSettings: {
+		constants.ForeignTableSettings: {
 			Columns: []*proto.ColumnDefinition{
-				{Name: constants.CommandTableSettingsKeyColumn, Type: proto.ColumnType_STRING},
-				{Name: constants.CommandTableSettingsValueColumn, Type: proto.ColumnType_STRING},
+				{Name: constants.ForeignTableSettingsKeyColumn, Type: proto.ColumnType_STRING},
+				{Name: constants.ForeignTableSettingsValueColumn, Type: proto.ColumnType_STRING},
 			},
 		},
-		constants.CommandTableScanMetadata: {
+		constants.ForeignTableScanMetadata: {
 			Columns: []*proto.ColumnDefinition{
 				{Name: "id", Type: proto.ColumnType_INT},
 				{Name: "table", Type: proto.ColumnType_STRING},
@@ -889,7 +889,7 @@ func (h *Hub) throttle() {
 
 func (h *Hub) executeCommandScan(table string) (Iterator, error) {
 	switch table {
-	case constants.CommandTableScanMetadata:
+	case constants.ForeignTableScanMetadata:
 		res := &QueryResult{
 			Rows: make([]map[string]interface{}, len(h.scanMetadata)),
 		}

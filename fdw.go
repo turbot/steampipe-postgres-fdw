@@ -448,7 +448,7 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 	opts := GetFTableOptions(types.Oid(relid))
 
 	switch opts["table"] {
-	case constants.CommandTableSettings:
+	case constants.ForeignTableSettings:
 		tupleDesc := buildTupleDesc(rel.rd_att)
 		attributes := tupleDesc.Attrs
 		hub, err := hub.GetHub()
@@ -475,9 +475,9 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 
 			// map it to one of key/value
 			switch a.Name {
-			case constants.CommandTableSettingsKeyColumn:
+			case constants.ForeignTableSettingsKeyColumn:
 				key = &datumStr
-			case constants.CommandTableSettingsValueColumn:
+			case constants.ForeignTableSettingsValueColumn:
 				value = &datumStr
 			}
 		}

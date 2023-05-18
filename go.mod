@@ -8,8 +8,7 @@ require (
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.6.0-alpha.1
-	// remove_steampipe_command
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20230516153230-a938a696d29e
+	github.com/turbot/steampipe v0.20.0-rc.2b
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.4.1
 	go.opentelemetry.io/otel v1.10.0
 	google.golang.org/protobuf v1.30.0
@@ -133,7 +132,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shiena/ansicolor v0.0.0-20200904210342-c7312218db18 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
+	github.com/sirupsen/logrus v1.9.1 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect

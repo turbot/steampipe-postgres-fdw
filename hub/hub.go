@@ -878,8 +878,7 @@ func (h *Hub) GetLegacySettingsSchema() map[string]*proto.TableSchema {
 	return map[string]*proto.TableSchema{
 		constants.LegacyCommandTableCache: {
 			Columns: []*proto.ColumnDefinition{
-				{Name: constants.ForeignTableSettingsKeyColumn, Type: proto.ColumnType_STRING},
-				{Name: constants.ForeignTableSettingsValueColumn, Type: proto.ColumnType_STRING},
+				{Name: constants.LegacyCommandTableCacheOperationColumn, Type: proto.ColumnType_STRING},
 			},
 		},
 		constants.LegacyCommandTableScanMetadata: {
@@ -915,7 +914,7 @@ func (h *Hub) throttle() {
 
 func (h *Hub) executeCommandScan(connectionName, table string) (Iterator, error) {
 	switch table {
-	case constants.ForeignTableScanMetadata:
+	case constants.ForeignTableScanMetadata, constants.LegacyCommandTableScanMetadata:
 		res := &QueryResult{
 			Rows: make([]map[string]interface{}, len(h.scanMetadata)),
 		}

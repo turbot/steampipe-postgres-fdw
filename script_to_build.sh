@@ -44,6 +44,12 @@ git fetch
 exit_if_failed
 echo ""
 
+echo "git pull origin main"
+git checkout main
+git pull origin main
+exit_if_failed
+echo ""
+
 echo "git checkout <tag>"
 input=$1
 echo $input

@@ -11,7 +11,7 @@ env:
   CORE_REPO: us-docker.pkg.dev/steampipe/steampipe
   ORG: turbot
   CONFIG_SCHEMA_VERSION: "2020-11-18"
-  VERSION: ${{ github.event.inputs.version }}
+  VERSION: ${{ github.event.ref }}
 
 jobs:
   build-osx:
@@ -277,6 +277,11 @@ jobs:
         AWS_DEFAULT_REGION: 'ap-south-1'
         PRIVATE_KEY: ${{ secrets.AWS_PRIVATE_KEY  }}
       run: |
+        # echo $ref
+        ref=${{ github.event.ref }}
+
+        # echo tag
+        tag=$(echo "$ref" | sed 's/.*\///')
 
         # get public IP of the linux machine
         ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
@@ -310,7 +315,7 @@ jobs:
         echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
         
         # ssh into the instance and run the script to build the binary
-        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'bash -s' < script_to_build.sh $VERSION
+        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'bash -s' < script_to_build.sh $tag
 
         # use scp to fetch the built binary out of the instance
         scp -i private_key ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .

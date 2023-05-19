@@ -278,7 +278,7 @@ jobs:
         PRIVATE_KEY: ${{ secrets.AWS_PRIVATE_KEY  }}
       run: |
         # echo $VERSION
-        echo $VERSION
+        echo ${{ github.event.inputs.version }}
 
         # get public IP of the linux machine
         ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
@@ -310,12 +310,9 @@ jobs:
         
         # set up the private key
         echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
-
-        # echo $VERSION
-        echo $VERSION
         
         # ssh into the instance and run the script to build the binary
-        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'bash -s' < script_to_build.sh $VERSION
+        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'bash -s' < script_to_build.sh ${{ github.event.inputs.version }}
 
         # use scp to fetch the built binary out of the instance
         scp -i private_key ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .

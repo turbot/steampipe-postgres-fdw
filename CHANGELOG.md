@@ -1,3 +1,11 @@
+## v1.7.2 [2023-05-18]
+_Whats new_
+* Re-add support for legacy command-schema. ([#313](https://github.com/turbot/steampipe-postgres-fdw/issues/313))
+
+
+## v1.7.1 [2023-05-18]
+Rebuild to avoid Linux Arm build error
+
 ## v1.7.0 [2023-05-18]
 * Add support for configuring 'cache' and 'cache_ttl' per instance. 
 * Remove 'steampipe_command' schema and move settings and scan_metadata foreign tables to `steampipe_internal` schema. ([#310](https://github.com/turbot/steampipe-postgres-fdw/issues/310))

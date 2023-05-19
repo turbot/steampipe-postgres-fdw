@@ -45,7 +45,10 @@ exit_if_failed
 echo ""
 
 echo "git checkout <tag>"
-git checkout $1
+input=$1
+echo $input
+git checkout $input
+git branch --list
 exit_if_failed
 echo ""
 

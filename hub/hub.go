@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -875,13 +876,13 @@ func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 
 func (h *Hub) GetLegacySettingsSchema() map[string]*proto.TableSchema {
 	return map[string]*proto.TableSchema{
-		"cache": {
+		constants.LegacyCommandTableCache: {
 			Columns: []*proto.ColumnDefinition{
 				{Name: constants.ForeignTableSettingsKeyColumn, Type: proto.ColumnType_STRING},
 				{Name: constants.ForeignTableSettingsValueColumn, Type: proto.ColumnType_STRING},
 			},
 		},
-		"scan_metadata": {
+		constants.LegacyCommandTableScanMetadata: {
 			Columns: []*proto.ColumnDefinition{
 				{Name: "id", Type: proto.ColumnType_INT},
 				{Name: "table", Type: proto.ColumnType_STRING},
@@ -925,4 +926,33 @@ func (h *Hub) executeCommandScan(connectionName, table string) (Iterator, error)
 	default:
 		return nil, fmt.Errorf("cannot select from command table '%s'", table)
 	}
+}
+
+func (h *Hub) HandleLegacyCacheCommand(command string) error {
+	if err := h.ValidateCacheCommand(command); err != nil {
+		return err
+	}
+
+	log.Printf("[TRACE] HandleLegacyCacheCommand %s", command)
+
+	switch command {
+	case constants.LegacyCommandCacheClear:
+		// set the cache clear time for the remote query cache
+		h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "")
+
+	case constants.LegacyCommandCacheOn:
+		h.cacheSettings.Apply(string(settings.SettingKeyCacheEnabled), "true")
+	case constants.LegacyCommandCacheOff:
+		h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "false")
+	}
+	return nil
+}
+
+func (h *Hub) ValidateCacheCommand(command string) error {
+	validCommands := []string{constants.LegacyCommandCacheClear, constants.LegacyCommandCacheOn, constants.LegacyCommandCacheOff}
+
+	if !helpers.StringSliceContains(validCommands, command) {
+		return fmt.Errorf("invalid command '%s' - supported commands are %s", command, strings.Join(validCommands, ","))
+	}
+	return nil
 }

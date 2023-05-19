@@ -454,6 +454,21 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 	opts := GetFTableOptions(types.Oid(relid))
 
 	switch opts["table"] {
+	case constants.LegacyCommandTableCache:
+		// we know there is just a single column - operation
+		var isNull C.bool
+		datum := C.slot_getattr(slot, 1, &isNull)
+		operation := C.GoString(C.fdw_datumGetString(datum))
+		hub, err := hub.GetHub()
+		if err != nil {
+			FdwError(err)
+			return nil
+		}
+		if err := hub.HandleLegacyCacheCommand(operation); err != nil {
+			FdwError(err)
+			return nil
+		}
+
 	case constants.ForeignTableSettings:
 		tupleDesc := buildTupleDesc(rel.rd_att)
 		attributes := tupleDesc.Attrs

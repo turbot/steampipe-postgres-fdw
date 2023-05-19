@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -287,8 +288,8 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestric
 	table := opts["table"]
 	log.Printf("[TRACE] Hub GetIterator() table '%s'", table)
 
-	if connectionName == constants.InternalSchema {
-		return h.executeCommandScan(table)
+	if connectionName == constants.InternalSchema || connectionName == constants.LegacyCommandSchema {
+		return h.executeCommandScan(connectionName, table)
 	}
 
 	// create a span for this scan
@@ -873,6 +874,30 @@ func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 	}
 }
 
+func (h *Hub) GetLegacySettingsSchema() map[string]*proto.TableSchema {
+	return map[string]*proto.TableSchema{
+		constants.LegacyCommandTableCache: {
+			Columns: []*proto.ColumnDefinition{
+				{Name: constants.LegacyCommandTableCacheOperationColumn, Type: proto.ColumnType_STRING},
+			},
+		},
+		constants.LegacyCommandTableScanMetadata: {
+			Columns: []*proto.ColumnDefinition{
+				{Name: "id", Type: proto.ColumnType_INT},
+				{Name: "table", Type: proto.ColumnType_STRING},
+				{Name: "cache_hit", Type: proto.ColumnType_BOOL},
+				{Name: "rows_fetched", Type: proto.ColumnType_INT},
+				{Name: "hydrate_calls", Type: proto.ColumnType_INT},
+				{Name: "start_time", Type: proto.ColumnType_TIMESTAMP},
+				{Name: "duration", Type: proto.ColumnType_DOUBLE},
+				{Name: "columns", Type: proto.ColumnType_JSON},
+				{Name: "limit", Type: proto.ColumnType_INT},
+				{Name: "quals", Type: proto.ColumnType_STRING},
+			},
+		},
+	}
+}
+
 // ensure we do not call execute too frequently
 // NOTE: this is a workaround for legacy plugin - it is not necessary for plugins built with sdk > 0.8.0
 func (h *Hub) throttle() {
@@ -887,17 +912,46 @@ func (h *Hub) throttle() {
 	h.lastScanTime = time.Now()
 }
 
-func (h *Hub) executeCommandScan(table string) (Iterator, error) {
+func (h *Hub) executeCommandScan(connectionName, table string) (Iterator, error) {
 	switch table {
-	case constants.ForeignTableScanMetadata:
+	case constants.ForeignTableScanMetadata, constants.LegacyCommandTableScanMetadata:
 		res := &QueryResult{
 			Rows: make([]map[string]interface{}, len(h.scanMetadata)),
 		}
 		for i, m := range h.scanMetadata {
 			res.Rows[i] = m.AsResultRow()
 		}
-		return newInMemoryIterator(constants.InternalSchema, res), nil
+		return newInMemoryIterator(connectionName, res), nil
 	default:
 		return nil, fmt.Errorf("cannot select from command table '%s'", table)
 	}
+}
+
+func (h *Hub) HandleLegacyCacheCommand(command string) error {
+	if err := h.ValidateCacheCommand(command); err != nil {
+		return err
+	}
+
+	log.Printf("[TRACE] HandleLegacyCacheCommand %s", command)
+
+	switch command {
+	case constants.LegacyCommandCacheClear:
+		// set the cache clear time for the remote query cache
+		h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "")
+
+	case constants.LegacyCommandCacheOn:
+		h.cacheSettings.Apply(string(settings.SettingKeyCacheEnabled), "true")
+	case constants.LegacyCommandCacheOff:
+		h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "false")
+	}
+	return nil
+}
+
+func (h *Hub) ValidateCacheCommand(command string) error {
+	validCommands := []string{constants.LegacyCommandCacheClear, constants.LegacyCommandCacheOn, constants.LegacyCommandCacheOff}
+
+	if !helpers.StringSliceContains(validCommands, command) {
+		return fmt.Errorf("invalid command '%s' - supported commands are %s", command, strings.Join(validCommands, ","))
+	}
+	return nil
 }

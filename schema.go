@@ -27,7 +27,7 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 	localSchema := C.GoString(stmt.local_schema)
 
 	// first figure out which tables we want
-	tables := []string{}
+	var tables []string
 	// iterate over table list
 	if stmt.table_list != nil {
 		for it := C.list_head(stmt.table_list); it != nil; it = C.lnext(stmt.table_list, it) {
@@ -65,6 +65,7 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 			return nil
 		}
 
+		log.Printf("[TRACE] SQL %s", sql)
 		commands = C.lappend(commands, unsafe.Pointer(C.CString(sql)))
 	}
 

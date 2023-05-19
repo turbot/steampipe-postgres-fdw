@@ -287,8 +287,8 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestric
 	table := opts["table"]
 	log.Printf("[TRACE] Hub GetIterator() table '%s'", table)
 
-	if connectionName == constants.InternalSchema {
-		return h.executeCommandScan(table)
+	if connectionName == constants.InternalSchema || connectionName == constants.LegacyCommandSchema {
+		return h.executeCommandScan(connectionName, table)
 	}
 
 	// create a span for this scan
@@ -873,6 +873,31 @@ func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 	}
 }
 
+func (h *Hub) GetLegacySettingsSchema() map[string]*proto.TableSchema {
+	return map[string]*proto.TableSchema{
+		"cache": {
+			Columns: []*proto.ColumnDefinition{
+				{Name: constants.ForeignTableSettingsKeyColumn, Type: proto.ColumnType_STRING},
+				{Name: constants.ForeignTableSettingsValueColumn, Type: proto.ColumnType_STRING},
+			},
+		},
+		"scan_metadata": {
+			Columns: []*proto.ColumnDefinition{
+				{Name: "id", Type: proto.ColumnType_INT},
+				{Name: "table", Type: proto.ColumnType_STRING},
+				{Name: "cache_hit", Type: proto.ColumnType_BOOL},
+				{Name: "rows_fetched", Type: proto.ColumnType_INT},
+				{Name: "hydrate_calls", Type: proto.ColumnType_INT},
+				{Name: "start_time", Type: proto.ColumnType_TIMESTAMP},
+				{Name: "duration", Type: proto.ColumnType_DOUBLE},
+				{Name: "columns", Type: proto.ColumnType_JSON},
+				{Name: "limit", Type: proto.ColumnType_INT},
+				{Name: "quals", Type: proto.ColumnType_STRING},
+			},
+		},
+	}
+}
+
 // ensure we do not call execute too frequently
 // NOTE: this is a workaround for legacy plugin - it is not necessary for plugins built with sdk > 0.8.0
 func (h *Hub) throttle() {
@@ -887,7 +912,7 @@ func (h *Hub) throttle() {
 	h.lastScanTime = time.Now()
 }
 
-func (h *Hub) executeCommandScan(table string) (Iterator, error) {
+func (h *Hub) executeCommandScan(connectionName, table string) (Iterator, error) {
 	switch table {
 	case constants.ForeignTableScanMetadata:
 		res := &QueryResult{
@@ -896,7 +921,7 @@ func (h *Hub) executeCommandScan(table string) (Iterator, error) {
 		for i, m := range h.scanMetadata {
 			res.Rows[i] = m.AsResultRow()
 		}
-		return newInMemoryIterator(constants.InternalSchema, res), nil
+		return newInMemoryIterator(connectionName, res), nil
 	default:
 		return nil, fmt.Errorf("cannot select from command table '%s'", table)
 	}

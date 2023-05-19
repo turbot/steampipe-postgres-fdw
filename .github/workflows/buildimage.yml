@@ -277,6 +277,8 @@ jobs:
         AWS_DEFAULT_REGION: 'ap-south-1'
         PRIVATE_KEY: ${{ secrets.AWS_PRIVATE_KEY  }}
       run: |
+        # echo $VERSION
+        echo $VERSION
 
         # get public IP of the linux machine
         ip=$(dig +short myip.opendns.com @resolver1.opendns.com)

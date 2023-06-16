@@ -181,13 +181,6 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	if _, ok := iter.(*inMemoryIterator); ok {
 		return
 	}
-	// if this is a group iterator, recurse into AddScanMetadata for each underlying iterator
-	if g, ok := iter.(*legacyGroupIterator); ok {
-		for _, i := range g.Iterators {
-			h.AddScanMetadata(i)
-		}
-		return
-	}
 
 	log.Printf("[TRACE] AddScanMetadata for iterator %p (%s)", iter, iter.ConnectionName())
 	// get the id of the last metadata item we currently have
@@ -269,13 +262,6 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 	pluginFQN := remoteSchema
 	connectionName := localSchema
 	log.Printf("[TRACE] getSchema remoteSchema: %s, name %s\n", remoteSchema, connectionName)
-
-	// if this is an aggregate connection, get the name of the first child connection
-	// - we will use this to retrieve the schema
-	if h.IsLegacyAggregatorConnection(connectionName) {
-		connectionName = h.GetAggregateConnectionChild(connectionName)
-		log.Printf("[TRACE] getSchema %s is an aggregator - getting schema for first child %s\n", localSchema, connectionName)
-	}
 
 	return h.connections.getSchema(pluginFQN, connectionName)
 }
@@ -394,12 +380,6 @@ func (h *Hub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 
 	log.Printf("[TRACE] hub.GetPathKeys for connection '%s`, table `%s`", connectionName, table)
 
-	// if this is an aggregate connection, get the first child connection
-	if h.IsLegacyAggregatorConnection(connectionName) {
-		connectionName = h.GetAggregateConnectionChild(connectionName)
-		log.Printf("[TRACE] connection is an aggregate - using child connection: %s", connectionName)
-	}
-
 	// get the schema for this connection
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
@@ -486,10 +466,6 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	if err != nil {
 		return nil, err
 	}
-	// if this is a legacy plugin, create legacy iterator
-	if !connectionPlugin.SupportedOperations.MultipleConnections {
-		return h.startScanForLegacyConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx)
-	}
 
 	// ok so this is a multi connection plugin, build list of connections,
 	// if this connection is NOT an aggregator, only execute for the named connection
@@ -560,47 +536,6 @@ func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Qu
 	}
 
 	return connectionLimitMap, nil
-}
-
-func (h *Hub) startScanForLegacyConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
-	// if this is an aggregate connection, create a group iterator
-	if h.IsLegacyAggregatorConnection(connectionName) {
-		return newLegacyGroupIterator(connectionName, table, qualMap, unhandledRestrictions, columns, limit, h, scanTraceCtx)
-	}
-
-	connectionPlugin, err := h.getConnectionPlugin(connectionName)
-	if err != nil {
-		return nil, err
-	}
-
-	connectionSchema, err := connectionPlugin.GetSchema(connectionName)
-	if err != nil {
-		return nil, err
-	}
-	// determine whether to include the limit, based on the quals
-	// we ONLY pushdown the limit if all quals have corresponding key columns,
-	// and if the qual operator is supported by the key column
-	if limit != -1 && !h.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
-		limit = -1
-	}
-
-	if len(qualMap) > 0 {
-		log.Printf("[INFO] connection '%s', table '%s', quals %s", connectionName, table, grpc.QualMapToString(qualMap, true))
-	} else {
-		log.Println("[INFO] --------")
-		log.Println("[INFO] no quals")
-		log.Println("[INFO] --------")
-	}
-
-	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	queryContext := proto.NewQueryContext(columns, qualMap, limit)
-	iterator := newLegacyScanIterator(h, connectionPlugin, connectionName, table, qualMap, columns, limit, scanTraceCtx)
-
-	if err := h.startLegacyScan(iterator, queryContext, scanTraceCtx); err != nil {
-		return nil, err
-	}
-
-	return iterator, nil
 }
 
 // determine whether to include the limit, based on the quals
@@ -709,39 +644,6 @@ func (h *Hub) StartScan(i Iterator) error {
 	return nil
 }
 
-// split startScan into a separate function to allow iterator to restart the scan
-func (h *Hub) startLegacyScan(iterator *legacyScanIterator, queryContext *proto.QueryContext, traceCtx *telemetry.TraceCtx) error {
-	// ensure we do not call execute too frequently
-	h.throttle()
-
-	table := iterator.table
-	connectionPlugin := iterator.connectionPlugin
-	connectionName := iterator.connectionName
-	callId := grpc.BuildCallId()
-
-	req := &proto.ExecuteRequest{
-		Table:        table,
-		QueryContext: queryContext,
-		Connection:   connectionName,
-		CacheEnabled: h.cacheEnabled(connectionName),
-		CacheTtl:     int64(h.cacheTTL(connectionName).Seconds()),
-		CallId:       callId,
-		TraceContext: grpc.CreateCarrierFromContext(traceCtx.Ctx),
-	}
-
-	log.Printf("[INFO] StartScan for table: %s, callId %s, cache enabled: %v, iterator %p", table, callId, req.CacheEnabled, iterator)
-	stream, ctx, cancel, err := connectionPlugin.PluginClient.Execute(req)
-	// format GRPC errors and ignore not implemented errors for backwards compatibility
-	err = grpc.HandleGrpcError(err, connectionPlugin.PluginName, "Execute")
-	if err != nil {
-		log.Printf("[WARN] startScan: plugin Execute function callId: %s returned error: %v\n", callId, err)
-		iterator.setError(err)
-		return err
-	}
-	iterator.Start(stream, ctx, cancel)
-	return nil
-}
-
 // getConnectionPlugin returns the connectionPlugin for the provided connection
 // it also makes sure that the plugin is up and running.
 // if the plugin is not running, it attempts to restart the plugin - errors if unable
@@ -801,47 +703,6 @@ func (h *Hub) cacheTTL(connectionName string) time.Duration {
 		ttl = now.Sub(h.cacheSettings.ClearTime)
 	}
 	return ttl
-}
-
-// IsLegacyAggregatorConnection returns whether the connection with the given name is
-// using a legacy plugin and has type "aggregator"
-func (h *Hub) IsLegacyAggregatorConnection(connectionName string) (res bool) {
-	// is the connection an aggregator?
-	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
-	if !ok || connectionConfig.Type != modconfig.ConnectionTypeAggregator {
-		if !ok {
-			log.Printf("[WARN] IsLegacyAggregatorConnection: connection %s not found", connectionName)
-		} else {
-			log.Printf("[TRACE] connectionConfig.Type is NOT legacy 'aggregator'")
-		}
-		return false
-	}
-
-	// ok so it _is_ an aggregator - we need to find out if it is a legacy plugin - only way to do that is to
-	// instantiate the connection plugin for the first child connection
-	// NOTE we know there will be at least one child or else the connection will fail validation
-	for childConnectionName := range connectionConfig.Connections {
-		connectionPlugin, _ := h.getConnectionPlugin(childConnectionName)
-		res = connectionPlugin != nil && !connectionPlugin.SupportedOperations.MultipleConnections
-		log.Printf("[TRACE] IsLegacyAggregatorConnection returning %v", res)
-		break
-	}
-	return res
-}
-
-// GetAggregateConnectionChild returns the name of first child connection of the aggregate connection with the given name
-func (h *Hub) GetAggregateConnectionChild(connectionName string) string {
-	if !h.IsLegacyAggregatorConnection(connectionName) {
-		panic(fmt.Sprintf("GetAggregateConnectionChild called for connection %s which is not an aggregate", connectionName))
-	}
-	aggregateConnection := steampipeconfig.GlobalConfig.Connections[connectionName]
-	// get first child
-	for connectionName := range aggregateConnection.Connections {
-		return connectionName
-	}
-
-	// not expected
-	return ""
 }
 
 func (h *Hub) ApplySetting(key string, value string) error {

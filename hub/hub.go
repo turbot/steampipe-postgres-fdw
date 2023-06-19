@@ -192,7 +192,11 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	ctx := iter.GetTraceContext().Ctx
 
 	connectionName := iter.ConnectionName()
-	connectionPlugin, _ := h.getConnectionPlugin(connectionName)
+	connectionPlugin, err := h.getConnectionPlugin(connectionName)
+	if err != nil {
+		log.Printf("[WARN] AddScanMetadata for iterator %p (%s) failed - error getting connectionPlugin: %s", iter, iter.ConnectionName(), err.Error())
+		return
+	}
 
 	// get list of scan metadata from iterator (may be more than 1 for group_iterator)
 	scanMetadata := iter.GetScanMetadata()
@@ -279,21 +283,13 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestric
 
 	// create a span for this scan
 	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
-
-	var iterator Iterator
-	// if this is a legacy aggregator connection, create a group iterator
-	if h.IsLegacyAggregatorConnection(connectionName) {
-		iterator, err = newLegacyGroupIterator(connectionName, table, qualMap, unhandledRestrictions, columns, limit, h, scanTraceCtx)
-		log.Printf("[TRACE] Hub GetIterator() created aggregate iterator (%p)", iterator)
-	} else {
-		iterator, err = h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx)
-		log.Printf("[TRACE] Hub GetIterator() created iterator (%p)", iterator)
-	}
+	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx)
 
 	if err != nil {
 		log.Printf("[TRACE] Hub GetIterator() failed :( %s", err)
 		return nil, err
 	}
+	log.Printf("[TRACE] Hub GetIterator() created iterator (%p)", iterator)
 
 	return iterator, nil
 }
@@ -463,6 +459,8 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	// get connection plugin for this connection
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
+		log.Printf("[WARN] getConnectionPlugin failed: %s", err.Error())
+
 		return nil, err
 	}
 
@@ -647,7 +645,7 @@ func (h *Hub) StartScan(i Iterator) error {
 // it also makes sure that the plugin is up and running.
 // if the plugin is not running, it attempts to restart the plugin - errors if unable
 func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
-	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
+	log.Printf("[INFO] hub.getConnectionPlugin for connection '%s`", connectionName)
 
 	// get the plugin FQN
 	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
@@ -660,6 +658,7 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	// ask connection map to get or create this connection
 	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
 	if err != nil {
+		log.Printf("[WARN] getConnectionPlugin getConnectionPlugin failed: %s", err.Error())
 		return nil, err
 	}
 

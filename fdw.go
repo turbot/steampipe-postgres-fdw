@@ -258,6 +258,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	logging.LogTime("[fdw] BeginForeignScan end")
 }
 
+var count = 0
+
 //export goFdwIterateForeignScan
 func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	defer func() {
@@ -277,7 +279,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	// if the iterator has not started, start
 	if s.Iter.Status() == hub.QueryStatusReady {
-		log.Printf("[TRACE] goFdwIterateForeignScan calling pluginHub.StartScan")
+		log.Printf("[WARN] goFdwIterateForeignScan calling pluginHub.StartScan")
 		if err := pluginHub.StartScan(s.Iter); err != nil {
 			FdwError(err)
 			return slot
@@ -327,6 +329,8 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
 	logging.LogTime("[fdw] IterateForeignScan end")
+	count++
+	log.Printf("[WARN] goFdwIterateForeignScan GOT ROW %d", count)
 
 	return slot
 }

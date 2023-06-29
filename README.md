@@ -52,7 +52,7 @@ Steps:
 $ make
 ```
 
-This will install the compiled FDW (`steampipe_postgres_fdw.so`) into the default Steampipe installation directory (`~/.steampipe`) - if it exists.
+This will compile the FDW (`steampipe_postgres_fdw.so`) along with the `control` and `sql` file in the `build-$PLATFORM` directory. This will install the compiled FDW into the default Steampipe installation directory (`~/.steampipe`) - if it exists.
 
 ### License
 

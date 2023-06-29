@@ -18,7 +18,11 @@ build: 0_prebuild.go
 	rm -f 0_prebuild.go
 
 0_prebuild.go:
-	go generate ./...
+	cp prebuild.tmpl 0_prebuild.go
+	sed -i.bak 's|OS_PLACEHOLDER|$(shell go env GOOS)|' 0_prebuild.go
+	sed -i.bak 's|INTERNAL_INCLUDE_PLACEHOLDER|$(shell pg_config --includedir)|' 0_prebuild.go
+	sed -i.bak 's|SERVER_INCLUDE_PLACEHOLDER|$(shell pg_config --includedir-server)|' 0_prebuild.go
+	rm -f 0_prebuild.go.bak
 
 clean:
 	$(MAKE) -C ./fdw clean

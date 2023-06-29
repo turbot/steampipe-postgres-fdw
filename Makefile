@@ -22,6 +22,7 @@ prebuild.go:
 	sed -i.bak 's|OS_PLACEHOLDER|$(shell go env GOOS)|' prebuild.go
 	sed -i.bak 's|INTERNAL_INCLUDE_PLACEHOLDER|$(shell pg_config --includedir)|' prebuild.go
 	sed -i.bak 's|SERVER_INCLUDE_PLACEHOLDER|$(shell pg_config --includedir-server)|' prebuild.go
+	sed -i.bak 's|DISCLAIMER|This is generated. Do not check this in to Git|' prebuild.go
 	rm -f prebuild.go.bak
 
 clean:

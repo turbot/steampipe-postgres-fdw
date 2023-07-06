@@ -95,7 +95,7 @@ jobs:
 
       - name: Push to registry
         run: |-
-          REF="$CORE_REPO/$IMAGE_NAME:$GITHUB_RUN_ID"
+          REF="$CORE_REPO/$IMAGE_NAME:$VERSION"
           oras push $REF \
               --config config.json:application/vnd.turbot.steampipe.config.v1+json \
               --annotation-file annotations.json \
@@ -105,13 +105,3 @@ jobs:
                 steampipe_postgres_fdw.so.linux_arm64.gz:application/vnd.turbot.steampipe.fdw.linux-arm64.layer.v1+gzip \
                 steampipe_postgres_fdw.control:application/vnd.turbot.steampipe.fdw.control.layer.v1+text \
                 steampipe_postgres_fdw--1.0.sql:application/vnd.turbot.steampipe.fdw.sql.layer.v1+text
-
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Set version tags
-        uses: ./.github/actions/semver-tags
-        id: semver
-        with:
-          image-to-tag: "${{ env.CORE_REPO }}/${{ env.IMAGE_NAME }}:${{ github.run_id  }}"
-          image-version: ${{ env.VERSION }}

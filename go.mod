@@ -7,7 +7,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-version v1.6.0 // indirect
-	github.com/turbot/go-kit v0.6.0-alpha.1
+	github.com/turbot/go-kit v0.7.0
 	//legacy_command_schema
 	github.com/turbot/steampipe v1.7.0-rc.0.0.20230519140313-ba712f455d10
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.4.1
@@ -159,7 +159,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.10.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.16.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
-	golang.org/x/exp v0.0.0-20221110155412-d0897a79cd37 // indirect
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.6.0 // indirect

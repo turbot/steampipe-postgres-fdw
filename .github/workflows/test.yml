@@ -3,8 +3,28 @@ on:
   pull_request:
 
 jobs:
+  golangci_lint:    
+    name: golangci-lint
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.19
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        continue-on-error: true # we dont want to enforce just yet
+        with:
+          version: v1.52.2
+          args: --timeout=15m --config=.golangci.yml
+
   build_and_test:
     name: Build and run tests
+    needs: golangci_lint
     runs-on: ubuntu-20.04
     steps:
       - name: Set up Go

@@ -48,6 +48,3 @@ inst:
 	rm steampipe_postgres_fdw.h
 	
 	rm ./*.o
-	
-release:
-	./../upload_arm_asset.sh

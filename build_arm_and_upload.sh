@@ -11,10 +11,8 @@ git pull
 git checkout $1
 
 # Build from the tag
-cd fdw
 make clean
-make go
 make
 
 # Run the upload script
-./../upload_arm_asset.sh $1
+./upload_arm_asset.sh $1

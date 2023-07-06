@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"runtime/debug"
 	"time"
 	"unsafe"
 
@@ -106,7 +105,6 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwGetPathKeys failed with panic: %v", r)
-			log.Printf("[WARN] %s", debug.Stack())
 
 			FdwError(fmt.Errorf("%v", r))
 		}
@@ -165,7 +163,6 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwExplainForeignScan failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -188,7 +185,6 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwExplainForeignScan failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -207,7 +203,6 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwBeginForeignScan failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -263,7 +258,6 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwIterateForeignScan failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -336,7 +330,6 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwReScanForeignScan failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -350,7 +343,6 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwEndForeignScan failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -369,7 +361,6 @@ func goFdwAbortCallback() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwAbortCallback failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			// DO NOT call FdwError or we will recurse
 		}
 	}()
@@ -384,7 +375,6 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwImportForeignSchema failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -431,7 +421,6 @@ func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.Tu
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwExecForeignInsert failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -534,7 +523,6 @@ func goFdwShutdown() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwShutdown failed with panic: %v", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			// DO NOT call FdwError or we will recurse
 		}
 	}()

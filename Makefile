@@ -32,4 +32,4 @@ clean:
 	rm -f steampipe_postgres_fdw.h
 
 release:
-	./upload_arm_asset.sh
+	./scripts/upload_arm_asset.sh

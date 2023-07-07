@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# This script is used to build FDW binaries for Linux ARM. This script is used in 
+# the build-linux-arm job in Build Draft Release workflow to ssh into the ec2
+# instance and build the binaries.
+
 #function that makes the script exit, if any command fails
 exit_if_failed () {
 if [ $? -ne 0 ]

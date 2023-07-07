@@ -15,4 +15,4 @@ make clean
 make
 
 # Run the upload script
-./upload_arm_asset.sh $1
+./scripts/upload_arm_asset.sh $1

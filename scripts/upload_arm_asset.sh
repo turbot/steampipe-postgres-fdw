@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # This script uploads the created binary to the draft release candidate.
-# This is called from build_arm_and_upload.sh
+# This is called from make release.
 
 ARCH=$(uname -m)
 # exit if the architecture is not arm64(darwin) or aarch64(linux)

@@ -17,6 +17,8 @@ build: prebuild.go
 	
 	rm -f prebuild.go
 
+# make target to generate a go file containing the C includes containing bindings to the
+# postgres functions
 prebuild.go:
 	# copy the template which contains the C includes
 	# this is used to import the postgres bindings by the underlying C compiler

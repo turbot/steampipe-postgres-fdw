@@ -18,8 +18,14 @@ build: prebuild.go
 	rm -f prebuild.go
 
 prebuild.go:
+	# copy the template which contains the C includes
+	# this is used to import the postgres bindings by the underlying C compiler
 	cp prebuild.tmpl prebuild.go
+	
+	# set the GOOS in the template 
 	sed -i.bak 's|OS_PLACEHOLDER|$(shell go env GOOS)|' prebuild.go
+	
+	# replace known placeholders with values from 'pg_config'
 	sed -i.bak 's|INTERNAL_INCLUDE_PLACEHOLDER|$(shell pg_config --includedir)|' prebuild.go
 	sed -i.bak 's|SERVER_INCLUDE_PLACEHOLDER|$(shell pg_config --includedir-server)|' prebuild.go
 	sed -i.bak 's|DISCLAIMER|This is generated. Do not check this in to Git|' prebuild.go

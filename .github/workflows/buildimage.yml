@@ -66,7 +66,6 @@ jobs:
         key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
         
     - name: make clean
-      working-directory: ./fdw
       run: |-
         go version
         
@@ -87,37 +86,7 @@ jobs:
       
         make clean
 
-    # - name: make clean
-    #   run: make clean
-    #   working-directory: ./fdw
-
-    - name: make go
-      working-directory: ./fdw
-      run: |-
-        go version
-        
-        which pg_config
-        pg_config --version
-        
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
-    
-        export SERVER_LIB=$(pg_config --includedir)/server
-        export INTERNAL_LIB=$(pg_config --includedir)/internal
-
-        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-
-        export CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CPPFLAGS="$(pg_config --cppflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-    
-        export LDFLAGS=$(pg_config --ldflags)
-        export PG_LDFLAGS=$(pg_config --ldflags)
-      
-        make go
-
     - name: make
-      working-directory: ./fdw
       run: |-
         go version
         
@@ -140,15 +109,14 @@ jobs:
 
     - name: gzip the steampipe_postgres_fdw.so
       run: |-
-        gzip steampipe_postgres_fdw.so
-        mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.darwin_amd64.gz
-      working-directory: ./fdw
+        gzip build-Darwin/steampipe_postgres_fdw.so
+        mv build-Darwin/steampipe_postgres_fdw.so.gz build-Darwin/steampipe_postgres_fdw.so.darwin_amd64.gz
 
     - name: Save MacOS Build Artifact - AMD64
       uses: actions/upload-artifact@v3
       with:
         name: steampipe_postgres_fdw.so.darwin_amd64
-        path: ./fdw/steampipe_postgres_fdw.so.darwin_amd64.gz
+        path: build-Darwin/steampipe_postgres_fdw.so.darwin_amd64.gz
         if-no-files-found: error
 
     - name: Save steampipe_postgres_fdw.control    # only need this once for ALL platforms
@@ -230,32 +198,24 @@ jobs:
         ls -la $INTERNAL_LIB
 
     - name: make clean
-      working-directory: ./fdw
       run: |-
         go version
         make clean
 
-    - name: make go
-      working-directory: ./fdw
-      run: |-
-        make go
-
     - name: make
-      working-directory: ./fdw
       run: |-
         make
 
     - name: gzip the steampipe_postgres_fdw.so
       run: |-
-        gzip steampipe_postgres_fdw.so
-        mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_amd64.gz
-      working-directory: ./fdw
+        gzip build-Linux/steampipe_postgres_fdw.so
+        mv build-Linux/steampipe_postgres_fdw.so.gz build-Linux/steampipe_postgres_fdw.so.linux_amd64.gz
 
     - name: Save Linux Build Artifact - AMD64
       uses: actions/upload-artifact@v3
       with:
         name: steampipe_postgres_fdw.so.linux_amd64
-        path: ./fdw/steampipe_postgres_fdw.so.linux_amd64.gz
+        path: build-Linux/steampipe_postgres_fdw.so.linux_amd64.gz
         if-no-files-found: error
 
   build-linux-arm:
@@ -294,13 +254,13 @@ jobs:
         aws ec2 authorize-security-group-ingress --group-name pskr-sg --protocol tcp --port 22 --cidr $ip/32 --region ap-south-1
 
         #start instance
-        aws ec2 start-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1 --output text
+        aws ec2 start-instances --instance-ids i-05f5bb2b09b313386 --region ap-south-1 --output text
         echo "starting instance..."
         sleep 60
 
         # get the public ip and status of the instance
-        public_ip=$(aws ec2 describe-instances --instance-ids i-059a0baa5fb90a263 --query 'Reservations[*].Instances[*].PublicDnsName' --region ap-south-1 --output text)
-        status=$(aws ec2 describe-instance-status --instance-ids i-059a0baa5fb90a263 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
+        public_ip=$(aws ec2 describe-instances --instance-ids i-05f5bb2b09b313386 --query 'Reservations[*].Instances[*].PublicDnsName' --region ap-south-1 --output text)
+        status=$(aws ec2 describe-instance-status --instance-ids i-05f5bb2b09b313386 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
         echo $public_ip
         echo $status
 
@@ -308,7 +268,7 @@ jobs:
         while [ $status != "running" ] ; do
           echo "instance not yet available"
           sleep 5
-          status=$(aws ec2 describe-instance-status --instance-ids i-059a0baa5fb90a263 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
+          status=$(aws ec2 describe-instance-status --instance-ids i-05f5bb2b09b313386 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
         done
         
         # set up the private key
@@ -321,7 +281,7 @@ jobs:
         scp -i private_key ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
         
         # stop instance
-        aws ec2 stop-instances --instance-ids i-059a0baa5fb90a263 --region ap-south-1
+        aws ec2 stop-instances --instance-ids i-05f5bb2b09b313386 --region ap-south-1
 
         # remove the ip from the security group
         aws ec2 revoke-security-group-ingress --group-name pskr-sg --protocol tcp --port 22 --cidr $ip/32 --region ap-south-1

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# This script uploads the created binary to the draft release candidate.
+# This is called from make release.
+
 ARCH=$(uname -m)
 # exit if the architecture is not arm64(darwin) or aarch64(linux)
 if [[ "$ARCH" != "arm64" ]] && [[ "$ARCH" != "aarch64" ]]; then
@@ -19,6 +22,6 @@ do
 done
 
 # Zip, rename and upload the binary
-gzip steampipe_postgres_fdw.so
-mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.darwin_arm64.gz
-gh release upload $1 steampipe_postgres_fdw.so.darwin_arm64.gz
+gzip build-Darwin/steampipe_postgres_fdw.so
+mv build-Darwin/steampipe_postgres_fdw.so.gz build-Darwin/steampipe_postgres_fdw.so.darwin_arm64.gz
+gh release upload $1 build-Darwin/steampipe_postgres_fdw.so.darwin_arm64.gz

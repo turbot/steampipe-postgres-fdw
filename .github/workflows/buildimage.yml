@@ -259,7 +259,7 @@ jobs:
         if-no-files-found: error
 
   build-linux-arm:
-    name: Build for Linux ARM64
+    name: Build for Linux ARM64 (on AWS EC2)
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -315,7 +315,7 @@ jobs:
         echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
         
         # ssh into the instance and run the script to build the binary
-        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'bash -s' < script_to_build.sh $tag
+        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'bash -s' < scripts/script_to_build.sh $tag
 
         # use scp to fetch the built binary out of the instance
         scp -i private_key ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .

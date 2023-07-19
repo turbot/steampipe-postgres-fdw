@@ -12,7 +12,7 @@ require (
 	github.com/turbot/steampipe v1.7.0-rc.0.0.20230519140313-ba712f455d10
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.5.0
 	go.opentelemetry.io/otel v1.10.0
-	google.golang.org/protobuf v1.30.0
+	google.golang.org/protobuf v1.31.0
 )
 
 require (

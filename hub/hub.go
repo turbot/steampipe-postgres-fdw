@@ -24,10 +24,9 @@ import (
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 	"github.com/turbot/steampipe/pkg/steampipeconfig/modconfig"
 	"github.com/turbot/steampipe/pkg/utils"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/metric/instrument"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
+	"go.opentelemetry.io/otel/metric"
 )
 
 const (
@@ -50,7 +49,7 @@ type Hub struct {
 	// telemetry properties
 	// callback function to shutdown telemetry
 	telemetryShutdownFunc func()
-	hydrateCallsCounter   syncint64.Counter
+	hydrateCallsCounter   metric.Int64Counter
 
 	// array of scan metadata
 	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
@@ -122,10 +121,9 @@ func (h *Hub) initialiseTelemetry() error {
 
 	h.telemetryShutdownFunc = shutdownTelemetry
 
-	meter := global.Meter(constants.FdwName)
-	hydrateCalls, err := meter.SyncInt64().Counter(
+	hydrateCalls, err := otel.GetMeterProvider().Meter(constants.FdwName).Int64Counter(
 		fmt.Sprintf("%s/hydrate_calls_total", constants.FdwName),
-		instrument.WithDescription("The total number of hydrate calls"),
+		metric.WithDescription("The total number of hydrate calls"),
 	)
 	if err != nil {
 		log.Printf("[WARN] init telemetry failed to create hydrateCallsCounter")
@@ -220,7 +218,7 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 			attribute.String("plugin", connectionPlugin.PluginName),
 		}
 		log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
-		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, labels...)
+		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
 	}
 
 	// now trim scan metadata - max 1000 items

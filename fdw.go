@@ -123,7 +123,7 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	// get the connection name - this is the namespace (i.e. the local schema)
 	opts["connection"] = getNamespace(rel)
 
-	if opts["connection"] == constants.InternalSchema {
+	if opts["connection"] == constants.InternalSchema || opts["connection"] == constants.LegacyCommandSchema {
 		return result
 	}
 
@@ -402,6 +402,12 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		sql := SchemaToSql(settingsSchema, stmt, serverOid)
 		return sql
 	}
+	if remoteSchema == constants.LegacyCommandSchema {
+		log.Printf("[INFO] importing setting tables into %s", remoteSchema)
+		settingsSchema := pluginHub.GetLegacySettingsSchema()
+		sql := SchemaToSql(settingsSchema, stmt, serverOid)
+		return sql
+	}
 
 	schema, err := pluginHub.GetSchema(remoteSchema, localSchema)
 	if err != nil {
@@ -429,7 +435,7 @@ func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.Tu
 	defer C.RelationClose(rel)
 	connection := getNamespace(rel)
 	// if this is a command insert, handle it
-	if connection == constants.InternalSchema {
+	if connection == constants.InternalSchema || connection == constants.LegacyCommandSchema {
 		return handleCommandInsert(rinfo, slot, rel)
 	}
 
@@ -441,6 +447,21 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 	opts := GetFTableOptions(types.Oid(relid))
 
 	switch opts["table"] {
+	case constants.LegacyCommandTableCache:
+		// we know there is just a single column - operation
+		var isNull C.bool
+		datum := C.slot_getattr(slot, 1, &isNull)
+		operation := C.GoString(C.fdw_datumGetString(datum))
+		hub, err := hub.GetHub()
+		if err != nil {
+			FdwError(err)
+			return nil
+		}
+		if err := hub.HandleLegacyCacheCommand(operation); err != nil {
+			FdwError(err)
+			return nil
+		}
+
 	case constants.ForeignTableSettings:
 		tupleDesc := buildTupleDesc(rel.rd_att)
 		attributes := tupleDesc.Attrs

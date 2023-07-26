@@ -195,7 +195,7 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	connectionName := iter.ConnectionName()
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
-		log.Printf("[WARN] AddScanMetadata for iterator %p (%s) failed - error getting connectionPlugin: %s", iter, iter.ConnectionName(), err.Error())
+		log.Printf("[TRACE] AddScanMetadata for iterator %p (%s) failed - error getting connectionPlugin: %s", iter, iter.ConnectionName(), err.Error())
 		return
 	}
 
@@ -460,8 +460,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	// get connection plugin for this connection
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
-		log.Printf("[WARN] getConnectionPlugin failed: %s", err.Error())
-
+		log.Printf("[TRACE] getConnectionPlugin failed: %s", err.Error())
 		return nil, err
 	}
 
@@ -646,7 +645,7 @@ func (h *Hub) StartScan(i Iterator) error {
 // it also makes sure that the plugin is up and running.
 // if the plugin is not running, it attempts to restart the plugin - errors if unable
 func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
-	log.Printf("[INFO] hub.getConnectionPlugin for connection '%s`", connectionName)
+	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
 
 	// get the plugin FQN
 	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
@@ -659,7 +658,7 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 	// ask connection map to get or create this connection
 	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
 	if err != nil {
-		log.Printf("[WARN] getConnectionPlugin getConnectionPlugin failed: %s", err.Error())
+		log.Printf("[TRACE] getConnectionPlugin getConnectionPlugin failed: %s", err.Error())
 		return nil, err
 	}
 

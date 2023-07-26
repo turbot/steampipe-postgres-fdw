@@ -45,10 +45,14 @@ jobs:
             exit 1
           fi
 
-      - name: Get GCloud CLI
+      - name: Authenticate
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.STEAMPIPE_REGISTRY_SA_KEY }}
+
+      - name: Setup GCloud CLI
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
           project_id: ${{ env.PROJECT_ID }}
       
       - name: Setup GCloud CLI

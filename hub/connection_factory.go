@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"github.com/turbot/steampipe/pkg/utils"
 	"log"
-	"runtime/debug"
 	"strings"
 	"sync"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 )
 
@@ -41,14 +39,6 @@ func (f *connectionFactory) parsePluginKey(key string) (pluginFQN, connectionNam
 // NOTE: there is special case logic got aggregate connections
 func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
 	log.Printf("[TRACE] connectionFactory get plugin: %s connection %s", pluginFQN, connectionName)
-
-	// if we this is a legacy aggregate connection, return error
-	// (it is invalid to try to 'get' a legacy aggregator connection directly)
-	if f.hub.IsLegacyAggregatorConnection(connectionName) {
-		log.Printf("[WARN] connectionFactory get %s %s called for aggregator connection - invalid (we must iterate through the child connections explicitly)", pluginFQN, connectionName)
-		debug.PrintStack()
-		return nil, fmt.Errorf("cannot create a connectionPlugin for a legacy aggregator connection")
-	}
 
 	f.connectionLock.Lock()
 	defer f.connectionLock.Unlock()
@@ -156,39 +146,7 @@ func (f *connectionFactory) getSchema(pluginFQN, connectionName string) (*proto.
 		return c.ConnectionMap[connectionName].Schema, nil
 	}
 
-	// optimisation - find other plugins with the same schema
-	// NOTE: this is only relevant for legacy plugins which do not support multiple connections
-	log.Printf("[TRACE] searching for other connections using same plugin")
-	for _, c := range f.connectionPlugins {
-		if c.PluginName == pluginFQN {
-			// if this plugin support multiple connections but does not have the schema for this connection
-			// there must have been an issue setting connection config
-			// the CLI should not have called importForeignSchema for this connection - so just return an error
-			if c.SupportedOperations.MultipleConnections {
-				return nil, fmt.Errorf("plugin %s is not returning schema for connection %s - check logs for a connection initialisation error", pluginFQN, connectionName)
-			}
-
-			log.Printf("[TRACE] found connectionPlugin with same pluginFQN: %s, conneciton map: %v ", c.PluginName, c.ConnectionMap)
-			// so we know this connection plugin should have a single connection
-			if len(c.ConnectionMap) > 1 {
-				return nil, fmt.Errorf("unexpected error: plugin %s does not support multi connections but has %d connections", pluginFQN, len(c.ConnectionMap))
-			}
-			// get the first and only connection data
-			for _, connectionData := range c.ConnectionMap {
-				// so we have found another connection with this plugin
-				log.Printf("[TRACE] found another connection with this plugin: %v", c.ConnectionMap)
-
-				// if the schema mode is dynamic we cannot reuse the schema
-				if connectionData.Schema.Mode == plugin.SchemaModeDynamic {
-					log.Printf("[TRACE] dynamic schema - cannot reuse")
-					break
-				}
-				log.Printf("[TRACE] returning schema")
-				return connectionData.Schema, nil
-			}
-		}
-	}
-	// otherwise create the connection
+	//  create the connection
 	log.Printf("[TRACE] creating connection plugin to get schema")
 	c, err = f.createConnectionPlugin(pluginFQN, connectionName)
 	if err != nil {

@@ -9,8 +9,8 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.8.0-rc.0
 	//rate_limit
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20230729162855-07bcd374f9f7
-	github.com/turbot/steampipe-plugin-sdk/v5 v5.6.0-dev.9
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20230810163907-fa598646b1fb
+	github.com/turbot/steampipe-plugin-sdk/v5 v5.6.0-dev.16
 	go.opentelemetry.io/otel v1.16.0
 	google.golang.org/protobuf v1.31.0
 )
@@ -34,11 +34,11 @@ require (
 	github.com/google/s2a-go v0.1.3 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.8.0 // indirect
-	github.com/hashicorp/go-getter v1.7.1 // indirect
+	github.com/hashicorp/go-getter v1.7.2 // indirect
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jackc/pgx/v5 v5.4.2 // indirect
-	github.com/jackc/puddle/v2 v2.2.0 // indirect
+	github.com/jackc/pgx/v5 v5.4.3 // indirect
+	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/karrick/gows v0.3.0 // indirect
 	github.com/klauspost/compress v1.16.0 // indirect
@@ -168,7 +168,7 @@ require (
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230526161137-0005af68ea54 // indirect
 	google.golang.org/grpc v1.57.0 // indirect

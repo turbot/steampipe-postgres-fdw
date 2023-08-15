@@ -15,7 +15,7 @@
 
 ## Overview
 
-The Steampipe Postgres Foreign Data Wrapper (FDW) is a PostgreSQL 12.0 extension that is used by Steampipe plugins to interface with Postgres. Similar to [Multicorn](https://github.com/Segfault-Inc/Multicorn) for Python, the Steampipe FDW simplifies writing foreign data wrappers in Go for use in plugins.
+The Steampipe Postgres Foreign Data Wrapper (FDW) is a PostgreSQL 14.0 extension that is used by Steampipe plugins to interface with Postgres. Similar to [Multicorn](https://github.com/Segfault-Inc/Multicorn) for Python, the Steampipe FDW simplifies writing foreign data wrappers in Go for use in plugins.
 
 Steampipe uses a Postgres Foreign Data Wrapper to present data from external systems and services as database tables. The Steampipe Foreign Data Wrapper (FDW) provides a Postgres extension that allows Postgres to connect to external data in a standardized way. The Steampipe FDW does not directly interface with external systems, but instead relies on plugins to implement the API/provider specific code and return it in a standard format via gRPC. This approach simplifies extending Steampipe as the Postgres-specific logic is encapsulated in the FDW, and API and service specific code resides only in the plugin.
 

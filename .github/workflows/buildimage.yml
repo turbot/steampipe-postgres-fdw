@@ -43,7 +43,7 @@ jobs:
     - name: Setup Golang
       uses: actions/setup-go@v4
       with:
-        go-version: '1.19'
+        go-version: 1.21
 
     - name: Fetching Go Cache Paths
       id: go-cache-paths
@@ -143,7 +143,7 @@ jobs:
     - name: Setup GoLang
       uses: actions/setup-go@v4
       with:
-        go-version: 1.19
+        go-version: 1.21
 
     - name: Fetching Go Cache Paths
       id: go-cache-paths

@@ -1,6 +1,6 @@
 module github.com/turbot/steampipe-postgres-fdw
 
-go 1.19
+go 1.21
 
 require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect

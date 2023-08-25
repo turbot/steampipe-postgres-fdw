@@ -33,6 +33,9 @@ PG_CFLAGS = -I${SERVER_LIB} -I${INTERNAL_LIB} -g
 include $(PGXS)
 
 go: ../fdw.go
+	# we are building with the net package from go
+	# this has the caveat that, since we are not binding to lresolv, DNS resolution may 
+	# have some subtle differences from system DNS resolution 
 	CGO_ENABLED=1 go build -o steampipe_postgres_fdw.a -tags=netgo -buildmode=c-archive ../*.go
 
 inst:

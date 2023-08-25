@@ -188,7 +188,6 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
-	log.Printf("[TRACE] goFdwBeginForeignScan")
 	// read the explain flag
 	explain := eflags&C.EXEC_FLAG_EXPLAIN_ONLY == C.EXEC_FLAG_EXPLAIN_ONLY
 
@@ -269,9 +268,10 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	C.ExecClearTuple(slot)
 	pluginHub, _ := hub.GetHub()
 
+	log.Printf("[INFO] goFdwIterateForeignScan, table '%s' (%p)", s.Opts["table"], s.Iter)
 	// if the iterator has not started, start
 	if s.Iter.Status() == hub.QueryStatusReady {
-		log.Printf("[TRACE] goFdwIterateForeignScan calling pluginHub.StartScan")
+		log.Printf("[INFO] goFdwIterateForeignScan calling pluginHub.StartScan, table '%s' (%p)", s.Opts["table"], s.Iter)
 		if err := pluginHub.StartScan(s.Iter); err != nil {
 			FdwError(err)
 			return slot
@@ -281,12 +281,13 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	// row is a map of column name to value (as an interface)
 	row, err := s.Iter.Next()
 	if err != nil {
+		log.Printf("[INFO] goFdwIterateForeignScan Next returned error: %s (%p)", err.Error(), s.Iter)
 		FdwError(err)
 		return slot
 	}
 
 	if len(row) == 0 {
-		log.Printf("[TRACE] goFdwIterateForeignScan returned empty row - this scan complete (%p)", s.Iter)
+		log.Printf("[INFO] goFdwIterateForeignScan returned empty row - this scan complete (%p)", s.Iter)
 		// add scan metadata to hub
 		pluginHub.AddScanMetadata(s.Iter)
 		logging.LogTime("[fdw] IterateForeignScan end")
@@ -333,7 +334,10 @@ func goFdwReScanForeignScan(node *C.ForeignScanState) {
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
-	log.Printf("[TRACE] goFdwReScanForeignScan")
+	rel := BuildRelation(node.ss.ss_currentRelation)
+	opts := GetFTableOptions(rel.ID)
+
+	log.Printf("[INFO] goFdwReScanForeignScan, connection '%s', table '%s'", opts["connection"], opts["table"])
 	// restart the scan
 	goFdwBeginForeignScan(node, 0)
 }
@@ -349,11 +353,12 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	s := GetExecState(node.fdw_state)
 	pluginHub, _ := hub.GetHub()
 	if s != nil && pluginHub != nil {
-		log.Printf("[TRACE] goFdwEndForeignScan, iterator: %p", s.Iter)
+		log.Printf("[INFO] goFdwEndForeignScan, iterator: %p", s.Iter)
 		pluginHub.EndScan(s.Iter, int64(s.State.limit))
 	}
 	ClearExecState(node.fdw_state)
 	node.fdw_state = nil
+
 }
 
 //export goFdwAbortCallback
@@ -364,7 +369,7 @@ func goFdwAbortCallback() {
 			// DO NOT call FdwError or we will recurse
 		}
 	}()
-	log.Printf("[TRACE] goFdwAbortCallback")
+	log.Printf("[INFO] goFdwAbortCallback")
 	if pluginHub, err := hub.GetHub(); err == nil {
 		pluginHub.Abort()
 	}

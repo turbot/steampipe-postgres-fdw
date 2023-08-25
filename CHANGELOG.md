@@ -2,7 +2,6 @@
 _Whats new_
 * Re-add support for legacy command-schema. ([#313](https://github.com/turbot/steampipe-postgres-fdw/issues/313))
 
-
 ## v1.7.1 [2023-05-18]
 Rebuild to avoid Linux Arm build error
 

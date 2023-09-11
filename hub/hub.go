@@ -651,7 +651,7 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 		log.Printf("[WARN] no connection config loaded for connection '%s'", connectionName)
 		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
 	}
-	pluginFQN := connectionConfig.PluginLongName
+	pluginFQN := connectionConfig.Plugin
 
 	// ask connection map to get or create this connection
 	c, err := h.connections.getOrCreate(pluginFQN, connectionName)

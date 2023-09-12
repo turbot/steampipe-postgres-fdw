@@ -38,7 +38,7 @@ jobs:
         ls -l $INTERNAL_LIB
 
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Golang
       uses: actions/setup-go@v4
@@ -138,7 +138,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup GoLang
       uses: actions/setup-go@v4
@@ -223,7 +223,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Configure AWS Credentials
       run: |

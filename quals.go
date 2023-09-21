@@ -508,8 +508,14 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 		if qualValue, err := datumToQualValue(elem, typeStruct.typelem, cinfo); err != nil {
 			return nil, err
 		} else {
-			log.Printf("[TRACE datumArrayToQualValue: successfully converted qual - adding qual value %v", qualValue)
-			qualValues = append(qualValues, qualValue)
+			log.Printf("[INFO] datumArrayToQualValue: successfully converted qual value %v", qualValue)
+
+			if !qualValueArrayContainsValue(qualValues, qualValue) {
+				log.Printf("[INFO] adding qual value %v", qualValue)
+				qualValues = append(qualValues, qualValue)
+			} else {
+				log.Printf("[INFO] qual value array already contains an identical qual value %v", qualValue)
+			}
 		}
 	}
 	result.Value = &proto.QualValue_ListValue{
@@ -521,4 +527,13 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 	log.Printf("[TRACE] datumArrayToQualValue complete, returning array of %d quals values \n", len(qualValues))
 
 	return result, nil
+}
+
+func qualValueArrayContainsValue(values []*proto.QualValue, newVal *proto.QualValue) bool {
+	for _, existingVal := range values {
+		if existingVal.Equals(newVal) {
+			return true
+		}
+	}
+	return false
 }

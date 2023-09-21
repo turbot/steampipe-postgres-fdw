@@ -43,9 +43,6 @@ type Hub struct {
 	// cacheSettings
 	cacheSettings *settings.HubCacheSettings
 
-	timingLock   sync.Mutex
-	lastScanTime time.Time
-
 	// telemetry properties
 	// callback function to shutdown telemetry
 	telemetryShutdownFunc func()
@@ -594,9 +591,6 @@ func (h *Hub) StartScan(i Iterator) error {
 		return nil
 	}
 
-	// ensure we do not call execute too frequently
-	h.throttle()
-
 	table := iterator.table
 	connectionPlugin := iterator.connectionPlugin
 
@@ -753,20 +747,6 @@ func (h *Hub) GetLegacySettingsSchema() map[string]*proto.TableSchema {
 			},
 		},
 	}
-}
-
-// ensure we do not call execute too frequently
-// NOTE: this is a workaround for legacy plugin - it is not necessary for plugins built with sdk > 0.8.0
-func (h *Hub) throttle() {
-	minScanInterval := 10 * time.Millisecond
-	h.timingLock.Lock()
-	defer h.timingLock.Unlock()
-	timeSince := time.Since(h.lastScanTime)
-	if timeSince < minScanInterval {
-		sleepTime := minScanInterval - timeSince
-		time.Sleep(sleepTime)
-	}
-	h.lastScanTime = time.Now()
 }
 
 func (h *Hub) executeCommandScan(connectionName, table string) (Iterator, error) {

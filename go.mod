@@ -8,8 +8,8 @@ require (
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.9.0-rc.0
-	// multi_plugin_aggregator
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20230925152325-21e4906c7693
+	// main 58501197b8ca41428298239934413805f1297cdc
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20230926151303-58501197b8ca
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.6.0-rc.30
 	go.opentelemetry.io/otel v1.17.0
 	google.golang.org/protobuf v1.31.0

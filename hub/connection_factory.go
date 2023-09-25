@@ -92,8 +92,20 @@ func (f *connectionFactory) createConnectionPlugin(pluginFQN string, connectionN
 	// load the config for this connection
 	connection, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
 	if !ok {
-		log.Printf("[WARN] no config found for connection %s", connectionName)
-		return nil, fmt.Errorf("no config found for connection %s", connectionName)
+		log.Printf("[INFO] connectionFactory.createConnectionPlugin create connection %s - no config found so reloading config", connectionName)
+
+		// ask hub to reload config - it's possible we are being asked to import a newly added connection
+		// TODO remove need for hub to load config at all
+		if _, err := f.hub.LoadConnectionConfig(); err != nil {
+			log.Printf("[ERROR] LoadConnectionConfig failed %v ", err)
+			return nil, err
+		}
+		// now try to get config again
+		connection, ok = steampipeconfig.GlobalConfig.Connections[connectionName]
+		if !ok {
+			log.Printf("[WARN] no config found for connection %s", connectionName)
+			return nil, fmt.Errorf("no config found for connection %s", connectionName)
+		}
 	}
 
 	log.Printf("[TRACE] createConnectionPlugin plugin %s, connection %s, config: %s\n", utils.PluginFQNToSchemaName(pluginFQN), connectionName, connection.Config)

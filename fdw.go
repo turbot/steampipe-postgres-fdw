@@ -72,6 +72,7 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 	}
 
 	// reload connection config
+	// TODO remove need for fdw to load connection config
 	_, err = pluginHub.LoadConnectionConfig()
 	if err != nil {
 		log.Printf("[ERROR] LoadConnectionConfig failed %v ", err)

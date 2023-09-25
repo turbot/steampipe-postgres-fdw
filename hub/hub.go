@@ -102,6 +102,7 @@ func newHub() (*Hub, error) {
 	}
 	filepaths.SteampipeDir = steampipeDir
 
+	log.Printf("[INFO] newHub Hub.LoadConnectionConfig ")
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
@@ -292,6 +293,7 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestric
 
 // LoadConnectionConfig loads the connection config and returns whether it has changed
 func (h *Hub) LoadConnectionConfig() (bool, error) {
+	log.Printf("[INFO] Hub.LoadConnectionConfig ")
 	// load connection conFig
 	connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig()
 	if errorsAndWarnings.GetError() != nil {

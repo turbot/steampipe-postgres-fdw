@@ -8,8 +8,8 @@ require (
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.9.0-rc.0
-	// connection_watching_fixes
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20230925101609-60685df6f2a1
+	// multi_plugin_aggregator
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20230925152325-21e4906c7693
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.6.0-rc.30
 	go.opentelemetry.io/otel v1.17.0
 	google.golang.org/protobuf v1.31.0
@@ -185,4 +185,5 @@ replace (
 	github.com/deislabs/oras => github.com/oras-project/oras v0.9.0
 	github.com/docker/distribution => github.com/distribution/distribution v2.7.1+incompatible
 	github.com/docker/docker => github.com/moby/moby v20.10.17+incompatible
+	github.com/turbot/steampipe => /Users/kai/Dev/github/turbot/steampipe
 )

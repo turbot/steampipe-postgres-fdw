@@ -269,7 +269,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	C.ExecClearTuple(slot)
 	pluginHub, _ := hub.GetHub()
 
-	log.Printf("[INFO] goFdwIterateForeignScan, table '%s' (%p)", s.Opts["table"], s.Iter)
+	log.Printf("[TRACE] goFdwIterateForeignScan, table '%s' (%p)", s.Opts["table"], s.Iter)
 	// if the iterator has not started, start
 	if s.Iter.Status() == hub.QueryStatusReady {
 		log.Printf("[INFO] goFdwIterateForeignScan calling pluginHub.StartScan, table '%s' (%p)", s.Opts["table"], s.Iter)

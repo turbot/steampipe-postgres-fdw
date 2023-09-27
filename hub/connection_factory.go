@@ -156,13 +156,10 @@ func (f *connectionFactory) getSchema(pluginFQN, connectionName string) (*proto.
 		return nil, err
 	}
 	if c != nil {
+		// we already have a connection plugin -  refetch the schema
 		log.Printf("[TRACE] already loaded %s %s: ", pluginFQN, connectionName)
-		for k := range c.ConnectionMap {
-			log.Printf("[TRACE] %s", k)
-		}
-		log.Printf("[TRACE] %v", c.ConnectionMap[connectionName].Schema)
 
-		return c.ConnectionMap[connectionName].Schema, nil
+		return c.GetSchema(connectionName)
 	}
 
 	//  create the connection

@@ -1,7 +1,9 @@
-## v1.8.0 [tbd]
+## v1.8.0 [2023-09-27]
 _Bug fixes_
 * Remove duplicate qual values for duplicate IN clauses. ([#353](https://github.com/turbot/steampipe-postgres-fdw/issues/353))
 * Do not print stacks as it might contain sensitive infos. ([#316](https://github.com/turbot/steampipe-postgres-fdw/issues/316))
+* Reload connection schema when callng importForeignSchema.  ([#358](https://github.com/turbot/steampipe-postgres-fdw/issues/358))
+* If a connection config is not found, reload config. ([#356](https://github.com/turbot/steampipe-postgres-fdw/issues/356))
 
 _ Deprecations_ 
 * Removes support for plugins which do not have multi connection ability.([#332](https://github.com/turbot/steampipe-postgres-fdw/issues/332))

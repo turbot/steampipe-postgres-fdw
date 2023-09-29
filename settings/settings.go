@@ -17,12 +17,13 @@ type HubCacheSettings struct {
 	setters map[HubSettingKey]setterFunc
 }
 
-func NewCacheSettings() *HubCacheSettings {
+func NewCacheSettings(clearConnectionCache func(string) error) *HubCacheSettings {
 	hs := &HubCacheSettings{}
 	hs.setters = map[HubSettingKey]setterFunc{
 		SettingKeyCacheEnabled:           hs.SetEnabled,
 		SettingKeyCacheTtlOverride:       hs.SetTtl,
 		SettingKeyCacheClearTimeOverride: hs.SetClearTime,
+		SettingKeyConnectionCacheClear:   clearConnectionCache,
 	}
 	return hs
 }

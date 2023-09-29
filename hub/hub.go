@@ -86,7 +86,7 @@ func newHub() (*Hub, error) {
 	hub := &Hub{}
 	hub.connections = newConnectionFactory(hub)
 
-	hub.cacheSettings = settings.NewCacheSettings()
+	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache)
 
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {
@@ -793,4 +793,20 @@ func (h *Hub) ValidateCacheCommand(command string) error {
 		return fmt.Errorf("invalid command '%s' - supported commands are %s", command, strings.Join(validCommands, ","))
 	}
 	return nil
+}
+
+func (h *Hub) clearConnectionCache(connection string) error {
+	log.Printf("[INFO] clear connection cache for connection '%s'", connection)
+	connectionPlugin, err := h.getConnectionPlugin(connection)
+	if err != nil {
+		log.Printf("[WARN] clearConnectionCache failed for connection %s: %s", connection, err)
+		return err
+	}
+
+	_, err = connectionPlugin.PluginClient.SetConnectionCacheOptions(&proto.SetConnectionCacheOptionsRequest{ClearCacheForConnection: connection})
+	if err != nil {
+		log.Printf("[WARN] clearConnectionCache failed for connection %s: SetConnectionCacheOptions returned %s", connection, err)
+	}
+	log.Printf("[INFO] clear connection cache succeeded")
+	return err
 }

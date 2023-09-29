@@ -1,3 +1,7 @@
+## v1.9.0 [2023-09-29]
+_Whats new_
+* Add ability to clear connection cache by inserting into `steampipe_settings` table. ([#360](https://github.com/turbot/steampipe-postgres-fdw/issues/360))
+
 ## v1.8.0 [2023-09-27]
 _Bug fixes_
 * Remove duplicate qual values for duplicate IN clauses. ([#353](https://github.com/turbot/steampipe-postgres-fdw/issues/353))

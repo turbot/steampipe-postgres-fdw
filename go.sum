@@ -981,10 +981,6 @@ github.com/turbot/go-kit v0.9.0-rc.0 h1:lPVYl2UGC9fzvMSddg4+l17HT6N/CH7tBLxpeCIk
 github.com/turbot/go-kit v0.9.0-rc.0/go.mod h1:AY17SDL/JnVnqUlQIc0Y9mQ2Gbtw0+IwEX4ErywH9bw=
 github.com/turbot/steampipe v0.21.0-beta.4 h1:AkUliJFw82Ay6X1WQAjiMzwafdz7/qmOwbCJdJKRoNk=
 github.com/turbot/steampipe v0.21.0-beta.4/go.mod h1:Ukuqp/90OD56CPOvcyNrNoa7zlMLbhosUoQC+bd4gaU=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.6.0 h1:jC7APLD/VBOHQ/NY/aAJVN9v3fhow0ges4YP0x+hOSk=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.6.0/go.mod h1:u2ubq9W5/5y6wG481LyulS7vuMOTRPmXAUfGLoVmwnA=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.6.1-dev.0 h1:V1QsahRysSLPSEUKRtViRS+yhs5BUKQGiR/BOcwknXo=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.6.1-dev.0/go.mod h1:u2ubq9W5/5y6wG481LyulS7vuMOTRPmXAUfGLoVmwnA=
 github.com/turbot/steampipe-plugin-sdk/v5 v5.6.1-dev.1 h1:7VWXP5Ap0jePDVKokN2BcNz4SOPzjDB5IINYwRPDk58=
 github.com/turbot/steampipe-plugin-sdk/v5 v5.6.1-dev.1/go.mod h1:u2ubq9W5/5y6wG481LyulS7vuMOTRPmXAUfGLoVmwnA=
 github.com/ugorji/go v0.0.0-20180813092308-00b869d2f4a5/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
@@ -1649,8 +1645,8 @@ google.golang.org/grpc v1.48.0/go.mod h1:vN9eftEi1UMyUsIF80+uQXhHjbXYbm0uXoFCACu
 google.golang.org/grpc v1.49.0/go.mod h1:ZgQEeidpAuNRZ8iRrlBKXZQP1ghovWIVhdJRyCDK+GI=
 google.golang.org/grpc v1.50.0/go.mod h1:ZgQEeidpAuNRZ8iRrlBKXZQP1ghovWIVhdJRyCDK+GI=
 google.golang.org/grpc v1.50.1/go.mod h1:ZgQEeidpAuNRZ8iRrlBKXZQP1ghovWIVhdJRyCDK+GI=
-google.golang.org/grpc v1.58.2 h1:SXUpjxeVF3FKrTYQI4f4KvbGD5u2xccdYdurwowix5I=
-google.golang.org/grpc v1.58.2/go.mod h1:tgX3ZQDlNJGU96V6yHh1T/JeoBQ2TXdr43YbYSsCJk0=
+google.golang.org/grpc v1.58.3 h1:BjnpXut1btbtgN/6sp+brB2Kbm2LjNXnidYujAVbSoQ=
+google.golang.org/grpc v1.58.3/go.mod h1:tgX3ZQDlNJGU96V6yHh1T/JeoBQ2TXdr43YbYSsCJk0=
 google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0/go.mod h1:6Kw0yEErY5E/yWrBtf03jp27GLLJujG4z/JK95pnjjw=
 google.golang.org/protobuf v0.0.0-20200109180630-ec00e32a8dfd/go.mod h1:DFci5gLYBciE7Vtevhsrf46CRTquxDuWsQurQQe4oz8=
 google.golang.org/protobuf v0.0.0-20200221191635-4d8936d0db64/go.mod h1:kwYJMbMJ01Woi6D6+Kah6886xMZcty6N08ah7+eCXa0=

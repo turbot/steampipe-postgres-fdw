@@ -120,7 +120,7 @@ func (h *Hub) initialiseTelemetry() error {
 	h.telemetryShutdownFunc = shutdownTelemetry
 
 	hydrateCalls, err := otel.GetMeterProvider().Meter(constants.FdwName).Int64Counter(
-		fmt.Sprintf("%s/hydrate_calls_total", constants.FdwName),
+		fmt.Sprintf("%s-hydrate_calls_total", constants.FdwName),
 		metric.WithDescription("The total number of hydrate calls"),
 	)
 	if err != nil {

@@ -11,7 +11,7 @@ import "C"
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -46,7 +46,7 @@ func init() {
 	log.Printf("[INFO] Log level %s\n", level)
 	if level != "TRACE" {
 		// suppress logs
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	}
 	logger = logging.NewLogger(&hclog.LoggerOptions{
 		Name:       "hub",

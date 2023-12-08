@@ -17,11 +17,11 @@ const keySeparator = `\\`
 // connectionFactory is responsible for creating and storing connectionPlugins
 type connectionFactory struct {
 	connectionPlugins map[string]*steampipeconfig.ConnectionPlugin
-	hub               *Hub
+	hub               *RemoteHub
 	connectionLock    sync.Mutex
 }
 
-func newConnectionFactory(hub *Hub) *connectionFactory {
+func newConnectionFactory(hub *RemoteHub) *connectionFactory {
 	return &connectionFactory{
 		connectionPlugins: make(map[string]*steampipeconfig.ConnectionPlugin),
 		hub:               hub,

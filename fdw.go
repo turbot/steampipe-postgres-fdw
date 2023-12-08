@@ -13,14 +13,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
-	"net/http"
-	"os"
 	"time"
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe-postgres-fdw/version"
@@ -56,22 +54,14 @@ func init() {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
+	// create hub
+	if err := hub.CreateHub(); err != nil {
+		panic(err)
+	}
 	log.Printf("[INFO] .\n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
 	log.Printf("[INFO] Version:   v%s\n", version.FdwVersion.String())
 	log.Printf("[INFO] Log level: %s\n", level)
 
-	if _, found := os.LookupEnv("STEAMPIPE_FDW_PPROF"); found {
-		log.Printf("[INFO] PROFILING!!!!")
-		go func() {
-			listener, err := net.Listen("tcp", "localhost:0")
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			log.Printf("[INFO] Check http://localhost:%d/debug/pprof/", listener.Addr().(*net.TCPAddr).Port)
-			log.Println(http.Serve(listener, nil))
-		}()
-	}
 }
 
 //export goFdwGetRelSize
@@ -80,10 +70,17 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 	log.Printf("[TRACE] goFdwGetRelSize")
 
-	pluginHub, err := hub.GetHub()
+	pluginHub := hub.GetHub()
+
+	// get connection name
+	connName := GetSchemaNameFromForeignTableId(types.Oid(state.foreigntableid))
+
+	log.Println("[TRACE] connection name:", connName)
+
+	serverOpts := GetForeignServerOptionsFromFTableId(types.Oid(state.foreigntableid))
+	err := pluginHub.ProcessImportForeignSchemaOptions(serverOpts, connName)
 	if err != nil {
-		FdwError(err)
-		return
+		FdwError(sperr.WrapWithMessage(err, "failed to process options"))
 	}
 
 	// reload connection config
@@ -95,7 +92,7 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 		return
 	}
 
-	opts := GetFTableOptions(types.Oid(state.foreigntableid))
+	tableOpts := GetFTableOptions(types.Oid(state.foreigntableid))
 
 	// build columns
 	var columns []string
@@ -103,7 +100,7 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 		columns = CStringListToGoArray(state.target_list)
 	}
 
-	result, err := pluginHub.GetRelSize(columns, nil, opts)
+	result, err := pluginHub.GetRelSize(columns, nil, tableOpts)
 	if err != nil {
 		log.Println("[ERROR] pluginHub.GetRelSize")
 		FdwError(err)
@@ -127,17 +124,12 @@ func goFdwGetPathKeys(state *C.FdwPlanState) *C.List {
 	}()
 
 	log.Printf("[TRACE] goFdwGetPathKeys")
-	pluginHub, err := hub.GetHub()
-	if err != nil {
-		FdwError(err)
-	}
+	pluginHub := hub.GetHub()
+
 	var result *C.List
 	opts := GetFTableOptions(types.Oid(state.foreigntableid))
-	ftable := C.GetForeignTable(state.foreigntableid)
-	rel := C.RelationIdGetRelation(ftable.relid)
-	defer C.RelationClose(rel)
 	// get the connection name - this is the namespace (i.e. the local schema)
-	opts["connection"] = getNamespace(rel)
+	opts["connection"] = GetSchemaNameFromForeignTableId(types.Oid(state.foreigntableid))
 
 	if opts["connection"] == constants.InternalSchema || opts["connection"] == constants.LegacyCommandSchema {
 		return result
@@ -240,12 +232,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	quals, unhandledRestrictions := restrictionsToQuals(node, cinfos)
 
 	// start the plugin hub
-	var err error
-	pluginHub, err := hub.GetHub()
-	if err != nil {
-		FdwError(err)
-	}
 
+	pluginHub := hub.GetHub()
 	s := &ExecState{
 		Rel:   rel,
 		Opts:  opts,
@@ -282,7 +270,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	slot := node.ss.ss_ScanTupleSlot
 	C.ExecClearTuple(slot)
-	pluginHub, _ := hub.GetHub()
+	pluginHub := hub.GetHub()
 
 	log.Printf("[TRACE] goFdwIterateForeignScan, table '%s' (%p)", s.Opts["table"], s.Iter)
 	// if the iterator has not started, start
@@ -367,8 +355,8 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 		}
 	}()
 	s := GetExecState(node.fdw_state)
-	pluginHub, _ := hub.GetHub()
-	if s != nil && pluginHub != nil {
+	pluginHub := hub.GetHub()
+	if s != nil {
 		log.Printf("[INFO] goFdwEndForeignScan, iterator: %p", s.Iter)
 		pluginHub.EndScan(s.Iter, int64(s.State.limit))
 	}
@@ -386,9 +374,9 @@ func goFdwAbortCallback() {
 		}
 	}()
 	log.Printf("[INFO] goFdwAbortCallback")
-	if pluginHub, err := hub.GetHub(); err == nil {
-		pluginHub.Abort()
-	}
+	pluginHub := hub.GetHub()
+	pluginHub.Abort()
+
 }
 
 //export goFdwImportForeignSchema
@@ -402,12 +390,7 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 
 	log.Printf("[INFO] goFdwImportForeignSchema remote '%s' local '%s'\n", C.GoString(stmt.remote_schema), C.GoString(stmt.local_schema))
 	// get the plugin hub,
-	pluginHub, err := hub.GetHub()
-	if err != nil {
-		log.Printf("[WARN] goFdwImportForeignSchema failed: %s", err)
-		FdwError(err)
-		return nil
-	}
+	pluginHub := hub.GetHub()
 
 	remoteSchema := C.GoString(stmt.remote_schema)
 	localSchema := C.GoString(stmt.local_schema)
@@ -424,6 +407,16 @@ func goFdwImportForeignSchema(stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) 
 		settingsSchema := pluginHub.GetLegacySettingsSchema()
 		sql := SchemaToSql(settingsSchema, stmt, serverOid)
 		return sql
+	}
+
+	fServer := C.GetForeignServer(serverOid)
+	serverOptions := GetForeignServerOptions(fServer)
+
+	log.Println("[TRACE] goFdwImportForeignSchema serverOptions:", serverOptions)
+
+	err := pluginHub.ProcessImportForeignSchemaOptions(serverOptions, localSchema)
+	if err != nil {
+		FdwError(sperr.WrapWithMessage(err, "failed to process options"))
 	}
 
 	schema, err := pluginHub.GetSchema(remoteSchema, localSchema)
@@ -462,6 +455,7 @@ func goFdwExecForeignInsert(estate *C.EState, rinfo *C.ResultRelInfo, slot *C.Tu
 func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.Relation) *C.TupleTableSlot {
 	relid := rinfo.ri_RelationDesc.rd_id
 	opts := GetFTableOptions(types.Oid(relid))
+	pluginHub := hub.GetHub()
 
 	switch opts["table"] {
 	case constants.LegacyCommandTableCache:
@@ -469,12 +463,7 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 		var isNull C.bool
 		datum := C.slot_getattr(slot, 1, &isNull)
 		operation := C.GoString(C.fdw_datumGetString(datum))
-		hub, err := hub.GetHub()
-		if err != nil {
-			FdwError(err)
-			return nil
-		}
-		if err := hub.HandleLegacyCacheCommand(operation); err != nil {
+		if err := pluginHub.HandleLegacyCacheCommand(operation); err != nil {
 			FdwError(err)
 			return nil
 		}
@@ -482,11 +471,6 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 	case constants.ForeignTableSettings:
 		tupleDesc := buildTupleDesc(rel.rd_att)
 		attributes := tupleDesc.Attrs
-		hub, err := hub.GetHub()
-		if err != nil {
-			FdwError(err)
-			return nil
-		}
 		var key *string
 		var value *string
 
@@ -520,7 +504,7 @@ func handleCommandInsert(rinfo *C.ResultRelInfo, slot *C.TupleTableSlot, rel C.R
 		}
 
 		// apply the setting
-		if err = hub.ApplySetting(*key, *value); err != nil {
+		if err := pluginHub.ApplySetting(*key, *value); err != nil {
 			FdwError(err)
 		}
 		return nil
@@ -548,10 +532,7 @@ func goFdwShutdown() {
 		}
 	}()
 	log.Printf("[INFO] .\n******************************************************\n\n\t\tsteampipe postgres fdw shutdown\n\n******************************************************\n")
-	pluginHub, err := hub.GetHub()
-	if err != nil {
-		FdwError(err)
-	}
+	pluginHub := hub.GetHub()
 	pluginHub.Close()
 }
 

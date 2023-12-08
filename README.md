@@ -54,6 +54,33 @@ $ make
 
 This will compile the FDW (`steampipe_postgres_fdw.so`) along with the `control` and `sql` file in the `build-$PLATFORM` directory. This will install the compiled FDW into the default Steampipe installation directory (`~/.steampipe`) - if it exists.
 
+### Building the FDW for a Single Plugin
+
+If you want to build the FDW for a single steampipe plugin, follow these steps. This process allows you to build the Postgres Foreign Data Wrapper (FDW) specifically for one particular plugin and run it in standalone mode on any PostgreSQL database, without any reliance on Steampipe.
+
+Make sure that you have the following installed in your system:
+1. `Postgresql v14` 
+1. `go`
+1. `gcc` for Linux
+
+Steps:
+1. Clone this repository onto your system
+1. Change to the cloned directory
+1. Run the following commands:
+```
+$ make standalone plugin="<plugin alias>"
+```
+Replace plugin alias with the alias or short name of your plugin.
+
+This command will compile the FDW specifically for the chosen plugin, and the resulting binary, control file, and SQL files will be generated.
+
+#### Example:
+
+Suppose you want to build the FDW for a plugin with an alias `aws` from a GitHub repository located at https://github.com/turbot/steampipe-plugin-aws. You would run the following command:
+```
+$ make standalone plugin="aws"
+```
+
 ### License
 
 This open source library is licensed under the [GNU Affero General Public License v3](https://opensource.org/licenses/AGPL-3.0).

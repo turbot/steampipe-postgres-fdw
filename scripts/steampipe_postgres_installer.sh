@@ -68,16 +68,24 @@ main() {
   echo ""
 
   # Prompt the user to confirm the installation of the FDW for the detected version
-  echo "Proceed with installing Steampipe PostgreSQL FDW for version $PG_VERSION ?"
+  echo "Proceed with installing Steampipe PostgreSQL FDW for version $PG_VERSION at $PG_DIR?"
   echo "- Press 'y' to continue with the current version."
-  printf -- "- Press 'n' to customize your PostgreSQL installation directory and select a different version. (y/N): "
+  printf -- "- Press 'n' to customize your PostgreSQL installation directory and select a different version. (Y/n): "
   read REPLY
 
   echo
-  if [ "$REPLY" != "y" ] && [ "$REPLY" != "Y" ]; then
+  if [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
       echo ""
       printf "Please enter the full path to your PostgreSQL installation directory (e.g., /usr/lib/postgresql/14): "
       read PG_DIR
+
+      # Check if the input is empty
+      if [ -z "$PG_DIR" ]; then
+        echo ""
+        echo "Error: No path entered. Exiting script." 1>&2
+        exit 1
+      fi
+
       PG_CONFIG="${PG_DIR%/}/bin/pg_config"
 
       if [ ! -x "$PG_CONFIG" ]; then

@@ -1,25 +1,8 @@
-<p align="center">
-    <h1 align="center">Steampipe Postgres Foreign Data Wrapper (FDW)</h1>
-</p>
-
-<p align="center">
-  <a aria-label="Steampipe logo" href="https://steampipe.io">
-    <img src="https://steampipe.io/images/steampipe_logo_wordmark_padding.svg" height="28">
-  </a>
-  <a href="https://godoc.org/github.com/turbot/steampipe-postgres-fdw"><img src="https://img.shields.io/badge/go-documentation-blue.svg?style=flat-square" alt="Godoc" height=28></a>
-  &nbsp;
-  <a aria-label="License" href="LICENSE">
-    <img alt="" src="https://img.shields.io/static/v1?label=license&message=AGPLv3&style=for-the-badge&labelColor=777777&color=F3F1F0">
-  </a>
-</p>
-
 ## Overview
 
-The Steampipe Postgres Foreign Data Wrapper (FDW) is a PostgreSQL 14.0 extension that is used by Steampipe plugins to interface with Postgres. Similar to [Multicorn](https://github.com/Segfault-Inc/Multicorn) for Python, the Steampipe FDW simplifies writing foreign data wrappers in Go for use in plugins.
+The Steampipe Postgres Foreign Data Wrapper (FDW) is a Postgres extension that translates APIs to foreign tables. It does not directly interface with external systems, but instead relies on plugins to implement API- or provider-specific code that returns data in a standard format via gRPC. See the [Writing Plugins](https://steampipe.io/docs/develop/writing-plugins) guide to get started writing Steampipe plugins.
 
-Steampipe uses a Postgres Foreign Data Wrapper to present data from external systems and services as database tables. The Steampipe Foreign Data Wrapper (FDW) provides a Postgres extension that allows Postgres to connect to external data in a standardized way. The Steampipe FDW does not directly interface with external systems, but instead relies on plugins to implement the API/provider specific code and return it in a standard format via gRPC. This approach simplifies extending Steampipe as the Postgres-specific logic is encapsulated in the FDW, and API and service specific code resides only in the plugin.
-
-See the [Writing Plugins](https://steampipe.io/docs/develop/writing-plugins) guide to get started writing Steampipe plugins.
+The FDW is part of the [Steampipe project](https://github.com/turbot/steampipe). Bundled with the Steampipe CLI, it works with one or more of the [plugins](https://hub.steampipe.io/plugins) you install in Steampipe. You can also [install](https://steampipe.io/docs/steampipe_postgres/install) one or more plugin-specific extensions in your own instance of Postgres.
 
 ## Get involved
 
@@ -54,9 +37,9 @@ $ make
 
 This will compile the FDW (`steampipe_postgres_fdw.so`) along with the `control` and `sql` file in the `build-$PLATFORM` directory. This will install the compiled FDW into the default Steampipe installation directory (`~/.steampipe`) - if it exists.
 
-### Building the FDW for a Single Plugin
+### Building the FDW as a standalone extension
 
-If you want to build the FDW for a single steampipe plugin, follow these steps. This process allows you to build the Postgres Foreign Data Wrapper (FDW) specifically for one particular plugin and run it in standalone mode on any PostgreSQL database, without any reliance on Steampipe.
+To build the FDW for one particular plugin, and run it as a standalone extension in any PostgreSQL database without relying on Steampipe:
 
 Make sure that you have the following installed in your system:
 1. `Postgresql v14` 
@@ -74,7 +57,7 @@ Replace plugin alias with the alias or short name of your plugin.
 
 This command will compile the FDW specifically for the chosen plugin, and the resulting binary, control file, and SQL files will be generated.
 
-#### Example:
+#### Example
 
 Suppose you want to build the FDW for a plugin with an alias `aws` from a GitHub repository located at https://github.com/turbot/steampipe-plugin-aws. You would run the following command:
 ```
@@ -83,4 +66,5 @@ $ make standalone plugin="aws"
 
 ### License
 
-This open source library is licensed under the [GNU Affero General Public License v3](https://opensource.org/licenses/AGPL-3.0).
+This open-source library is licensed under the [GNU Affero General Public License v3](https://opensource.org/licenses/AGPL-3.0).
+

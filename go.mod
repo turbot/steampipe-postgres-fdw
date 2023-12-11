@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/golang/protobuf v1.5.3
-	github.com/hashicorp/go-hclog v1.5.0
+	github.com/hashicorp/go-hclog v1.6.1
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.9.0-rc.3
 	github.com/turbot/steampipe v0.21.0-beta.4

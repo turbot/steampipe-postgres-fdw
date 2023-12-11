@@ -12,11 +12,6 @@ main() {
     exit 1
   fi
 
-  if ! command -v jq >/dev/null; then
-    echo "Error: 'jq' is required." 1>&2
-    exit 1
-  fi
-
   OS=$(uname -s)
   if [ "$OS" = "Windows_NT" ]; then
     echo "Error: Windows is not supported yet." 1>&2
@@ -98,35 +93,21 @@ main() {
       get_postgresql_details $plugin
   fi
 
+  asset_name="steampipe_postgres_${plugin}.pg${PG_VERSION}.${target}"
+
   # Generate the URI for the FDW
   if [ "$version" = "latest" ]; then
-    uri="https://api.github.com/repos/turbotio/steampipe-plugin-${plugin}/releases/latest"
-    asset_name="steampipe_postgres_${plugin}.pg${PG_VERSION}.${target}"
+    uri="https://github.com/turbot/steampipe-plugin-${plugin}/releases/latest/download/${asset_name}"
   else
-    uri="https://api.github.com/repos/turbotio/steampipe-plugin-${plugin}/releases/tags/${version}"
-    asset_name="steampipe_postgres_${plugin}.pg${PG_VERSION}.${target}"
+    uri="https://github.com/turbot/steampipe-plugin-${plugin}/releases/download/${version}/${asset_name}"
   fi
-
-  # Read the GitHub Personal Access Token
-  GITHUB_TOKEN=${GITHUB_TOKEN:-}  # Assuming GITHUB_TOKEN is set as an environment variable
-
-  # Check if the GITHUB_TOKEN is set
-  if [ -z "$GITHUB_TOKEN" ]; then
-    echo ""
-    echo "Error: GITHUB_TOKEN is not set. Please set your GitHub Personal Access Token as an environment variable." 1>&2
-    exit 1
-  fi
-  AUTH="Authorization: token $GITHUB_TOKEN"
-
-  response=$(curl -sH "$AUTH" $uri)
-  id=$(echo "$response" | jq --arg asset_name "$asset_name" '.assets[] | select(.name == $asset_name) | .id' |  tr -d '"')
-  GH_ASSET="$uri/releases/assets/$id"
 
   echo ""
-  echo "Downloading ${GH_ASSET}..."
-  curl -#SL -H "$AUTH" -H "Accept: application/octet-stream" \
-     "https://api.github.com/repos/turbotio/steampipe-plugin-${plugin}/releases/assets/$id" \
-     -o "$asset_name" -L --create-dirs
+  echo "Downloading ${asset_name}..."
+  if ! curl --fail --location --progress-bar --output ${asset_name} "$uri"; then
+    echo "Could not find version $version"
+    exit 1
+  fi
 
   # If the .gz file is expected to contain a tar archive then extract it
   tar -xzvf $asset_name

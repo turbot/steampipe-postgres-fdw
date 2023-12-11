@@ -51,7 +51,7 @@ jobs:
           credentials_json: ${{ secrets.STEAMPIPE_REGISTRY_SA_KEY }}
 
       - name: Configure GCloud CLI project
-        uses: 'google-github-actions/setup-gcloud@v1'
+        uses: 'google-github-actions/setup-gcloud@v2'
         with:
           project_id: ${{ env.PROJECT_ID }}
       

@@ -18,27 +18,24 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/turbot/go-kit/helpers"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/turbot/go-kit/helpers"
 	typeHelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"golang.org/x/exp/maps"
 )
 
-// convert a C string list into a go array
+// CStringListToGoArray converts a C string list into a go array
 func CStringListToGoArray(values *C.List) []string {
-	ensureUnique := map[string]bool{}
-	targets := []string{}
+	valueMap := map[string]struct{}{}
 	for it := C.list_head(values); it != nil; it = C.lnext(values, it) {
-		val := C.cellGetValue(it)
+		val := C.cellGetString(it)
 		s := C.GoString(C.valueString(val))
-		if !ensureUnique[s] {
-			targets = append(targets, s)
-			ensureUnique[s] = true
-		}
+		valueMap[s] = struct{}{}
+
 	}
-	return targets
+	return maps.Keys(valueMap)
 }
 
 // HACK: env vars do not all get copied into the Go env vars so explicitly copy them
@@ -62,6 +59,24 @@ func GetFTableOptions(id types.Oid) types.Options {
 
 	tmp := getOptions(f.options)
 	return tmp
+}
+
+func GetSchemaNameFromForeignTableId(id types.Oid) string {
+	ftable := C.GetForeignTable(C.Oid(id))
+	rel := C.RelationIdGetRelation(ftable.relid)
+	defer C.RelationClose(rel)
+	return getNamespace(rel)
+}
+
+func GetForeignServerOptionsFromFTableId(id types.Oid) types.Options {
+	serverId := C.GetForeignServerIdByRelId(C.Oid(id))
+	f := C.GetForeignServer(serverId)
+	tmp := getOptions(f.options)
+	return tmp
+}
+
+func GetForeignServerOptions(server *C.ForeignServer) types.Options {
+	return getOptions(server.options)
 }
 
 func getOptions(opts *C.List) types.Options {

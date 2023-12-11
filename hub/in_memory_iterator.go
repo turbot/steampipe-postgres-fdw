@@ -22,9 +22,14 @@ func newInMemoryIterator(name string, result *QueryResult) *inMemoryIterator {
 	}
 }
 
-// ConnectionName implements Iterator
-func (i *inMemoryIterator) ConnectionName() string {
+// GetConnectionName implements Iterator
+func (i *inMemoryIterator) GetConnectionName() string {
 	return i.name
+}
+
+// GetPluginName implements Iterator
+func (i *inMemoryIterator) GetPluginName() string {
+	return ""
 }
 
 func (i *inMemoryIterator) Status() queryStatus {

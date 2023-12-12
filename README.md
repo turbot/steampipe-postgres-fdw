@@ -12,7 +12,7 @@ To use the FDW with Steampipe, [download Steampipe](https://steampipe.io/downloa
 
 You can also use a standalone installer that enables you to choose a plugin and download the FDW for that plugin.
 
-[Installation guide →](https://steampipe.io/docs/steampipe_sqlite/install)
+**[Installation guide →](https://steampipe.io/docs/steampipe_sqlite/install)**
 
 ## Developing
 

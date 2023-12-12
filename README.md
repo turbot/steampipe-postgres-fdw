@@ -4,19 +4,17 @@ The Steampipe Postgres Foreign Data Wrapper (FDW) is a Postgres extension that t
 
 The FDW is part of the [Steampipe project](https://github.com/turbot/steampipe). Bundled with the Steampipe CLI, it works with one or more of the [plugins](https://hub.steampipe.io/plugins) you install in Steampipe. You can also [install](https://steampipe.io/docs/steampipe_postgres/install) one or more plugin-specific extensions in your own instance of Postgres.
 
-## Get involved
+## Getting Started
 
-### Community
+To use the FDW with Steampipe, [download Steampipe](https://steampipe.io/downloads) and use it to install one or more plugins.
 
-The Steampipe community can be found on [Slack](https://steampipe.io/community/join), where you can ask questions, voice ideas, and share your projects.
+You can also use a standalone installer that enables you to choose a plugin and download the FDW for that plugin.
 
-Our [Code of Conduct](https://github.com/turbot/steampipe/blob/main/CODE_OF_CONDUCT.md) applies to all Steampipe community channels.
+[Installation guide →](https://steampipe.io/docs/steampipe_sqlite/install)
 
-### Contributing
+## Developing
 
-Please see [CONTRIBUTING.md](https://github.com/turbot/steampipe/blob/main/CONTRIBUTING.md).
-
-### Building the FDW
+### Building the FDW for Steampipe
 
 Make sure that you have the following installed in your system:
 1. `Postgresql v14` 
@@ -64,7 +62,10 @@ Suppose you want to build the FDW for a plugin with an alias `aws` from a GitHub
 $ make standalone plugin="aws"
 ```
 
-### License
+## Open Source & Contributing
 
-This open-source library is licensed under the [GNU Affero General Public License v3](https://opensource.org/licenses/AGPL-3.0).
+This repository is published under the [GNU Affero General Public License v3](https://opensource.org/licenses/AGPL-3.0) license. Please see our [code of conduct](https://github.com/turbot/.github/blob/main/CODE_OF_CONDUCT.md). We look forward to collaborating with you!
+
+[Steampipe](https://steampipe.io) is a product produced exclusively by [Turbot HQ, Inc](https://turbot.com). It is distributed under our commercial terms. Others are allowed to make their own distribution of the software, but cannot use any of the Turbot trademarks, cloud services, etc. You can learn more in our [Open Source FAQ](https://turbot.com/open-source).
+
 

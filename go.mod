@@ -176,8 +176,6 @@ require (
 
 replace (
 	github.com/chronark/vercel-go => github.com/judell/vercel-go v0.1.4
-	github.com/deislabs/oras => github.com/oras-project/oras v0.9.0
-	github.com/docker/distribution => github.com/distribution/distribution v2.7.1+incompatible
 	github.com/docker/docker => github.com/docker/docker v20.10.3-0.20220224222438-c78f6963a1c0+incompatible
 	github.com/duosecurity/duo_api_golang => github.com/e-gineer/duo_api_golang v0.0.0-20220501141413-213eea3b2b7b
 	github.com/hashicorp/consul => github.com/hashicorp/consul v0.0.0-20171026175957-610f3c86a089

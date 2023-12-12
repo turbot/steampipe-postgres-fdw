@@ -742,6 +742,8 @@ github.com/tkrajina/go-reflector v0.5.6 h1:hKQ0gyocG7vgMD2M3dRlYN6WBBOmdoOzJ6njQ
 github.com/tkrajina/go-reflector v0.5.6/go.mod h1:ECbqLgccecY5kPmPmXg1MrHW585yMcDkVl6IvJe64T4=
 github.com/turbot/go-kit v0.9.0-rc.1 h1:6j1IidB4LpTw0TDXY0DSY6UxtrjMr0KIOBk3glO3Xfk=
 github.com/turbot/go-kit v0.9.0-rc.1/go.mod h1:BrOy6Xeizj+eBzXOOWuBMSzQosirN+IGw9MksKULvd4=
+github.com/turbot/steampipe v1.7.0-rc.0.0.20231212143618-3a6cb7f40234 h1:6RGQxRgc28NnvVBjnPjfyzqCZTxkP2DLMretHSnkeVI=
+github.com/turbot/steampipe v1.7.0-rc.0.0.20231212143618-3a6cb7f40234/go.mod h1:pxrJn88PKbIng9eMzPn6k8ubrIjkaIGzTmvEgLMhFqA=
 github.com/turbot/steampipe-plugin-sdk/v5 v5.8.0 h1:e/5EYO7B7UZW6joxO/wqtJGYFu+7NMCqMk/tPVbquFY=
 github.com/turbot/steampipe-plugin-sdk/v5 v5.8.0/go.mod h1:tYRC7FDKPTZ3MSty/tGLtH6UnVpU3zs1osF5DuktB5Q=
 github.com/turbot/terraform-components v0.0.0-20231212024438-91f0ad08de3c h1:ubksP/uiFBJR6VgKBA3lwYC1Vj/+wiE8hZgE+CxIktQ=

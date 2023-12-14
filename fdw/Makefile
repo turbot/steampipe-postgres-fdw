@@ -1,7 +1,7 @@
 # fdw/Makefile
 
 MODULE_big = steampipe_postgres_fdw
-OBJS = datum.o query.o fdw.o logging.o
+OBJS = fdw.o
 
 SHLIB_LINK = steampipe_postgres_fdw.a
 

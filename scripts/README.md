@@ -1,1 +1,0 @@
-This file will be created when you run make standalone.

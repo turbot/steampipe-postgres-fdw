@@ -26,7 +26,7 @@ for item in "${list[@]}"; do
   echo "Processing plugin: ${plugin_name}"
 
   # Step 1: Switch to steampipe-postgres-fdw directory
-  cd $GITHUB_WORKSPACE/steampipe-postgres-fdw || exit 1
+  cd $GITHUB_WORKSPACE || exit 1
 
   # Step 2: Run Docker commands for Postgres FDW Builder v15
   echo "Building Postgres FDW 15 for plugin: ${plugin_name}"

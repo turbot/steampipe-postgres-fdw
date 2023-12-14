@@ -72,10 +72,6 @@ for item in "${list[@]}"; do
     exit 1
   fi
 
-  # Extra step
-  mv steampipe_postgres_${plugin_name}.pg15.linux_arm64.tar.gz $GITHUB_WORKSPACE
-  mv steampipe_postgres_${plugin_name}.pg14.linux_arm64.tar.gz $GITHUB_WORKSPACE
-
   echo "Processing completed for plugin: ${plugin_name}"
 done
 

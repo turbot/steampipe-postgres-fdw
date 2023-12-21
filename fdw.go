@@ -12,6 +12,7 @@ import (
 	_ "github.com/aquasecurity/trivy/pkg/commands/artifact"
 	_ "github.com/aquasecurity/trivy/pkg/commands/option"
 	_ "github.com/aquasecurity/trivy/pkg/types"
+	_ "github.com/turbot/steampipe-plugin-trivy/trivy"
 )
 
 //export goDummy

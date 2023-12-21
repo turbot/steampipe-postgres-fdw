@@ -40,7 +40,7 @@ ifeq ($(OS),Darwin)
   BUILD_TAGS = netgo
 endif
 
-ifeq ($(shell uname -s),Darwin)
+ifeq ($(OS),Darwin)
 	export CGO_LDFLAGS = -Wl,-undefined,dynamic_lookup
 endif
 
@@ -49,4 +49,3 @@ go: ../fdw.go
 	# this has the caveat that, since we are not binding to lresolv, DNS resolution may 
 	# have some subtle differences from system DNS resolution 
 	CGO_ENABLED=1 go build -o steampipe_postgres_fdw.a  -tags "$(BUILD_TAGS)" -buildmode=c-archive ../*.go
-

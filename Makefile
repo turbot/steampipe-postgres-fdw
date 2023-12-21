@@ -5,36 +5,10 @@ STEAMPIPE_INSTALL_DIR ?= ~/.steampipe
 PLATFORM=$(shell uname)
 GETTEXT_INCLUDE=$(shell dirname $(shell dirname $(shell readlink -f $(shell which gettext))))/include
 
-install: build
-	if test -d ~/.steampipe/db/14.2.0; then \
-		cp ./build-$(PLATFORM)/steampipe_postgres_fdw--1.0.sql $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/share/postgresql/extension/; \
-		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.control $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/share/postgresql/extension/; \
-		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.so $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/lib/postgresql/; \
-	fi
-
-# build standalone 
-standalone: validate_plugin prebuild.go
-	@echo "Building standalone FDW for plugin: $(plugin)"
-	go run generate/generator.go templates . $(plugin) $(plugin_github_url)
-	go mod tidy
-	$(MAKE) -C ./fdw clean
-	$(MAKE) -C ./fdw go
-	$(MAKE) -C ./fdw
-	$(MAKE) -C ./fdw standalone
-	
-	rm -f prebuild.go
-
-validate_plugin:
-    ifndef plugin
-	    $(error "You must specify the 'plugin' variable")
-    endif
-
 build: prebuild.go
 	$(MAKE) -C ./fdw clean
 	$(MAKE) -C ./fdw go
 	$(MAKE) -C ./fdw
-	$(MAKE) -C ./fdw inst
-	
 	rm -f prebuild.go
 
 # make target to generate a go file containing the C includes containing bindings to the

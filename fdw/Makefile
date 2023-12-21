@@ -1,7 +1,7 @@
 # fdw/Makefile
 
 MODULE_big = steampipe_postgres_fdw
-OBJS = datum.o query.o fdw.o logging.o
+OBJS = fdw.o
 
 SHLIB_LINK = steampipe_postgres_fdw.a
 
@@ -16,7 +16,7 @@ DATA = steampipe_postgres_fdw--1.0.sql
 
 REGRESS = steampipe_postgres-fdw
 
-EXTRA_CLEAN = steampipe_postgres_fdw.a fdw.h
+EXTRA_CLEAN = steampipe_postgres_fdw.a steampipe_postgres_fdw.h fdw.h
 
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
@@ -50,32 +50,3 @@ go: ../fdw.go
 	# have some subtle differences from system DNS resolution 
 	CGO_ENABLED=1 go build -o steampipe_postgres_fdw.a  -tags "$(BUILD_TAGS)" -buildmode=c-archive ../*.go
 
-inst:
-	mkdir -p ../build-${PLATFORM}
-	rm -f ../build-${PLATFORM}/*
-
-	cp steampipe_postgres_fdw.so ../build-${PLATFORM}
-	cp steampipe_postgres_fdw.control ../build-${PLATFORM}
-	cp steampipe_postgres_fdw--1.0.sql ../build-${PLATFORM}
-	
-	rm steampipe_postgres_fdw.so
-	rm steampipe_postgres_fdw.a
-	rm steampipe_postgres_fdw.h
-	
-	rm ./*.o
-
-standalone:
-	mkdir -p ../build-${PLATFORM}
-	rm -f ../build-${PLATFORM}/*
-
-	cp steampipe_postgres_fdw.so ../build-${PLATFORM}/steampipe_postgres_$(plugin).so
-	cp steampipe_postgres_fdw.control ../build-${PLATFORM}/steampipe_postgres_$(plugin).control
-	cp steampipe_postgres_fdw--1.0.sql ../build-${PLATFORM}/steampipe_postgres_$(plugin)--1.0.sql
-	cp ../scripts/README.md ../build-${PLATFORM}/README.md
-	cp ../scripts/install.sh ../build-${PLATFORM}/install.sh
-	
-	rm steampipe_postgres_fdw.so
-	rm steampipe_postgres_fdw.a
-	rm steampipe_postgres_fdw.h
-	
-	rm ./*.o

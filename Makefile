@@ -31,8 +31,6 @@ prebuild.go:
 clean:
 	$(MAKE) -C ./fdw clean
 	rm -f prebuild.go
-	rm -f steampipe_postgres_fdw.a
-	rm -f steampipe_postgres_fdw.h
 
 # Used to build the Darwin ARM binaries and upload to the github draft release.
 # Usage: make release input="v1.7.2"

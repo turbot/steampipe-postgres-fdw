@@ -173,23 +173,24 @@ func (i *scanIterator) CanIterate() bool {
 
 }
 
-func (i *scanIterator) GetScanMetadata() []ScanMetadata {
-	res := make([]ScanMetadata, len(i.scanMetadata))
-	idx := 0
+// GetScanMetadata returns the scan metadata for this iterator
+// note: if this is an aggregator query, we will have a scan metadata for each connection
+// we need to combine them into a single scan metadata object
+func (i *scanIterator) GetScanMetadata() ScanMetadata {
+	res := ScanMetadata{
+		Table:     i.table,
+		Columns:   i.queryContext.Columns,
+		Quals:     i.queryContext.Quals,
+		StartTime: i.startTime,
+		Duration:  time.Since(i.startTime),
+	}
 	for _, m := range i.scanMetadata {
-		res[idx] = ScanMetadata{
-			Table:        i.table,
-			CacheHit:     m.CacheHit,
-			RowsFetched:  m.RowsFetched,
-			HydrateCalls: m.HydrateCalls,
-			Columns:      i.queryContext.Columns,
-			Quals:        i.queryContext.Quals,
-			StartTime:    i.startTime,
-			Duration:     time.Since(i.startTime),
-		}
-		idx++
+		res.CacheHit = res.CacheHit || m.CacheHit
+		res.RowsFetched += m.RowsFetched
+		res.HydrateCalls += m.HydrateCalls
 	}
 	return res
+
 }
 
 func (i *scanIterator) GetTraceContext() *telemetry.TraceCtx {

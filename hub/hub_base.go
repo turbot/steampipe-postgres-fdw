@@ -213,26 +213,24 @@ func (h *hubBase) AddScanMetadata(i Iterator) {
 	connectionName := iterator.GetConnectionName()
 	pluginName := iterator.GetPluginName()
 
-	// get list of scan metadata from iterator (may be more than 1 for group_iterator)
-	scanMetadata := iterator.GetScanMetadata()
-	for _, m := range scanMetadata {
-		// set ID
-		m.Id = id
-		id++
-		log.Printf("[TRACE] got metadata table: %s cache hit: %v, rows fetched %d, hydrate calls: %d",
-			m.Table, m.CacheHit, m.RowsFetched, m.HydrateCalls)
-		// read the scan metadata from the iterator and add to our stack
-		h.scanMetadata = append(h.scanMetadata, m)
+	// get scan metadata from iterator
+	m := iterator.GetScanMetadata()
 
-		// hydrate metric labels
-		labels := []attribute.KeyValue{
-			attribute.String("table", m.Table),
-			attribute.String("connection", connectionName),
-			attribute.String("plugin", pluginName),
-		}
-		log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
-		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
+	// set ID
+	m.Id = id
+	log.Printf("[TRACE] got metadata table: %s cache hit: %v, rows fetched %d, hydrate calls: %d",
+		m.Table, m.CacheHit, m.RowsFetched, m.HydrateCalls)
+	// read the scan metadata from the iterator and add to our stack
+	h.scanMetadata = append(h.scanMetadata, m)
+
+	// hydrate metric labels
+	labels := []attribute.KeyValue{
+		attribute.String("table", m.Table),
+		attribute.String("connection", connectionName),
+		attribute.String("plugin", pluginName),
 	}
+	log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
+	h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
 
 	// now trim scan metadata - max 1000 items
 	const maxMetadataItems = 1000

@@ -33,6 +33,6 @@ type pluginIterator interface {
 	GetConnectionLimitMap() map[string]int64
 	SetError(err error)
 	GetTable() string
-	GetScanMetadata() []ScanMetadata
+	GetScanMetadata() ScanMetadata
 	Start(pluginExecutor) error
 }

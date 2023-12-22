@@ -70,8 +70,8 @@ func (i *inMemoryIterator) CanIterate() bool {
 	}
 }
 
-func (i *inMemoryIterator) GetScanMetadata() []ScanMetadata {
-	return nil
+func (i *inMemoryIterator) GetScanMetadata() ScanMetadata {
+	return ScanMetadata{}
 }
 func (i *inMemoryIterator) GetTraceContext() *telemetry.TraceCtx {
 	return &telemetry.TraceCtx{Ctx: context.Background()}

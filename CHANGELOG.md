@@ -1,3 +1,13 @@
+## v1.9.1 [2023-12-22]
+_Whats new_
+*  allow using pprof on FDW when STEAMPIPE_FDW_PPROF environment variable is set. ([#368](https://github.com/turbot/steampipe-postgres-fdw/issues/368))
+
+_Bug fixes_
+* Row count is incorrect when using aggregator connections.  ([#402](https://github.com/turbot/steampipe-postgres-fdw/issues/402))
+* OpenTelemetry metric names must only contain `[A-Za-z0-9_.-]`.  ([#369](https://github.com/turbot/steampipe-postgres-fdw/issues/369))
+* Update makefile to install into `STEAMPIPE_INSTALL_DIR` if set.
+
+
 ## v1.9.0 [2023-09-29]
 _Whats new_
 * Add ability to clear connection cache by inserting into `steampipe_settings` table. ([#360](https://github.com/turbot/steampipe-postgres-fdw/issues/360))

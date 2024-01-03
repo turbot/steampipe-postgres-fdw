@@ -15,14 +15,33 @@ install: build
 # build standalone 
 standalone: validate_plugin prebuild.go
 	@echo "Building standalone FDW for plugin: $(plugin)"
-	go run generate/generator.go templates . $(plugin) $(plugin_github_url)
-	go mod tidy
-	$(MAKE) -C ./fdw clean
-	$(MAKE) -C ./fdw go
-	$(MAKE) -C ./fdw
+
+	# Create a new directory for the build process
+	mkdir -p render
+
+	# Copy the entire source tree, excluding .git directory, into the new directory
+	rsync -a --exclude='.git' . render/ >/dev/null 2>&1
+
+	# Change to the new directory to perform operations
+	cd render && \
+	go run generate/generator.go templates . $(plugin) $(plugin_github_url) && \
+	go mod tidy && \
+	$(MAKE) -C ./fdw clean && \
+	$(MAKE) -C ./fdw go && \
+	$(MAKE) -C ./fdw && \
 	$(MAKE) -C ./fdw standalone
-	
-	rm -f prebuild.go
+
+	# Delete existing build-${PLATFORM} and copy the binaries to the actual 
+	# build-${PLATFORM} folder
+	rm -rf build-${PLATFORM} && \
+	mkdir -p build-${PLATFORM} && \
+	cp -a render/build-${PLATFORM}/* build-${PLATFORM}/
+
+	# Clean up the render directory
+	rm -rf render
+
+	# Note: The render directory will contain the full code tree with changes, 
+	# binaries will be copied to build-${PLATFORM}, and then render will be deleted
 
 validate_plugin:
     ifndef plugin

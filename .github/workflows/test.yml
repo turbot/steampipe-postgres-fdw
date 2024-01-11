@@ -39,24 +39,6 @@ jobs:
           repository: turbot/steampipe
           path: steampipe
 
-      - name: Build Steampipe
-        run: |
-          echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
-          ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
-          cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
-          go get
-          go build -o /home/runner/steampipe
-
-      - name: Run steampipe
-        run: |
-          steampipe query "select 1 as col"
-
-      - name: Checkout FDW
-        uses: actions/checkout@v4
-        with:
-          repository: turbot/steampipe-postgres-fdw
-          path: steampipe-postgres-fdw
-
       - name: Fetching Go Cache Paths
         id: go-cache-paths
         run: |
@@ -76,6 +58,24 @@ jobs:
         with:
           path: ${{ steps.go-cache-paths.outputs.go-mod }}
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+          
+      - name: Build Steampipe
+        run: |
+          echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
+          ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
+          cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
+          go get
+          go build -o /home/runner/steampipe
+
+      - name: Run steampipe
+        run: |
+          steampipe query "select 1 as col"
+
+      - name: Checkout FDW
+        uses: actions/checkout@v4
+        with:
+          repository: turbot/steampipe-postgres-fdw
+          path: steampipe-postgres-fdw
 
       - name: Setup apt-get
         run: |-

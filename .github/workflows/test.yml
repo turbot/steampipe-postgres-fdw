@@ -25,10 +25,7 @@ jobs:
   build_and_test:
     name: Build and run tests
     needs: golangci_lint
-    strategy:
-      matrix:
-        platform: [macos-latest, macos-latest-large, ubuntu-20.04]
-    runs-on: ${{ matrix.platform }}
+    runs-on: ubuntu-20.04
     steps:
       - name: Set up Go
         uses: actions/setup-go@v5

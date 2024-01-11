@@ -26,3 +26,5 @@ steampipe_postgres_fdw.h
 build-*/
 # intermediate files from clang
 *.bc
+# work directory created by the standalone fdw building
+/work

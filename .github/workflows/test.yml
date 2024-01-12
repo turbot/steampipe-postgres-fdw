@@ -25,7 +25,7 @@ jobs:
   build_and_test:
     name: Build and run tests
     needs: golangci_lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -113,6 +113,17 @@ jobs:
         run: |
           cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/
           make install
+          
+      - name: GZip
+        run: |
+          cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw
+          tar -czvf ../build.tar.gz ./build-$(uname)
+
+      - name: Upload FDW Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: fdw-build
+          path: build.tar.gz
 
       - name: Setup BATS
         uses: mig4/setup-bats@v1

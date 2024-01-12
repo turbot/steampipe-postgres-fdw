@@ -35,6 +35,11 @@ include $(PGXS)
 # Determine the operating system
 OS := $(shell uname)
 
+# Check if the OS is Mac OS/Darwin
+ifeq ($(OS),Darwin)
+  BUILD_TAGS = netgo
+endif
+
 ifeq ($(shell uname -s),Darwin)
 	export CGO_LDFLAGS = -Wl,-undefined,dynamic_lookup
 endif
@@ -43,7 +48,7 @@ go: ../fdw.go
 	# we are building with the net package from go
 	# this has the caveat that, since we are not binding to lresolv, DNS resolution may 
 	# have some subtle differences from system DNS resolution 
-	CGO_ENABLED=1 go build -o steampipe_postgres_fdw.a  -tags "netgo" -buildmode=c-archive ../*.go
+	CGO_ENABLED=1 go build -ldflags "-linkmode 'external' -extldflags '-static' -o steampipe_postgres_fdw.a -tags "$(BUILD_TAGS)" -buildmode=c-archive ../*.go
 
 inst:
 	mkdir -p ../build-${PLATFORM}

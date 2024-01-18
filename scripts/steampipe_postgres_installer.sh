@@ -45,7 +45,9 @@ main() {
   fi
 
   # Locate the PostgreSQL installation directory and version
-  PG_CONFIG=$(command -v pg_config)
+  if command -v pg_config >/dev/null; then
+    PG_CONFIG=$(command -v pg_config)
+  fi
   if [ -z "$PG_CONFIG" ]; then
       echo "Warning: 'pg_config' was not found in your PATH."
       printf "Please enter the full path to your PostgreSQL installation directory (e.g., /usr/lib/postgresql/14): "

@@ -120,7 +120,7 @@ main() {
   echo ""
   echo "Download and extraction completed."
   echo ""
-  echo "Installing steampipe_postgres_aws in ${BOLD}$PG_DIR${NORMAL}..."
+  echo "Installing steampipe_postgres_${plugin} in ${BOLD}$PG_DIR${NORMAL}..."
   echo ""
   # Get the name of the extracted directory
   ext_dir=$(echo $asset_name | sed 's/\.tar\.gz$//')

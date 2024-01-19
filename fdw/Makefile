@@ -44,11 +44,17 @@ ifeq ($(shell uname -s),Darwin)
 	export CGO_LDFLAGS = -Wl,-undefined,dynamic_lookup
 endif
 
+# if we are building for pg16, we need to use the pg10 build tags
+ifeq ($(shell $(PG_CONFIG) --version | cut -d' ' -f2 | cut -d'.' -f1), 14)
+	BUILD_TAGS := $(BUILD_TAGS),pg14
+endif
+
 go: ../fdw.go
+	@echo $(BUILD_TAGS)
 	# we are building with the net package from go
 	# this has the caveat that, since we are not binding to lresolv, DNS resolution may 
 	# have some subtle differences from system DNS resolution 
-	CGO_ENABLED=1 go build -v -x -o steampipe_postgres_fdw.a  -tags "$(BUILD_TAGS)" -buildmode=c-archive ../*.go
+	CGO_ENABLED=1 go build -v -o steampipe_postgres_fdw.a  -tags "$(BUILD_TAGS)" -buildmode=c-archive ../*.go
 
 inst:
 	mkdir -p ../build-${PLATFORM}

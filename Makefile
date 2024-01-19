@@ -9,7 +9,13 @@ install: build
 	if test -d ~/.steampipe/db/14.2.0; then \
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw--1.0.sql $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/share/postgresql/extension/; \
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.control $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/share/postgresql/extension/; \
+	fi
+	
+	if test -f ./build-$(PLATFORM)/steampipe_postgres_fdw.so; then \
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.so $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/lib/postgresql/; \
+	fi
+	if test -f ./build-$(PLATFORM)/steampipe_postgres_fdw.dylib; then \
+		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.dylib $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/lib/postgresql/; \
 	fi
 
 # build standalone 

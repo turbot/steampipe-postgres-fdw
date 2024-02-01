@@ -61,9 +61,6 @@ var hubMux sync.Mutex
 
 //// lifecycle ////
 
-// GetHub returns a hub singleton
-// if there is an existing hub singleton instance return it, otherwise create it
-// if a hub exists, but a different pluginDir is specified, reinitialise the hub with the new dir
 func GetHub() (*Hub, error) {
 	logging.LogTime("GetHub start")
 
@@ -169,9 +166,6 @@ func (h *Hub) EndScan(iter Iterator, limit int64) {
 	h.RemoveIterator(iter)
 }
 
-// AddScanMetadata adds the scan metadata from the given iterator to the hubs array
-// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
-// the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
 func (h *Hub) AddScanMetadata(iter Iterator) {
 	// nothing to do for an in memory iterator
 	if _, ok := iter.(*inMemoryIterator); ok {

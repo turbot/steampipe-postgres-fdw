@@ -10,6 +10,7 @@ static int deparseLimit(PlannerInfo *root);
 static char *datumToString(Datum datum, Oid type);
 static char *convertUUID(char *uuid);
 
+static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte);
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static void pgfdw_xact_callback(XactEvent event, void *arg);
@@ -72,8 +73,13 @@ exitHook(int code, Datum arg)
 	goFdwShutdown();
 }
 
+static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte) {
+	return getenv("STEAMPIPE_FDW_PARALLEL_SAFE") != NULL;
+}
+
 Datum fdw_handler(PG_FUNCTION_ARGS) {
   FdwRoutine *fdw_routine = makeNode(FdwRoutine);
+  fdw_routine->IsForeignScanParallelSafe = fdwIsForeignScanParallelSafe;
   fdw_routine->GetForeignRelSize = fdwGetForeignRelSize;
   fdw_routine->GetForeignPaths = fdwGetForeignPaths;
   fdw_routine->GetForeignPlan = fdwGetForeignPlan;

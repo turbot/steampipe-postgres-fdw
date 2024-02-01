@@ -76,7 +76,7 @@ consider forking Fdw.)
                                       |   +-----------+
                                       |
 +----------+     +-----------+  gRPC  |   +-----------+
-| Postgres |=====| Fdw |--------+-->| google_*  |
+| Postgres |=====| Fdw       |--------+-->| google_*  |
 +----------+     +-----------+        |   +-----------+
                                       |
                                       |   +-----------+
@@ -100,4 +100,6 @@ consider forking Fdw.)
 * [oracle_fdw](https://github.com/laurenz/oracle_fdw) is C-based.
 
 
-* [Query planning in Foreign Data Wrappers](https://www.postgresql.org/docs/13/fdw-planning.html)
+* [Query planning in Foreign Data Wrappers](https://www.postgresql.org/docs/14/fdw-planning.html)
+* [Parallel safety](https://www.postgresql.org/docs/14/parallel-safety.html)
+* [FDW Routines for Parallel Execution](https://www.postgresql.org/docs/14/fdw-callbacks.html#FDW-CALLBACKS-PARALLEL)

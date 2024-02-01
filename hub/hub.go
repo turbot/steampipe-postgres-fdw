@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
+	typehelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -86,8 +87,6 @@ func newHub() (*Hub, error) {
 	hub := &Hub{}
 	hub.connections = newConnectionFactory(hub)
 
-	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache)
-
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {
 		return nil, err
@@ -106,6 +105,8 @@ func newHub() (*Hub, error) {
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
+
+	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, hub.getServerCacheEnabled())
 
 	return hub, nil
 }
@@ -658,8 +659,13 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 }
 
 func (h *Hub) cacheEnabled(connectionName string) bool {
-	if h.cacheSettings.Enabled != nil {
-		return *h.cacheSettings.Enabled
+	// if the caching is disabled for the server, just return false
+	if !h.cacheSettings.ServerCacheEnabled {
+		return false
+	}
+
+	if h.cacheSettings.ClientCacheEnabled != nil {
+		return *h.cacheSettings.ClientCacheEnabled
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
@@ -807,4 +813,22 @@ func (h *Hub) clearConnectionCache(connection string) error {
 	}
 	log.Printf("[INFO] clear connection cache succeeded")
 	return err
+}
+
+// resolve the server cache enabled property
+func (h *Hub) getServerCacheEnabled() bool {
+	var res = true
+	if val, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
+		if boolVal, err := typehelpers.ToBool(val); err == nil {
+			res = boolVal
+		}
+	}
+
+	if steampipeconfig.GlobalConfig.DatabaseOptions.Cache != nil {
+		res = *steampipeconfig.GlobalConfig.DatabaseOptions.Cache
+	}
+
+	log.Printf("[INFO] Hub.getServerCacheEnabled returning %v", res)
+
+	return res
 }

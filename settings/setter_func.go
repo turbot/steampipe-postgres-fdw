@@ -12,7 +12,7 @@ func (s *HubCacheSettings) SetEnabled(jsonValue string) error {
 	if err := json.Unmarshal([]byte(jsonValue), &enable); err != nil {
 		return err
 	}
-	s.Enabled = &enable
+	s.ClientCacheEnabled = &enable
 	return nil
 }
 

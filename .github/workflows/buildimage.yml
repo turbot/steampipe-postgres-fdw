@@ -325,31 +325,31 @@ jobs:
 
       - name: Download steampipe_postgres_fdw.so - darwin_amd64
         id: download_fdw_so_darwin_amd64
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: steampipe_postgres_fdw.so.darwin_amd64
 
       - name: Download steampipe_postgres_fdw.so - linux_amd64
         id: download_fdw_so_linux_amd64
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: steampipe_postgres_fdw.so.linux_amd64
 
       - name: Download steampipe_postgres_fdw.so - linux_arm64
         id: download_fdw_so_linux_arm64
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: steampipe_postgres_fdw.so.linux_arm64
 
       - name: Download steampipe_postgres_fdw.control
         id: download_fdw_control
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: steampipe_postgres_fdw.control
 
       - name: Download steampipe_postgres_fdw--1.0.sql
         id: download_fdw_sql
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: steampipe_postgres_fdw--1.0.sql
 

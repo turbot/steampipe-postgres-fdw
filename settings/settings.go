@@ -8,17 +8,20 @@ import (
 type setterFunc func(string) error
 
 type HubCacheSettings struct {
-	Enabled   *bool
-	Ttl       *time.Duration
-	ClearTime time.Time
+	ServerCacheEnabled bool
+	ClientCacheEnabled *bool
+	Ttl                *time.Duration
+	ClearTime          time.Time
 
 	// a map of handler function which map settings key to setter functions
 	// for individual properties
 	setters map[HubSettingKey]setterFunc
 }
 
-func NewCacheSettings(clearConnectionCache func(string) error) *HubCacheSettings {
-	hs := &HubCacheSettings{}
+func NewCacheSettings(clearConnectionCache func(string) error, serverCacheEnabled bool) *HubCacheSettings {
+	hs := &HubCacheSettings{
+		ServerCacheEnabled: serverCacheEnabled,
+	}
 	hs.setters = map[HubSettingKey]setterFunc{
 		SettingKeyCacheEnabled:           hs.SetEnabled,
 		SettingKeyCacheTtlOverride:       hs.SetTtl,

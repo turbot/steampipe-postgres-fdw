@@ -55,6 +55,10 @@ void exitHook(int code, Datum arg)
   goFdwShutdown();
 }
 
+static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte) {
+	return getenv("STEAMPIPE_FDW_PARALLEL_SAFE") != NULL;
+}
+
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid)
 {
   // initialise logging`

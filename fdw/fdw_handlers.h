@@ -2,6 +2,7 @@
 // defined and available.
 #include "fmgr.h"
 
+static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte);
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static ForeignScan *fdwGetForeignPlan(
@@ -21,6 +22,7 @@ PG_FUNCTION_INFO_V1(fdw_validator);
 
 Datum fdw_handler(PG_FUNCTION_ARGS) {
   FdwRoutine *fdw_routine = makeNode(FdwRoutine);
+  fdw_routine->IsForeignScanParallelSafe = fdwIsForeignScanParallelSafe;
   fdw_routine->GetForeignRelSize = fdwGetForeignRelSize;
   fdw_routine->GetForeignPaths = fdwGetForeignPaths;
   fdw_routine->GetForeignPlan = fdwGetForeignPlan;

@@ -818,7 +818,7 @@ func (h *Hub) getServerCacheEnabled() bool {
 		}
 	}
 
-	if steampipeconfig.GlobalConfig.DatabaseOptions.Cache != nil {
+	if steampipeconfig.GlobalConfig.DatabaseOptions != nil && steampipeconfig.GlobalConfig.DatabaseOptions.Cache != nil {
 		res = *steampipeconfig.GlobalConfig.DatabaseOptions.Cache
 	}
 

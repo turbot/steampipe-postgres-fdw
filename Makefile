@@ -21,14 +21,72 @@ install: build
 # build standalone 
 standalone: validate_plugin prebuild.go
 	@echo "Building standalone FDW for plugin: $(plugin)"
-	go run generate/generator.go templates . $(plugin) $(plugin_github_url)
-	go mod tidy
-	$(MAKE) -C ./fdw clean
-	$(MAKE) -C ./fdw go
-	$(MAKE) -C ./fdw
+
+	# Remove existing work dir and create a new directory for the render process
+	rm -rf work && \
+	mkdir -p work
+
+	# Copy the entire source tree, excluding .git directory, into the new directory
+	rsync -a --exclude='.git' . work/ >/dev/null 2>&1
+
+	# Change to the new directory to perform operations
+	cd work && \
+	go run generate/generator.go templates . $(plugin) $(plugin_github_url) && \
+	go mod tidy && \
+	$(MAKE) -C ./fdw clean && \
+	$(MAKE) -C ./fdw go && \
+	$(MAKE) -C ./fdw && \
 	$(MAKE) -C ./fdw standalone
-	
-	rm -f prebuild.go
+
+	# Delete existing build-${PLATFORM} and copy the binaries to the actual 
+	# build-${PLATFORM} folder
+	rm -rf build-${PLATFORM} && \
+	mkdir -p build-${PLATFORM} && \
+	cp -a work/build-${PLATFORM}/* build-${PLATFORM}/
+
+	# Note: The work directory will contain the full code tree with changes, 
+	# binaries will be copied to build-${PLATFORM} folder
+
+# render target
+render: validate_plugin prebuild.go
+	@echo "Rendering code for plugin: $(plugin)"
+
+	# Remove existing work dir and create a new directory for the render process
+	rm -rf work && \
+	mkdir -p work
+
+	# Copy the entire source tree, excluding .git directory, into the new directory
+	rsync -a --exclude='.git' . work/ >/dev/null 2>&1
+
+	# Change to the new directory to perform operations
+	cd work && \
+	go run generate/generator.go templates . $(plugin) $(plugin_github_url) && \
+	go mod tidy
+
+	# Note: The work directory will contain the full code tree with rendered changes
+
+# build_from_work target
+build_from_work:
+	@if [ ! -d "work" ]; then \
+		echo "Error: 'work' directory does not exist. Please run the render target first." >&2; \
+		exit 1; \
+	fi
+	@echo "Building from work directory for plugin: $(plugin)"
+
+	# Change to the work directory to perform build operations
+	cd work && \
+	$(MAKE) -C ./fdw clean && \
+	$(MAKE) -C ./fdw go && \
+	$(MAKE) -C ./fdw && \
+	$(MAKE) -C ./fdw standalone
+
+	# Delete existing build-${PLATFORM} and copy the binaries to the actual 
+	# build-${PLATFORM} folder
+	rm -rf build-${PLATFORM} && \
+	mkdir -p build-${PLATFORM} && \
+	cp -a work/build-${PLATFORM}/* build-${PLATFORM}/
+
+	# Note: This target builds from the 'work' directory and copies binaries to the build-${PLATFORM} folder
 
 validate_plugin:
     ifndef plugin
@@ -65,6 +123,7 @@ clean:
 	rm -f prebuild.go
 	rm -f steampipe_postgres_fdw.a
 	rm -f steampipe_postgres_fdw.h
+	rm -rf work
 
 # Used to build the Darwin ARM binaries and upload to the github draft release.
 # Usage: make release input="v1.7.2"

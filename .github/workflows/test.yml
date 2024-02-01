@@ -25,7 +25,7 @@ jobs:
   build_and_test:
     name: Build and run tests
     needs: golangci_lint
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -38,24 +38,6 @@ jobs:
           submodules: true
           repository: turbot/steampipe
           path: steampipe
-
-      - name: Build Steampipe
-        run: |
-          echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
-          ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
-          cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
-          go get
-          go build -o /home/runner/steampipe
-
-      - name: Run steampipe
-        run: |
-          steampipe query "select 1 as col"
-
-      - name: Checkout FDW
-        uses: actions/checkout@v4
-        with:
-          repository: turbot/steampipe-postgres-fdw
-          path: steampipe-postgres-fdw
 
       - name: Fetching Go Cache Paths
         id: go-cache-paths
@@ -76,6 +58,24 @@ jobs:
         with:
           path: ${{ steps.go-cache-paths.outputs.go-mod }}
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+          
+      - name: Build Steampipe
+        run: |
+          echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
+          ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
+          cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
+          go get
+          go build -o /home/runner/steampipe
+
+      - name: Run steampipe
+        run: |
+          steampipe query "select 1 as col"
+
+      - name: Checkout FDW
+        uses: actions/checkout@v4
+        with:
+          repository: turbot/steampipe-postgres-fdw
+          path: steampipe-postgres-fdw
 
       - name: Setup apt-get
         run: |-
@@ -113,6 +113,17 @@ jobs:
         run: |
           cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw/
           make install
+          
+      - name: GZip
+        run: |
+          cd ~/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe-postgres-fdw
+          tar -czvf ../build.tar.gz ./build-$(uname)
+
+      - name: Upload FDW Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: fdw-build
+          path: build.tar.gz
 
       - name: Setup BATS
         uses: mig4/setup-bats@v1

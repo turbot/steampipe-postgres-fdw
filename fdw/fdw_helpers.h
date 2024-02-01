@@ -39,9 +39,15 @@ static inline void *fdw_getStruct(HeapTuple tuple) { return GETSTRUCT(tuple); }
 
 static inline NodeTag fdw_nodeTag(Expr *node) { return nodeTag(node); }
 
-static inline Datum fdw_boolGetDatum(bool b) { PG_RETURN_BOOL(b); }
+#if PG_VERSION_NUM >= 160000
+static inline Datum fdw_cStringGetDatum(const char *str) { PG_RETURN_DATUM(CStringGetTextDatum((char *)str)); }
+static inline Datum fdw_jsonbGetDatum(const char *str) { PG_RETURN_JSONB_P((char *)DirectFunctionCall1(jsonb_in, CStringGetDatum(str))); }
+#else
 static inline Datum fdw_cStringGetDatum(const char *str) { PG_RETURN_TEXT_P(CStringGetTextDatum(str)); }
-static inline Datum fdw_jsonbGetDatum(const char *str) { PG_RETURN_JSONB_P(DirectFunctionCall1(jsonb_in, CStringGetDatum(str))); }
+static inline Datum fdw_jsonbGetDatum(const char *str)   { PG_RETURN_JSONB_P(DirectFunctionCall1(jsonb_in, CStringGetDatum(str))); }
+#endif
+
+static inline Datum fdw_boolGetDatum(bool b) { PG_RETURN_BOOL(b); }
 static inline Datum fdw_numericGetDatum(int64_t num) { PG_RETURN_INT64(Int64GetDatum(num)); }
 static inline Datum fdw_floatGetDatum(double num) { PG_RETURN_FLOAT8(Float8GetDatum(num)); }
 static inline Datum fdw_pointerGetDatum(void *num) { PG_RETURN_DATUM(PointerGetDatum(num)); }
@@ -64,6 +70,13 @@ static inline char *valueString(String *v) { return strVal(v); }
 #else
 static inline char *valueString(Value *v) { return (((Value *)(v))->val.str); }
 #endif
+
+#if PG_VERSION_NUM >= 160000
+static inline void fdw_appendBinaryStringInfo(StringInfo str, const char *data, int datalen) { appendBinaryStringInfo(str,(void *)data,datalen); }
+#else
+static inline void fdw_appendBinaryStringInfo(StringInfo str, const char *data, int datalen) { appendBinaryStringInfo(str,data,datalen); }
+#endif
+
 static inline char **incStringPointer(char **ptr) { return ++ptr; }
 static inline unsigned char *incUcharPointer(unsigned char *ptr) { return ++ptr; }
 static inline unsigned char *ipAddr(inet *i) { return ip_addr(i); }

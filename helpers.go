@@ -197,7 +197,7 @@ func valToBuffer(val interface{}, oid C.Oid, buffer C.StringInfo) (err error) {
 	}
 
 	C.resetStringInfo(buffer)
-	C.appendBinaryStringInfo(buffer, C.CString(valueString), C.int(len(valueString)))
+	C.fdw_appendBinaryStringInfo(buffer, C.CString(valueString), C.int(len(valueString)))
 	return
 }
 

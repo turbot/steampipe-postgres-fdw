@@ -1,3 +1,7 @@
+## v1.9.2 [2024-02-01]
+_Bug fixes_
+*  Override client cache setting to false if server cache is disabled. ([#414](https://github.com/turbot/steampipe-postgres-fdw/issues/414))
+
 ## v1.9.1 [2023-12-22]
 _Whats new_
 *  allow using pprof on FDW when STEAMPIPE_FDW_PPROF environment variable is set. ([#368](https://github.com/turbot/steampipe-postgres-fdw/issues/368))

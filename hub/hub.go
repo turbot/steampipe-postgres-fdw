@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
+	typehelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -61,9 +62,6 @@ var hubMux sync.Mutex
 
 //// lifecycle ////
 
-// GetHub returns a hub singleton
-// if there is an existing hub singleton instance return it, otherwise create it
-// if a hub exists, but a different pluginDir is specified, reinitialise the hub with the new dir
 func GetHub() (*Hub, error) {
 	logging.LogTime("GetHub start")
 
@@ -86,8 +84,6 @@ func newHub() (*Hub, error) {
 	hub := &Hub{}
 	hub.connections = newConnectionFactory(hub)
 
-	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache)
-
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {
 		return nil, err
@@ -106,6 +102,8 @@ func newHub() (*Hub, error) {
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
+
+	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, hub.getServerCacheEnabled())
 
 	return hub, nil
 }
@@ -169,9 +167,6 @@ func (h *Hub) EndScan(iter Iterator, limit int64) {
 	h.RemoveIterator(iter)
 }
 
-// AddScanMetadata adds the scan metadata from the given iterator to the hubs array
-// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
-// the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
 func (h *Hub) AddScanMetadata(iter Iterator) {
 	// nothing to do for an in memory iterator
 	if _, ok := iter.(*inMemoryIterator); ok {
@@ -658,8 +653,13 @@ func (h *Hub) getConnectionPlugin(connectionName string) (*steampipeconfig.Conne
 }
 
 func (h *Hub) cacheEnabled(connectionName string) bool {
-	if h.cacheSettings.Enabled != nil {
-		return *h.cacheSettings.Enabled
+	// if the caching is disabled for the server, just return false
+	if !h.cacheSettings.ServerCacheEnabled {
+		return false
+	}
+
+	if h.cacheSettings.ClientCacheEnabled != nil {
+		return *h.cacheSettings.ClientCacheEnabled
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
@@ -807,4 +807,22 @@ func (h *Hub) clearConnectionCache(connection string) error {
 	}
 	log.Printf("[INFO] clear connection cache succeeded")
 	return err
+}
+
+// resolve the server cache enabled property
+func (h *Hub) getServerCacheEnabled() bool {
+	var res = true
+	if val, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
+		if boolVal, err := typehelpers.ToBool(val); err == nil {
+			res = boolVal
+		}
+	}
+
+	if steampipeconfig.GlobalConfig.DatabaseOptions != nil && steampipeconfig.GlobalConfig.DatabaseOptions.Cache != nil {
+		res = *steampipeconfig.GlobalConfig.DatabaseOptions.Cache
+	}
+
+	log.Printf("[INFO] Hub.getServerCacheEnabled returning %v", res)
+
+	return res
 }

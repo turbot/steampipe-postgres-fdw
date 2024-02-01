@@ -11,13 +11,13 @@ require (
 	// branch rm_tf
 	github.com/turbot/steampipe v1.7.0-rc.0.0.20231212143618-3a6cb7f40234
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.8.0
-	go.opentelemetry.io/otel v1.21.0
+	go.opentelemetry.io/otel v1.22.0
 	google.golang.org/protobuf v1.31.0
 )
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
-	go.opentelemetry.io/otel/metric v1.21.0
+	go.opentelemetry.io/otel/metric v1.22.0
 )
 
 require (
@@ -90,7 +90,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gertd/go-pluralize v0.2.1
 	github.com/ghodss/yaml v1.0.0 // indirect
-	github.com/go-logr/logr v1.3.0 // indirect
+	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/golang/glog v1.1.2 // indirect
@@ -159,7 +159,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.21.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.21.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.21.0 // indirect
-	go.opentelemetry.io/otel/trace v1.21.0 // indirect
+	go.opentelemetry.io/otel/trace v1.22.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9

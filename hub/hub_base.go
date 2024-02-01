@@ -475,20 +475,6 @@ func (h *hubBase) HandleLegacyCacheCommand(command string) error {
 	return nil
 }
 
-func (h *hubBase) cacheEnabled(connectionName string) bool {
-	if h.cacheSettings.Enabled != nil {
-		return *h.cacheSettings.Enabled
-	}
-	// ask the steampipe config for resolved plugin options - this will use default values where needed
-	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
-
-	// the config loading code should ALWAYS populate the connection options, using defaults if needed
-	if connectionOptions.Cache == nil {
-		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
-	}
-	return *connectionOptions.Cache
-}
-
 func (h *hubBase) cacheTTL(connectionName string) time.Duration {
 	log.Printf("[INFO] cacheTTL 1")
 	// if the cache ttl has been overridden, then enforce the value

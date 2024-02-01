@@ -3,6 +3,7 @@ package hub
 import (
 	"errors"
 	"fmt"
+	typehelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -37,8 +38,6 @@ func newRemoteHub() (*RemoteHub, error) {
 	hub := &RemoteHub{}
 	hub.connections = newConnectionFactory(hub)
 
-	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache)
-
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {
 		return nil, err
@@ -54,9 +53,8 @@ func newRemoteHub() (*RemoteHub, error) {
 	filepaths.SteampipeDir = steampipeDir
 
 	log.Printf("[INFO] newRemoteHub RemoteHub.LoadConnectionConfig ")
-	if _, err := hub.LoadConnectionConfig(); err != nil {
-		return nil, err
-	}
+
+	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, hub.getServerCacheEnabled())
 
 	return hub, nil
 }
@@ -279,8 +277,13 @@ func (h *RemoteHub) clearConnectionCache(connection string) error {
 }
 
 func (h *RemoteHub) cacheEnabled(connectionName string) bool {
-	if h.cacheSettings.Enabled != nil {
-		return *h.cacheSettings.Enabled
+	// if the caching is disabled for the server, just return false
+	if !h.cacheSettings.ServerCacheEnabled {
+		return false
+	}
+
+	if h.cacheSettings.ClientCacheEnabled != nil {
+		return *h.cacheSettings.ClientCacheEnabled
 	}
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
@@ -314,4 +317,22 @@ func (h *RemoteHub) cacheTTL(connectionName string) time.Duration {
 		ttl = now.Sub(h.cacheSettings.ClearTime)
 	}
 	return ttl
+}
+
+// resolve the server cache enabled property
+func (h *RemoteHub) getServerCacheEnabled() bool {
+	var res = true
+	if val, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
+		if boolVal, err := typehelpers.ToBool(val); err == nil {
+			res = boolVal
+		}
+	}
+
+	if steampipeconfig.GlobalConfig.DatabaseOptions != nil && steampipeconfig.GlobalConfig.DatabaseOptions.Cache != nil {
+		res = *steampipeconfig.GlobalConfig.DatabaseOptions.Cache
+	}
+
+	log.Printf("[INFO] Hub.getServerCacheEnabled returning %v", res)
+
+	return res
 }

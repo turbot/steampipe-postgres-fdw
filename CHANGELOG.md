@@ -1,3 +1,7 @@
+## v1.9.3 [2024-02-09]
+_Whats new_
+*  Allow connecting to a local, insecure OpenTelemetry server when `STEAMPIPE_OTEL_INSECURE` environment variable is set. ([#419](https://github.com/turbot/steampipe-postgres-fdw/issues/419))
+
 ## v1.9.2 [2024-02-01]
 _Bug fixes_
 *  Override client cache setting to false if server cache is disabled. ([#414](https://github.com/turbot/steampipe-postgres-fdw/issues/414))

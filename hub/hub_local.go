@@ -36,7 +36,7 @@ func newLocalHub() (*HubLocal, error) {
 		pluginAlias: pluginAlias,
 		connections: make(map[string]*proto.ConnectionConfig),
 	}
-	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache)
+	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, hub.getServerCacheEnabled())
 
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {
@@ -240,9 +240,15 @@ func (l *HubLocal) clearConnectionCache(connection string) error {
 }
 
 func (l *HubLocal) cacheEnabled(s string) bool {
-	if l.cacheSettings.Enabled != nil {
-		return *l.cacheSettings.Enabled
+	// if the caching is disabled for the server, just return false
+	if !l.cacheSettings.ServerCacheEnabled {
+		return false
 	}
+
+	if l.cacheSettings.ClientCacheEnabled != nil {
+		return *l.cacheSettings.ClientCacheEnabled
+	}
+
 	if envStr, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
 		// set this so that we don't keep looking up the env var
 		l.cacheSettings.SetEnabled(envStr)

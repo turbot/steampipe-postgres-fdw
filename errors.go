@@ -16,7 +16,7 @@ func FdwError(e error) {
 
 func FdwErrorReport(level int, code int, msg string, hint string) {
 	cmsg := C.CString(msg)
-	defer C.free(unsafe.Pointer(cmsg))
+	defer func() { C.free(unsafe.Pointer(cmsg)) }()
 	chint := C.CString(hint)
 	defer C.free(unsafe.Pointer(chint))
 	C.fdw_errorReportWithHint(C.ERROR, C.ERRCODE_FDW_INVALID_ATTRIBUTE_VALUE, cmsg, chint)

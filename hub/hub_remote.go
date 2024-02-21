@@ -37,8 +37,6 @@ func newRemoteHub() (*RemoteHub, error) {
 	hub := &RemoteHub{}
 	hub.connections = newConnectionFactory(hub)
 
-	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache)
-
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {
 		return nil, err
@@ -57,6 +55,8 @@ func newRemoteHub() (*RemoteHub, error) {
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
 	}
+
+	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, hub.getServerCacheEnabled())
 
 	return hub, nil
 }
@@ -279,9 +279,15 @@ func (h *RemoteHub) clearConnectionCache(connection string) error {
 }
 
 func (h *RemoteHub) cacheEnabled(connectionName string) bool {
-	if h.cacheSettings.Enabled != nil {
-		return *h.cacheSettings.Enabled
+	// if the caching is disabled for the server, just return false
+	if !h.cacheSettings.ServerCacheEnabled {
+		return false
 	}
+
+	if h.cacheSettings.ClientCacheEnabled != nil {
+		return *h.cacheSettings.ClientCacheEnabled
+	}
+
 	// ask the steampipe config for resolved plugin options - this will use default values where needed
 	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
 

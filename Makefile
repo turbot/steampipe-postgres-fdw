@@ -1,4 +1,5 @@
 # Makefile
+default: build
 
 STEAMPIPE_INSTALL_DIR ?= ~/.steampipe
 
@@ -10,7 +11,7 @@ install: build
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw--1.0.sql $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/share/postgresql/extension/; \
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.control $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/share/postgresql/extension/; \
 	fi
-	
+
 	if test -f ./build-$(PLATFORM)/steampipe_postgres_fdw.so; then \
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.so $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/lib/postgresql/; \
 	fi

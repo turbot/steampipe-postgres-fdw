@@ -1,3 +1,24 @@
+## v1.10.0  [tbd]
+Add support for running plugins in-process. ([#383](https://github.com/turbot/steampipe-postgres-fdw/issues/383))
+Fixes issue where the install script fails if pg_config in not in users path. ([#404](https://github.com/turbot/steampipe-postgres-fdw/issues/404))
+
+## v1.9.3 [2024-02-09]
+_Whats new_
+*  Allow connecting to a local, insecure OpenTelemetry server when `STEAMPIPE_OTEL_INSECURE` environment variable is set. ([#419](https://github.com/turbot/steampipe-postgres-fdw/issues/419))
+
+## v1.9.2 [2024-02-01]
+_Bug fixes_
+*  Override client cache setting to false if server cache is disabled. ([#414](https://github.com/turbot/steampipe-postgres-fdw/issues/414))
+
+## v1.9.1 [2023-12-22]
+_Whats new_
+*  allow using pprof on FDW when STEAMPIPE_FDW_PPROF environment variable is set. ([#368](https://github.com/turbot/steampipe-postgres-fdw/issues/368))
+
+_Bug fixes_
+* Row count is incorrect when using aggregator connections.  ([#402](https://github.com/turbot/steampipe-postgres-fdw/issues/402))
+* OpenTelemetry metric names must only contain `[A-Za-z0-9_.-]`.  ([#369](https://github.com/turbot/steampipe-postgres-fdw/issues/369))
+* Update makefile to install into `STEAMPIPE_INSTALL_DIR` if set.
+
 ## v1.9.0 [2023-09-29]
 _Whats new_
 * Add ability to clear connection cache by inserting into `steampipe_settings` table. ([#360](https://github.com/turbot/steampipe-postgres-fdw/issues/360))

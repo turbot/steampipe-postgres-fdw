@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
@@ -113,7 +114,7 @@ func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledR
 func (h *RemoteHub) LoadConnectionConfig() (bool, error) {
 	log.Printf("[INFO] RemoteHub.LoadConnectionConfig ")
 	// load connection conFig
-	connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig()
+	connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig(context.Background())
 	if errorsAndWarnings.GetError() != nil {
 		log.Printf("[WARN] LoadConnectionConfig failed %v ", errorsAndWarnings)
 		return false, errorsAndWarnings.GetError()

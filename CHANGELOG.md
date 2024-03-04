@@ -1,6 +1,10 @@
-## v1.10.0  [tbd]
+## v1.11.0  [tbd]
 Add support for running plugins in-process. ([#383](https://github.com/turbot/steampipe-postgres-fdw/issues/383))
 Fixes issue where the install script fails if pg_config in not in users path. ([#404](https://github.com/turbot/steampipe-postgres-fdw/issues/404))
+
+## v1.10.0 [2024-03-04]
+_Whats new_
+* If `STEAMPIPE_FDW_PARALLEL_SAFE` env var is set is set, mark FDW as PARALLEL SAFE to improve performance. ([#428](https://github.com/turbot/steampipe-postgres-fdw/issues/428))
 
 ## v1.9.3 [2024-02-09]
 _Whats new_

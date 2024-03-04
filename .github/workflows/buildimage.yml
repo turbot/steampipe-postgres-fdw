@@ -135,7 +135,7 @@ jobs:
 
   build-linux:
     name: Build for Linux x86_64
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v4

@@ -1,3 +1,7 @@
+## v1.10.0 [2024-03-04]
+_Whats new_
+* If `STEAMPIPE_FDW_PARALLEL_SAFE` env var is set is set, mark FDW as PARALLEL SAFE to improve performance. ([#428](https://github.com/turbot/steampipe-postgres-fdw/issues/428))
+
 ## v1.9.3 [2024-02-09]
 _Whats new_
 *  Allow connecting to a local, insecure OpenTelemetry server when `STEAMPIPE_OTEL_INSECURE` environment variable is set. ([#419](https://github.com/turbot/steampipe-postgres-fdw/issues/419))

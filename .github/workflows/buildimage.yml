@@ -358,7 +358,7 @@ jobs:
           ls -la
 
       - name: Create a draft release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         id: create_draft_release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

@@ -13,13 +13,13 @@ require (
 	// main
 	github.com/turbot/steampipe v1.7.0-rc.0.0.20240223132218-d8ddcad4cc90
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.9.0
-	go.opentelemetry.io/otel v1.23.1
+	go.opentelemetry.io/otel v1.24.0
 	google.golang.org/protobuf v1.32.0
 )
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
-	go.opentelemetry.io/otel/metric v1.23.1
+	go.opentelemetry.io/otel/metric v1.24.0
 )
 
 require (
@@ -167,7 +167,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.23.1 // indirect
 	go.opentelemetry.io/otel/sdk v1.23.1 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.23.1 // indirect
-	go.opentelemetry.io/otel/trace v1.23.1 // indirect
+	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.1.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d

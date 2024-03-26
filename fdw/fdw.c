@@ -207,6 +207,7 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
                              NULL,
                              NULL));
 
+
   /* Handle sort pushdown */
   if (root->query_pathkeys)
   {

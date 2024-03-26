@@ -344,3 +344,33 @@ func (h *RemoteHub) getServerCacheEnabled() bool {
 
 	return res
 }
+
+// GetSortableFields
+func (h *RemoteHub) GetSortableFields(tableName, connectionName string) map[string]proto.SortOrder {
+	connectionPlugin, err := h.getConnectionPlugin(connectionName)
+	if err != nil {
+		log.Printf("[WARN] GetSortableFields getConnectionPlugin failed for connection %s: %s", connectionName, err.Error())
+		return nil
+	}
+
+	schema, err := connectionPlugin.GetSchema(connectionName)
+	if err != nil {
+		log.Printf("[WARN] GetSortableFields GetSchema failed for connection %s: %s", connectionName, err.Error())
+		return nil
+	}
+
+	tableSchema, ok := schema.Schema[tableName]
+	if !ok {
+		log.Printf("[WARN] GetSortableFields table schema not found for connection %s, table %s", connectionName, tableName)
+		return nil
+	}
+
+	// build map of sortable fields
+	var sortableFields = make(map[string]proto.SortOrder)
+	for _, column := range tableSchema.Columns {
+		sortableFields[column.Name] = column.SortOrder
+	}
+
+	log.Printf("[WARN] GetSortableFields for connection '%s`, table `%s`: %v", connectionName, tableName, sortableFields)
+	return sortableFields
+}

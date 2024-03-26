@@ -17,6 +17,7 @@ import "C"
 
 import (
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"io"
 	"log"
 	"time"
@@ -81,8 +82,8 @@ func goLog(msg *C.char) {
 //export goFdwCanSort
 func goFdwCanSort(deparsed *C.List, planstate *C.FdwPlanState) *C.List {
 	log.Println("[WARN] goFdwCanSort deparsed", deparsed)
-
-	var pushDownList *C.List = nil // This will be the list of FdwDeparsedSortGroup items that can be pushed down
+	// This will be the list of FdwDeparsedSortGroup items that can be pushed down
+	var pushDownList *C.List = nil
 
 	// Iterate over the deparsed list
 	if deparsed == nil {
@@ -91,16 +92,24 @@ func goFdwCanSort(deparsed *C.List, planstate *C.FdwPlanState) *C.List {
 
 	// Convert the sortable fields into a lookup
 	sortableFields := getSortableFields(planstate.foreigntableid)
+	if len(sortableFields) == 0 {
+		return pushDownList
+	}
 
 	for it := C.list_head(deparsed); it != nil; it = C.lnext(deparsed, it) {
 		deparsedSortGroup := C.cellGetFdwDeparsedSortGroup(it)
 		columnName := C.GoString(C.nameStr(deparsedSortGroup.attname))
 
-		_, canSort := sortableFields[columnName]
+		supportedOrder := sortableFields[columnName]
+		requiredOrder := proto.SortOrder_Asc
+		if deparsedSortGroup.reversed {
+			requiredOrder = proto.SortOrder_Desc
+		}
+		log.Println("[WARN] goFdwCanSort column", columnName, "supportedOrder", supportedOrder, "requiredOrder", requiredOrder)
 		// HACK
-		canSort = true
-		if canSort {
-			log.Println("[WARN] goFdwCanSort can sort column", columnName)
+		//canSort = true
+		if supportedOrder == requiredOrder || supportedOrder == proto.SortOrder_All {
+			log.Println("[WARN] goFdwCanSort column", columnName, "can be pushed down")
 			// add deparsedSortGroup to pushDownList
 			pushDownList = C.lappend(pushDownList, unsafe.Pointer(deparsedSortGroup))
 		}
@@ -109,11 +118,13 @@ func goFdwCanSort(deparsed *C.List, planstate *C.FdwPlanState) *C.List {
 	return pushDownList
 }
 
-func getSortableFields(foreigntableid C.Oid) map[string]struct{} {
+func getSortableFields(foreigntableid C.Oid) map[string]proto.SortOrder {
 	opts := GetFTableOptions(types.Oid(foreigntableid))
+	connection := GetSchemaNameFromForeignTableId(types.Oid(foreigntableid))
+
 	tableName := opts["table"]
 	pluginHub := hub.GetHub()
-	return pluginHub.GetSortableFields(tableName)
+	return pluginHub.GetSortableFields(tableName, connection)
 }
 
 //export goFdwGetRelSize

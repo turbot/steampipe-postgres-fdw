@@ -545,6 +545,6 @@ func (h *hubBase) cacheTTL(connectionName string) time.Duration {
 }
 
 // GetSortableFields
-func (h *hubBase) GetSortableFields(name string) map[string]struct{} {
-	return make(map[string]struct{})
+func (h *hubBase) GetSortableFields(tableName, connectionName string) map[string]proto.SortOrder {
+	return nil
 }

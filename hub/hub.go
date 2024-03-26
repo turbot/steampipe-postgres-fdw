@@ -30,5 +30,5 @@ type Hub interface {
 	ValidateCacheCommand(command string) error
 	cacheTTL(name string) time.Duration
 	cacheEnabled(name string) bool
-	GetSortableFields(name string) map[string]struct{}
+	GetSortableFields(table, connection string) map[string]proto.SortOrder
 }

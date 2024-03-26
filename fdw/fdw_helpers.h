@@ -100,7 +100,10 @@ static inline NullTest *cellGetNullTest(ListCell *n) { return (NullTest *)n->ptr
 static inline BooleanTest *cellGetBooleanTest(ListCell *n) { return (BooleanTest *)n->ptr_value; }
 static inline BoolExpr *cellGetBoolExpr(ListCell *n) { return (BoolExpr *)n->ptr_value; }
 
+
 static inline RestrictInfo *cellGetRestrictInfo(ListCell *n) { return (RestrictInfo *)n->ptr_value; }
+static inline char *nameStr(Name n) { return NameStr(*n); }
+
 
 // logging
 char *tagTypeToString(NodeTag type);

@@ -14,6 +14,12 @@ static char *convertUUID(char *uuid);
 static void pgfdw_xact_callback(XactEvent event, void *arg);
 static void exitHook(int code, Datum arg);
 
+//static void add_foreign_ordered_paths(PlannerInfo *root, RelOptInfo *input_rel,
+//						  RelOptInfo *ordered_rel);
+//static void estimate_path_cost_size(double *p_rows, int *p_width,
+//                                    Cost *p_startup_cost, Cost *p_total_cost,
+//									double coef);
+
 void *serializePlanState(FdwPlanState *state);
 FdwExecState *initializeExecState(void *internalstate);
 // Required by postgres, doing basic checks to ensure compatibility,
@@ -181,6 +187,9 @@ static int deparseLimit(PlannerInfo *root)
  */
 static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid)
 {
+   elog(INFO, "fdwGetForeignPaths");
+   goLog("fdwGetForeignPaths");
+
   List *paths; /* List of ForeignPath */
   FdwPlanState *planstate = baserel->fdw_private;
   ListCell *lc;
@@ -430,3 +439,231 @@ char *convertUUID(char *uuid)
 
   return uuid;
 }
+
+//
+///*
+// * fdwGetForeignUpperPaths
+// *		Add paths for post-join operations like aggregation, grouping etc. if
+// *		corresponding operations are safe to push down.
+// *
+// * Right now, we only support aggregate, grouping and having clause pushdown.
+// */
+//static void
+//fdwGetForeignUpperPaths(PlannerInfo *root, UpperRelationKind stage,
+//                               RelOptInfo *input_rel, RelOptInfo *output_rel,
+//                               void *extra)
+//{
+//
+//	if  (stage != UPPERREL_ORDERED  ||
+//		output_rel->fdw_private)
+//		return;
+//
+//    goLog("fdwGetForeignUpperPaths");
+//
+//
+////	/*
+////	 * If input rel is not safe to pushdown, then simply return as we cannot
+////	 * perform any post-join operations on the foreign server.
+////	 */
+////	if (!input_rel->fdw_private){
+////	        goLog("!input_rel->fdw_private");
+////	        return;
+////    }
+//
+//
+////  if (!((FdwPlanState *) input_rel->fdw_private)->pushdown_safe){
+////      goLog("!pushdown_safe");
+////      return;
+////   }
+//
+//
+//    FdwPlanState *planstate = palloc0(sizeof(FdwPlanState));
+//
+//    // NEEDED??
+//    planstate->pushdown_safe = false;
+//
+//    // Save plan state information
+//    output_rel->fdw_private = planstate;
+//
+////	struct timeval time1,time2;
+////
+////	gettimeofday(&time1, NULL);
+//
+//
+//
+//    add_foreign_ordered_paths(root, input_rel, output_rel);
+//
+//}
+//
+//
+///* Struct for extra information passed to estimate_path_cost_size() */
+//typedef struct
+//{
+//	PathTarget *target;
+//	bool		has_final_sort;
+//	bool		has_limit;
+//	double		limit_tuples;
+//	int64		count_est;
+//	int64		offset_est;
+//} PgFdwPathExtraData;
+//
+//
+///*
+// * add_foreign_ordered_paths
+// *		Add foreign paths for performing the final sort remotely.
+// *
+// * Given input_rel contains the source-data Paths.  The paths are added to the
+// * given ordered_rel.
+// */
+//static void
+//add_foreign_ordered_paths(PlannerInfo *root, RelOptInfo *input_rel,
+//						  RelOptInfo *ordered_rel)
+//{
+//    goLog("add_foreign_ordered_paths");
+//    Query	   *parse = root->parse;
+////   	PgFdwRelationInfo *ifpinfo = input_rel->fdw_private;
+////   	PgFdwRelationInfo *fpinfo = ordered_rel->fdw_private;
+//   	PgFdwPathExtraData *fpextra;
+//   	double		rows;
+//   	int			width;
+//   	Cost		startup_cost;
+//   	Cost		total_cost;
+//   	List	   *fdw_private;
+//   	ForeignPath *ordered_path;
+//   	ListCell   *lc;
+//
+//   	/* Shouldn't get here unless the query has ORDER BY */
+//   	Assert(parse->sortClause);
+//
+//   	/* We don't support cases where there are any SRFs in the targetlist */
+//   	if (parse->hasTargetSRFs){
+//   	    goLog("hasTargetSRFs");
+//   		return;
+//    }
+//
+//   	/* Save the input_rel as outerrel in fpinfo */
+////   	fpinfo->outerrel = input_rel;
+//
+//   	/*
+//   	 * Copy foreign table, foreign server, user mapping, FDW options etc.
+//   	 * details from the input relation's fpinfo.
+//   	 */
+////   	fpinfo->table = ifpinfo->table;
+////   	fpinfo->server = ifpinfo->server;
+////   	fpinfo->user = ifpinfo->user;
+////   	merge_fdw_options(fpinfo, ifpinfo, NULL);
+//
+//   	/*
+//   	 * If the input_rel is a base or join relation, we would already have
+//   	 * considered pushing down the final sort to the remote server when
+//   	 * creating pre-sorted foreign paths for that relation, because the
+//   	 * query_pathkeys is set to the root->sort_pathkeys in that case (see
+//   	 * standard_qp_callback()).
+//   	 */
+//   	if (input_rel->reloptkind == RELOPT_BASEREL)
+////   	||
+////   		input_rel->reloptkind == RELOPT_JOINREL)
+//   	{
+//   	    goLog("reloptkind == RELOPT_BASEREL ");
+//
+//   		Assert(root->query_pathkeys == root->sort_pathkeys);
+//
+//   		/* Safe to push down if the query_pathkeys is safe to push down */
+////   		fpinfo->pushdown_safe = ifpinfo->qp_is_pushdown_safe;
+//
+//   		return;
+//   	}
+//
+//   	/* The input_rel should be a grouping relation */
+////   	Assert(input_rel->reloptkind == RELOPT_UPPER_REL &&
+////   		   ifpinfo->stage == UPPERREL_GROUP_AGG);
+//
+//   	/*
+//   	 * We try to create a path below by extending a simple foreign path for
+//   	 * the underlying grouping relation to perform the final sort remotely,
+//   	 * which is stored into the fdw_private list of the resulting path.
+//   	 */
+//
+//   	/* Assess if it is safe to push down the final sort */
+//   	foreach(lc, root->sort_pathkeys)
+//   	{
+//   	    goLog("sort pathkeys");
+//   		PathKey    *pathkey = (PathKey *) lfirst(lc);
+//   		EquivalenceClass *pathkey_ec = pathkey->pk_eclass;
+//
+//   		/*
+//   		 * is_foreign_expr would detect volatile expressions as well, but
+//   		 * checking ec_has_volatile here saves some cycles.
+//   		 */
+//   		if (pathkey_ec->ec_has_volatile)
+//   			return;
+//
+//   		/*
+//   		 * Can't push down the sort if pathkey's opfamily is not shippable.
+//   		 */
+////   		if (!is_shippable(pathkey->pk_opfamily, OperatorFamilyRelationId,
+////   						  fpinfo))
+////   			return;
+//
+//   		/*
+//   		 * The EC must contain a shippable EM that is computed in input_rel's
+//   		 * reltarget, else we can't push down the sort.
+//   		 */
+////   		if (find_em_for_rel_target(root,
+////   								   pathkey_ec,
+////   								   input_rel) == NULL)
+////   			return;
+//   	}
+//
+//   	/* Safe to push down */
+////   	fpinfo->pushdown_safe = true;
+//
+//   	/* Construct PgFdwPathExtraData */
+//   	fpextra = (PgFdwPathExtraData *) palloc0(sizeof(PgFdwPathExtraData));
+//   	fpextra->target = root->upper_targets[UPPERREL_ORDERED];
+//   	fpextra->has_final_sort = true;
+//
+//   	/* Estimate the costs of performing the final sort remotely */
+//   	estimate_path_cost_size(&rows, &width, &startup_cost, &total_cost, 0.1);
+//
+//  	 /* Build the fdw_private list that will be used by postgresGetForeignPlan.
+//  	 * Items in the list must match order in enum FdwPathPrivateIndex.
+//  	 */
+//  	fdw_private = list_make2(makeInteger(true), makeInteger(false));
+//
+//  	/* Create foreign ordering path */
+//  	ordered_path = create_foreign_upper_path(root,
+//  											 input_rel,
+//  											 root->upper_targets[UPPERREL_ORDERED],
+//  											 rows,
+//  											 startup_cost,
+//  											 total_cost,
+//  											 root->sort_pathkeys,
+//  											 NULL,	/* no extra plan */
+//  											 fdw_private);
+//   	/* and add it to the ordered_rel */
+//   	add_path(ordered_rel, (Path *) ordered_path);
+//}
+//
+//
+///*
+// * estimate_path_cost_size
+// *		Get cost and size estimates for a foreign scan on given foreign relation
+// *		either a base relation or a join between foreign relations or an upper
+// *		relation containing foreign relations.
+// *
+// * param_join_conds are the parameterization clauses with outer relations.
+// * pathkeys specify the expected sort order if any for given path being costed.
+// *
+// * The function returns the cost and size estimates in p_row, p_width,
+// * p_startup_cost and p_total_cost variables.
+// */
+//static void
+//estimate_path_cost_size(double *p_rows, int *p_width,
+//                        Cost *p_startup_cost, Cost *p_total_cost, double coef)
+//{
+//	*p_rows = 1;
+//	*p_width = 1;
+//	*p_startup_cost = 1.0;
+//	*p_total_cost = -1 + coef;
+//}

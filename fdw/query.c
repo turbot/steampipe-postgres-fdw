@@ -400,7 +400,6 @@ void computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate,
                               List **apply_pathkeys,
                               List **deparsed_pathkeys)
 {
-  goLog("computeDeparsedSortGroup");
   List *sortable_fields = NULL;
   ListCell *lc, *lc2;
 
@@ -410,13 +409,10 @@ void computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate,
 
   /* Don't ask FDW if nothing to sort */
   if (deparsed == NIL){
-    goLog("deparsed == NIL");
     return;
     }
 
-  // TODO - Fdw doesn't support this yet
   sortable_fields = goFdwCanSort( deparsed,planstate);
-
 
   /* Don't go further if FDW can't enforce any sort */
   if (sortable_fields == NIL)
@@ -424,8 +420,6 @@ void computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate,
 
   foreach (lc, sortable_fields)
   {
-    goLog(lc);
-
     FdwDeparsedSortGroup *sortable_md = (FdwDeparsedSortGroup *)lfirst(lc);
     foreach (lc2, deparsed)
     {
@@ -712,10 +706,3 @@ deserializeDeparsedSortGroup(List *items)
 
   return result;
 }
-
-
-//Name
-//deserializeDeparsedSortListCell(ListCell *lc)
-//{
-//    return  (Name)strdup(strVal(lfirst(lc)));
-//}

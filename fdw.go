@@ -82,81 +82,38 @@ func goLog(msg *C.char) {
 func goFdwCanSort(deparsed *C.List, planstate *C.FdwPlanState) *C.List {
 	log.Println("[WARN] goFdwCanSort deparsed", deparsed)
 
-	opts := GetFTableOptions(types.Oid(planstate.foreigntableid))
-	log.Println("[WARN] goFdwCanSort table name ", opts["table"])
-	//hub := hub.GetHub()
-	return deparsed
-	//
 	var pushDownList *C.List = nil // This will be the list of FdwDeparsedSortGroup items that can be pushed down
 
-	// Convert the sortable fields into a Go slice for easier checking
-	//sortableFields := getSortableFields()
-
 	// Iterate over the deparsed list
-
 	if deparsed == nil {
 		return pushDownList
-
 	}
+
+	// Convert the sortable fields into a lookup
+	sortableFields := getSortableFields(planstate.foreigntableid)
+
 	for it := C.list_head(deparsed); it != nil; it = C.lnext(deparsed, it) {
-
-		log.Println("[WARN] goFdwCanSort it", it)
-
-		cell := (*C.ListCell)(unsafe.Pointer(it))
-
-		log.Println("[WARN] goFdwCanSort cell", cell)
-		//name := C.deserializeDeparsedSortListCell(cell)
-		//log.Println("[WARN] goFdwCanSort name", name)
-
-		//ptr := C.cellGetPtr(cell)
-		//log.Println("[WARN] goFdwCanSort ptr", ptr)
-
-		////spew.Dump(cell)
 		deparsedSortGroup := C.cellGetFdwDeparsedSortGroup(it)
-		//s := C.GoString(C.valueString(val))
-		//////valueMap[s] = struct{}{}
-		////
-		//deparsedSortGroup := (*C.FdwDeparsedSortGroup)(unsafe.Pointer(ptr))
-		////
-		log.Println("[WARN] goFdwCanSort deparsedSortGroup", deparsedSortGroup)
-		//attnameGoStr := C.GoStringN(&deparsedSortGroup.attname.data[0], C.int(C.NAMEDATALEN))
-		attnameGoStr := C.GoString(C.nameStr(deparsedSortGroup.attname))
-		////
-		//attnameGoStr := C.GoString(deparsedSortGroup.attname)
-		log.Println("[WARN] goFdwCanSort attnameGoStr", attnameGoStr)
-		////// Check if attname is in sortableFields
-		////canPushDown := false
-		//////for _, field := range sortableFields {
-		//////	if attnameGoStr == field {
-		//////		canPushDown = true
-		//////		break
-		//////	}
-		//////}
-		//
-		//if canPushDown {
-		//	// Construct a new FdwDeparsedSortGroup or add to pushDownList
-		//	// This step is complex due to needing to create and manipulate C structs and lists in Go
-		//	// You would typically use C functions to append to a C list here
-		//}
+		columnName := C.GoString(C.nameStr(deparsedSortGroup.attname))
+
+		_, canSort := sortableFields[columnName]
+		// HACK
+		canSort = true
+		if canSort {
+			log.Println("[WARN] goFdwCanSort can sort column", columnName)
+			// add deparsedSortGroup to pushDownList
+			pushDownList = C.lappend(pushDownList, unsafe.Pointer(deparsedSortGroup))
+		}
 	}
 
 	return pushDownList
-
 }
 
-//export goFdwGetForeignPaths
-func goFdwGetForeignPaths(root *C.PlannerInfo, baserel *C.RelOptInfo, foreigntableid C.Oid) {
-	log.Printf("[INFO] goFdwGetForeignPaths %d", foreigntableid)
-
-}
-
-//export goFdwGetForeignUpperPaths
-func goFdwGetForeignUpperPaths(root *C.PlannerInfo, stage C.UpperRelationKind, input_rel *C.RelOptInfo, output_rel *C.RelOptInfo, extra unsafe.Pointer) {
-
-	if stage != C.UPPERREL_ORDERED {
-		return
-	}
-	log.Printf("[INFO] goFdwGetForeignUpperPaths %d", stage)
+func getSortableFields(foreigntableid C.Oid) map[string]struct{} {
+	opts := GetFTableOptions(types.Oid(foreigntableid))
+	tableName := opts["table"]
+	pluginHub := hub.GetHub()
+	return pluginHub.GetSortableFields(tableName)
 }
 
 //export goFdwGetRelSize

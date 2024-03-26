@@ -58,8 +58,6 @@ typedef struct FdwPlanState
   int width;
   // the number of rows to return (limit+offset). -1 means no limit
   int limit;
-  // from clickhouse - needed?
-  bool pushdown_safe;
 
 } FdwPlanState;
 
@@ -92,7 +90,6 @@ typedef struct FdwDeparsedSortGroup
 } FdwDeparsedSortGroup;
 
 static inline FdwDeparsedSortGroup *cellGetFdwDeparsedSortGroup(ListCell *n) { return (FdwDeparsedSortGroup *)n->ptr_value; }
-static inline void *cellGetPtr(ListCell *n) { return n->ptr_value; }
 
 // datum.c
 char *datumString(Datum datum, ConversionInfo *cinfo);

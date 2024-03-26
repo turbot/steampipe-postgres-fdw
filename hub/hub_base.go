@@ -543,3 +543,8 @@ func (h *hubBase) cacheTTL(connectionName string) time.Duration {
 	log.Printf("[INFO] cacheTTL 5")
 	return ttl
 }
+
+// GetSortableFields
+func (h *hubBase) GetSortableFields(name string) map[string]struct{} {
+	return make(map[string]struct{})
+}

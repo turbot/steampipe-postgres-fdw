@@ -5,11 +5,6 @@
 static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte);
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
-static void fdwGetForeignUpperPaths(PlannerInfo *root,
-        UpperRelationKind stage,
-        RelOptInfo *input_rel, RelOptInfo *output_rel,
-        void *extra);
-
 static ForeignScan *fdwGetForeignPlan(
     PlannerInfo *root,
     RelOptInfo *baserel,
@@ -38,8 +33,6 @@ Datum fdw_handler(PG_FUNCTION_ARGS) {
   fdw_routine->EndForeignScan = goFdwEndForeignScan;
   fdw_routine->ImportForeignSchema = goFdwImportForeignSchema;
   fdw_routine->ExecForeignInsert = goFdwExecForeignInsert;
-//  fdw_routine->GetForeignUpperPaths = fdwGetForeignUpperPaths;
-
 
 PG_RETURN_POINTER(fdw_routine);
 }

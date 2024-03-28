@@ -412,7 +412,7 @@ void computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate,
     return;
     }
 
-  sortable_fields = goFdwCanSort( deparsed,planstate);
+  sortable_fields = goFdwCanSort(deparsed,planstate);
 
   /* Don't go further if FDW can't enforce any sort */
   if (sortable_fields == NIL)

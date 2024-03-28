@@ -108,7 +108,7 @@ func (h *HubLocal) GetSchema(_, connectionName string) (*proto.Schema, error) {
 	return res.GetSchema(), nil
 }
 
-func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options, queryTimestamp int64) (Iterator, error) {
+func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options, queryTimestamp int64,  sortOrder []*proto.SortColumn, ) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
 	connectionName := opts["connection"]
@@ -121,7 +121,7 @@ func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRe
 
 	// create a span for this scan
 	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
-	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx)
+	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, sortOrder, scanTraceCtx)
 
 	if err != nil {
 		log.Printf("[TRACE] RemoteHub GetIterator() failed :( %s", err)
@@ -165,7 +165,7 @@ func (h *HubLocal) ProcessImportForeignSchemaOptions(opts types.Options, connect
 }
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator or a legacyScanIterator
-func (h *HubLocal) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
+func (h *HubLocal) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, sortOrder []*proto.SortColumn, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {
 			// close the span in case of errir
@@ -197,7 +197,7 @@ func (h *HubLocal) startScanForConnection(connectionName string, table string, q
 	}
 
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	iterator := newScanIteratorLocal(h, connectionName, table, h.pluginName, connectionLimitMap, qualMap, columns, limit, scanTraceCtx)
+	iterator := newScanIteratorLocal(h, connectionName, table, h.pluginName, connectionLimitMap, qualMap, columns, limit, sortOrder, scanTraceCtx)
 	return iterator, nil
 }
 

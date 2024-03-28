@@ -105,13 +105,14 @@ func goFdwCanSort(deparsed *C.List, planstate *C.FdwPlanState) *C.List {
 		if deparsedSortGroup.reversed {
 			requiredOrder = proto.SortOrder_Desc
 		}
-		log.Println("[WARN] goFdwCanSort column", columnName, "supportedOrder", supportedOrder, "requiredOrder", requiredOrder)
-		// HACK
-		//canSort = true
+		log.Println("[INFO] goFdwCanSort column", columnName, "supportedOrder", supportedOrder, "requiredOrder", requiredOrder)
+
 		if supportedOrder == requiredOrder || supportedOrder == proto.SortOrder_All {
-			log.Println("[WARN] goFdwCanSort column", columnName, "can be pushed down")
+			log.Printf("[INFO] goFdwCanSort column %s can be pushed down", columnName)
 			// add deparsedSortGroup to pushDownList
 			pushDownList = C.lappend(pushDownList, unsafe.Pointer(deparsedSortGroup))
+		} else {
+			log.Printf("[INFO] goFdwCanSort column %s CANNOT be pushed down", columnName)
 		}
 	}
 
@@ -292,7 +293,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	// create a wrapper struct for cinfos
 	cinfos := newConversionInfos(execState)
-	quals, unhandledRestrictions := restrictionsToQuals(node, cinfos)
+	quals,
+	unhandledRestrictions := restrictionsToQuals(node, cinfos)
 
 	// start the plugin hub
 
@@ -304,8 +306,9 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	}
 	// if we are NOT explaining, create an iterator to scan for us
 	if !explain {
+		var sortOrder = getSortColumns(execState)
 		ts := int64(C.GetSQLCurrentTimestamp(0))
-		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), opts, ts)
+		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), opts, ts, sortOrder)
 		if err != nil {
 			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
 			FdwError(err)
@@ -318,6 +321,27 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	node.fdw_state = SaveExecState(s)
 
 	logging.LogTime("[fdw] BeginForeignScan end")
+}
+
+func getSortColumns(state *C.FdwExecState) []*proto.SortColumn {
+	sortGroups := state.pathkeys
+	var res []*proto.SortColumn
+	for it := C.list_head(sortGroups); it != nil; it = C.lnext(sortGroups, it) {
+		deparsedSortGroup := C.cellGetFdwDeparsedSortGroup(it)
+		columnName := C.GoString(C.nameStr(deparsedSortGroup.attname))
+		requiredOrder := proto.SortOrder_Asc
+		if deparsedSortGroup.reversed {
+			requiredOrder = proto.SortOrder_Desc
+		}
+
+		res = append(res, &proto.SortColumn{
+			Column: columnName,
+			Order:  requiredOrder,
+		})
+
+	}
+
+	return res
 }
 
 //export goFdwIterateForeignScan

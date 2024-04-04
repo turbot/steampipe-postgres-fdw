@@ -9,16 +9,41 @@ import "C"
 
 import (
 	"fmt"
-	"github.com/gertd/go-pluralize"
 	"log"
 	"net"
 	"unsafe"
 
+	"github.com/gertd/go-pluralize"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 )
+
+func singleRestrictionToQual(it *C.ListCell, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
+	restriction := C.cellGetExpr(it)
+	log.Printf("[TRACE] SingleRestrictionToQual: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
+
+	var q *proto.Qual
+	switch C.fdw_nodeTag(restriction) {
+	case C.T_OpExpr:
+		q = qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos)
+	case C.T_Var:
+		q = qualFromVar(C.cellGetVar(it), node, cinfos)
+
+	case C.T_ScalarArrayOpExpr:
+		q = qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos)
+	case C.T_NullTest:
+		q = qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
+		//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
+	case C.T_BooleanTest:
+		q = qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos)
+	case C.T_BoolExpr:
+		q = qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos)
+	}
+
+	return q
+}
 
 func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) (qualsList *proto.Quals, unhandledRestrictions int) {
 	defer func() {
@@ -36,28 +61,7 @@ func restrictionsToQuals(node *C.ForeignScanState, cinfos *conversionInfos) (qua
 	}
 
 	for it := C.list_head(restrictions); it != nil; it = C.lnext(restrictions, it) {
-		restriction := C.cellGetExpr(it)
-
-		log.Printf("[TRACE] RestrictionsToQuals: restriction %s", C.GoString(C.tagTypeToString(C.fdw_nodeTag(restriction))))
-
-		var q *proto.Qual
-		switch C.fdw_nodeTag(restriction) {
-		case C.T_OpExpr:
-			q = qualFromOpExpr(C.cellGetOpExpr(it), node, cinfos)
-		case C.T_Var:
-			q = qualFromVar(C.cellGetVar(it), node, cinfos)
-
-		case C.T_ScalarArrayOpExpr:
-			q = qualFromScalarOpExpr(C.cellGetScalarArrayOpExpr(it), node, cinfos)
-		case C.T_NullTest:
-			q = qualFromNullTest(C.cellGetNullTest(it), node, cinfos)
-
-			//extractClauseFromNullTest(base_relids,				(NullTest *) node, qualsList);
-		case C.T_BooleanTest:
-			q = qualFromBooleanTest((*C.BooleanTest)(unsafe.Pointer(restriction)), node, cinfos)
-		case C.T_BoolExpr:
-			q = qualFromBoolExpr((*C.BoolExpr)(unsafe.Pointer(restriction)), node, cinfos)
-		}
+		q := singleRestrictionToQual(it, node, cinfos)
 
 		if q != nil {
 			qualsList.Append(q)
@@ -256,10 +260,15 @@ func qualFromBooleanTest(restriction *C.BooleanTest, node *C.ForeignScanState, c
 }
 
 // convert a boolean expression into a qual
-// currently we only support simple expressions like column=true
+// currently we support simple expressions like NOT column
+// we also support col=X OR col=Y OR col=Z which is converted into col IN (X, Y, Z)
 func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos *conversionInfos) *proto.Qual {
+	// See https://doxygen.postgresql.org/primnodes_8h.html#a27f637bf3e2c33cc8e48661a8864c7af for the list
+	boolExprNames := []string{"AND" /* 0 */, "OR" /* 1 */, "NOT" /* 2 */}
+	log.Printf("[TRACE] qualFromBoolExpr op is %s with %d children", boolExprNames[restriction.boolop], C.list_length(restriction.args))
+
 	arg := C.cellGetExpr(C.list_head(restriction.args))
-	// NOTE currently we only handle boolean expression with a single argument and a NOT operato
+	// NOTE this handles boolean expression with a single argument and a NOT operato
 	if restriction.args.length == 1 || restriction.boolop == C.NOT_EXPR && C.fdw_nodeTag(arg) == C.T_Var {
 
 		// try to get the column from the variable
@@ -275,6 +284,58 @@ func qualFromBoolExpr(restriction *C.BoolExpr, node *C.ForeignScanState, cinfos 
 			FieldName: column,
 			Operator:  &proto.Qual_StringValue{StringValue: "<>"},
 			Value:     &proto.QualValue{Value: &proto.QualValue_BoolValue{BoolValue: true}},
+		}
+	}
+
+	// NOTE This handles queries of the form: WHERE column='...' OR column='...' OR column='...'
+	// This is equivalent to: column IN ('...', '...', '...')
+	if restriction.boolop == C.OR_EXPR {
+		qualsForOrMembers := make([]*proto.Qual, 0, restriction.args.length)
+		for it := C.list_head(restriction.args); it != nil; it = C.lnext(restriction.args, it) {
+			// `it` is each part of the OR
+			q := singleRestrictionToQual(it, node, cinfos) // reuse code that understands each part
+			log.Printf("[TRACE] qualFromBoolExpr: OR member %s", q)
+			if q == nil { // couldn't turn one part of the OR into a qual, so the entire OR can't be handled either
+				log.Printf("[TRACE] qualFromBoolExpr can't convert OR to IN, part of OR can't be translated to qual")
+				return nil
+			}
+
+			qualsForOrMembers = append(qualsForOrMembers, q)
+		}
+
+		log.Printf("[TRACE] qualFromBoolExpr: all OR exprs %s", qualsForOrMembers)
+
+		// now check that they all target the same column and have operation EQUALS
+		for _, part := range qualsForOrMembers {
+			operator := part.Operator.(*proto.Qual_StringValue)
+			// if an OR part isn't column='...', then we don't know how to handle that case so break out
+			if part.FieldName != qualsForOrMembers[0].FieldName || operator.StringValue != "=" {
+				log.Printf("[TRACE] qualFromBoolExpr can't convert OR to IN, not all OR refers to same column with ==")
+				return nil
+			}
+		}
+		log.Printf("[TRACE] all OR parts are == against same column %s, converting to IN", qualsForOrMembers[0].FieldName)
+
+		// finally gather the values from each OR member clause
+		qualValues := make([]*proto.QualValue, 0, len(qualsForOrMembers))
+		for _, qual := range qualsForOrMembers {
+			qualValues = append(qualValues, qual.Value)
+		}
+
+		// Build and return a single Qual:
+		// * FieldName = the same one as in all the OR members
+		// * Operator = EQUALS, the same one as in all the members
+		// * Value = a List composed of the value of every OR member
+		return &proto.Qual{
+			FieldName: qualsForOrMembers[0].FieldName,
+			Operator:  &proto.Qual_StringValue{StringValue: "="},
+			Value: &proto.QualValue{
+				Value: &proto.QualValue_ListValue{
+					ListValue: &proto.QualValueList{
+						Values: qualValues,
+					},
+				},
+			},
 		}
 	}
 

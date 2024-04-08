@@ -719,7 +719,7 @@ func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 		constants.ForeignTableScanMetadata: {
 			Columns: []*proto.ColumnDefinition{
 				{Name: "id", Type: proto.ColumnType_INT},
-				{Name: "connection", Type: proto.ColumnType_STRING},
+				//{Name: "connection", Type: proto.ColumnType_STRING},
 				{Name: "table", Type: proto.ColumnType_STRING},
 				{Name: "cache_hit", Type: proto.ColumnType_BOOL},
 				{Name: "rows_fetched", Type: proto.ColumnType_INT},

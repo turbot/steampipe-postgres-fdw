@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"log"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
@@ -9,6 +10,7 @@ import (
 
 type ScanMetadata struct {
 	Id           int
+	Connection   string
 	Table        string
 	CacheHit     bool
 	RowsFetched  int64
@@ -24,6 +26,7 @@ type ScanMetadata struct {
 func (m ScanMetadata) AsResultRow() map[string]interface{} {
 	res := map[string]interface{}{
 		"id":            m.Id,
+		"connection":    m.Connection,
 		"table":         m.Table,
 		"cache_hit":     m.CacheHit,
 		"rows_fetched":  m.RowsFetched,
@@ -32,7 +35,11 @@ func (m ScanMetadata) AsResultRow() map[string]interface{} {
 		"duration":      m.Duration.Milliseconds(),
 		"columns":       m.Columns,
 	}
-	if m.Limit != -1 {
+
+	log.Printf("[WARN] ScanMetadata.AsResultRow: m.Limit: %v", m.Limit)
+	if m.Limit == -1 {
+		res["limit"] = nil
+	} else {
 		res["limit"] = m.Limit
 	}
 	if len(m.Quals) > 0 {

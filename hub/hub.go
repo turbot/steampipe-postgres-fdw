@@ -708,7 +708,6 @@ func (h *Hub) ApplySetting(key string, value string) error {
 }
 
 func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
-	log.Printf("[INFO] GetSettingsSchema")
 	return map[string]*proto.TableSchema{
 		constants.ForeignTableSettings: {
 			Columns: []*proto.ColumnDefinition{

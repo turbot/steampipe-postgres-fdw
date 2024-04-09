@@ -34,7 +34,7 @@ func (m ScanMetadata) AsResultRow() map[string]interface{} {
 		"start_time":    m.StartTime,
 		"duration":      m.Duration.Milliseconds(),
 		"columns":       m.Columns,
-		"quals":         grpc.QualMapToSerialzableSlice(m.Quals),
+		"quals":         grpc.QualMapToSerializableSlice(m.Quals),
 	}
 
 	log.Printf("[WARN] ScanMetadata.AsResultRow: m.Limit: %v", m.Limit)

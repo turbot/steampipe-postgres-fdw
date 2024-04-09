@@ -6,7 +6,7 @@ toolchain go1.21.3
 
 require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.9.0
@@ -14,7 +14,7 @@ require (
 	github.com/turbot/steampipe v1.7.0-rc.0.0.20240223132218-d8ddcad4cc90
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.9.0
 	go.opentelemetry.io/otel v1.23.1
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.33.0
 )
 
 require (

@@ -31,7 +31,8 @@ import (
 )
 
 const (
-	rowBufferSize = 100
+	rowBufferSize          = 100
+	scanMetadataBufferSize = 5000
 )
 
 // Hub is a structure representing plugin hub
@@ -211,14 +212,18 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 		log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
 		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
 
-		// TODO THIS SEEMS WRONG
-		// now trim scan metadata - max 1000 items
-		const maxMetadataItems = 1000
-		if metadataLen > maxMetadataItems {
-			startOffset := maxMetadataItems - 1000
-			h.scanMetadata = h.scanMetadata[startOffset:]
+	}
 
-		}
+	// limit size of scan metadataLen
+	h.trimScanMetadata(metadataLen)
+
+}
+
+func (h *Hub) trimScanMetadata(metadataLen int) {
+	// now trim scan metadata - max 1000 items
+	if metadataLen > scanMetadataBufferSize {
+		startOffset := metadataLen - scanMetadataBufferSize
+		h.scanMetadata = h.scanMetadata[startOffset:]
 	}
 }
 

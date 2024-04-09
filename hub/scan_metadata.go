@@ -1,7 +1,6 @@
 package hub
 
 import (
-	"log"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
@@ -37,7 +36,6 @@ func (m ScanMetadata) AsResultRow() map[string]interface{} {
 		"quals":         grpc.QualMapToSerializableSlice(m.Quals),
 	}
 
-	log.Printf("[WARN] ScanMetadata.AsResultRow: m.Limit: %v", m.Limit)
 	if m.Limit == -1 {
 		res["limit"] = nil
 	} else {

@@ -31,7 +31,8 @@ import (
 )
 
 const (
-	rowBufferSize = 100
+	rowBufferSize          = 100
+	scanMetadataBufferSize = 5000
 )
 
 // Hub is a structure representing plugin hub
@@ -191,28 +192,37 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	}
 
 	// get scan metadata from iterator
-	m := iter.GetScanMetadata()
+	scanMetadata := iter.GetScanMetadata()
 
-	// set ID
-	m.Id = id
-	log.Printf("[TRACE] got metadata table: %s cache hit: %v, rows fetched %d, hydrate calls: %d",
-		m.Table, m.CacheHit, m.RowsFetched, m.HydrateCalls)
-	// read the scan metadata from the iterator and add to our stack
-	h.scanMetadata = append(h.scanMetadata, m)
+	for _, m := range scanMetadata {
+		// set ID
+		m.Id = id
+		id++
+		log.Printf("[TRACE] got metadata table: %s cache hit: %v, rows fetched %d, hydrate calls: %d",
+			m.Table, m.CacheHit, m.RowsFetched, m.HydrateCalls)
+		// read the scan metadata from the iterator and add to our stack
+		h.scanMetadata = append(h.scanMetadata, m)
 
-	// hydrate metric labels
-	labels := []attribute.KeyValue{
-		attribute.String("table", m.Table),
-		attribute.String("connection", connectionName),
-		attribute.String("plugin", connectionPlugin.PluginName),
+		// hydrate metric labels
+		labels := []attribute.KeyValue{
+			attribute.String("table", m.Table),
+			attribute.String("connection", connectionName),
+			attribute.String("plugin", connectionPlugin.PluginName),
+		}
+		log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
+		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
+
 	}
-	log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
-	h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
 
+	// limit size of scan metadataLen
+	h.trimScanMetadata(metadataLen)
+
+}
+
+func (h *Hub) trimScanMetadata(metadataLen int) {
 	// now trim scan metadata - max 1000 items
-	const maxMetadataItems = 1000
-	if metadataLen > maxMetadataItems {
-		startOffset := maxMetadataItems - 1000
+	if metadataLen > scanMetadataBufferSize {
+		startOffset := metadataLen - scanMetadataBufferSize
 		h.scanMetadata = h.scanMetadata[startOffset:]
 	}
 }
@@ -492,7 +502,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 }
 
 func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, connectionNames []string, limit int64, connectionPlugin *steampipeconfig.ConnectionPlugin) (map[string]int64, error) {
-	log.Printf("[TRACE] buildConnectionLimitMap, table: '%s', %d %s, limit: %d", table, len(connectionNames), utils.Pluralize("connection", len(connectionNames)), limit)
+	log.Printf("[INFO] buildConnectionLimitMap, table: '%s', %d %s, limit: %d", table, len(connectionNames), utils.Pluralize("connection", len(connectionNames)), limit)
 
 	connectionSchema, err := connectionPlugin.GetSchema(connectionNames[0])
 	if err != nil {
@@ -504,7 +514,7 @@ func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Qu
 	// for a static schema, the limit will be the same for all connections (i.e. we either pushdown for all or none)
 	// check once whether we should push down
 	if limit != -1 && schemaMode == plugin.SchemaModeStatic {
-		log.Printf("[TRACE] static schema - using same limit for all connections")
+		log.Printf("[INFO] static schema - using same limit for all connections")
 		if !h.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
 			limit = -1
 		}
@@ -519,6 +529,8 @@ func (h *Hub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Qu
 			log.Printf("[INFO] not pushing limit down for connection %s", c)
 			connectionLimit = -1
 		}
+		log.Printf("[INFO] pushing limit down for connection %s", c)
+
 		connectionLimitMap[c] = connectionLimit
 	}
 
@@ -711,6 +723,7 @@ func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 		constants.ForeignTableScanMetadata: {
 			Columns: []*proto.ColumnDefinition{
 				{Name: "id", Type: proto.ColumnType_INT},
+				{Name: "connection", Type: proto.ColumnType_STRING},
 				{Name: "table", Type: proto.ColumnType_STRING},
 				{Name: "cache_hit", Type: proto.ColumnType_BOOL},
 				{Name: "rows_fetched", Type: proto.ColumnType_INT},
@@ -719,7 +732,7 @@ func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 				{Name: "duration", Type: proto.ColumnType_DOUBLE},
 				{Name: "columns", Type: proto.ColumnType_JSON},
 				{Name: "limit", Type: proto.ColumnType_INT},
-				{Name: "quals", Type: proto.ColumnType_STRING},
+				{Name: "quals", Type: proto.ColumnType_JSON},
 			},
 		},
 	}

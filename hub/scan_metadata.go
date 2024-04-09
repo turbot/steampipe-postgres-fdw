@@ -9,6 +9,7 @@ import (
 
 type ScanMetadata struct {
 	Id           int
+	Connection   string
 	Table        string
 	CacheHit     bool
 	RowsFetched  int64
@@ -24,6 +25,7 @@ type ScanMetadata struct {
 func (m ScanMetadata) AsResultRow() map[string]interface{} {
 	res := map[string]interface{}{
 		"id":            m.Id,
+		"connection":    m.Connection,
 		"table":         m.Table,
 		"cache_hit":     m.CacheHit,
 		"rows_fetched":  m.RowsFetched,
@@ -31,13 +33,13 @@ func (m ScanMetadata) AsResultRow() map[string]interface{} {
 		"start_time":    m.StartTime,
 		"duration":      m.Duration.Milliseconds(),
 		"columns":       m.Columns,
+		"quals":         grpc.QualMapToSerializableSlice(m.Quals),
 	}
-	if m.Limit != -1 {
+
+	if m.Limit == -1 {
+		res["limit"] = nil
+	} else {
 		res["limit"] = m.Limit
-	}
-	if len(m.Quals) > 0 {
-		// ignore error
-		res["quals"], _ = grpc.QualMapToJSONString(m.Quals)
 	}
 	return res
 }

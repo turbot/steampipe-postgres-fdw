@@ -176,18 +176,22 @@ func (i *scanIterator) CanIterate() bool {
 // GetScanMetadata returns the scan metadata for this iterator
 // note: if this is an aggregator query, we will have a scan metadata for each connection
 // we need to combine them into a single scan metadata object
-func (i *scanIterator) GetScanMetadata() ScanMetadata {
-	res := ScanMetadata{
-		Table:     i.table,
-		Columns:   i.queryContext.Columns,
-		Quals:     i.queryContext.Quals,
-		StartTime: i.startTime,
-		Duration:  time.Since(i.startTime),
-	}
-	for _, m := range i.scanMetadata {
-		res.CacheHit = res.CacheHit || m.CacheHit
-		res.RowsFetched += m.RowsFetched
-		res.HydrateCalls += m.HydrateCalls
+func (i *scanIterator) GetScanMetadata() []ScanMetadata {
+	var res = make([]ScanMetadata, 0, len(i.scanMetadata))
+
+	for connection, m := range i.scanMetadata {
+		res = append(res, ScanMetadata{
+			Connection:   connection,
+			Table:        i.table,
+			Columns:      i.queryContext.Columns,
+			Quals:        i.queryContext.Quals,
+			StartTime:    i.startTime,
+			Duration:     time.Since(i.startTime),
+			CacheHit:     m.CacheHit,
+			RowsFetched:  m.RowsFetched,
+			HydrateCalls: m.HydrateCalls,
+			Limit:        i.connectionLimitMap[connection],
+		})
 	}
 	return res
 

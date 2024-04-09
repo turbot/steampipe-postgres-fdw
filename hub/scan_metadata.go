@@ -34,6 +34,7 @@ func (m ScanMetadata) AsResultRow() map[string]interface{} {
 		"start_time":    m.StartTime,
 		"duration":      m.Duration.Milliseconds(),
 		"columns":       m.Columns,
+		"quals":         grpc.QualMapToSerialzableSlice(m.Quals),
 	}
 
 	log.Printf("[WARN] ScanMetadata.AsResultRow: m.Limit: %v", m.Limit)
@@ -41,10 +42,6 @@ func (m ScanMetadata) AsResultRow() map[string]interface{} {
 		res["limit"] = nil
 	} else {
 		res["limit"] = m.Limit
-	}
-	if len(m.Quals) > 0 {
-		// ignore error
-		res["quals"], _ = grpc.QualMapToJSONString(m.Quals)
 	}
 	return res
 }

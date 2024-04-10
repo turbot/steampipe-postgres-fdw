@@ -1,3 +1,7 @@
+## v1.11.0 [tbd]
+_Whats new_
+* Update Steampipe timing output to show all scans for all connections. ([#439](https://github.com/turbot/steampipe-postgres-fdw/issues/439))
+
 ## v1.10.0 [2024-03-04]
 _Whats new_
 * If `STEAMPIPE_FDW_PARALLEL_SAFE` env var is set is set, mark FDW as PARALLEL SAFE to improve performance. ([#428](https://github.com/turbot/steampipe-postgres-fdw/issues/428))

@@ -238,20 +238,6 @@ jobs:
         path: build-Darwin/steampipe_postgres_fdw.so.darwin_arm64.gz
         if-no-files-found: error
 
-    - name: Save steampipe_postgres_fdw.control    # only need this once for ALL platforms
-      uses: actions/upload-artifact@v4
-      with:
-        name: steampipe_postgres_fdw.control
-        path: ./fdw/steampipe_postgres_fdw.control
-        if-no-files-found: error
-
-    - name: Save steampipe_postgres_fdw--1.0.sql   # only need this once for ALL platforms
-      uses: actions/upload-artifact@v4
-      with:
-        name: steampipe_postgres_fdw--1.0.sql
-        path: ./fdw/steampipe_postgres_fdw--1.0.sql
-        if-no-files-found: error
-
   build-linux:
     name: Build for Linux x86_64
     runs-on: ubuntu-20.04

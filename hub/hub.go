@@ -729,7 +729,7 @@ func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 				{Name: "rows_fetched", Type: proto.ColumnType_INT},
 				{Name: "hydrate_calls", Type: proto.ColumnType_INT},
 				{Name: "start_time", Type: proto.ColumnType_TIMESTAMP},
-				{Name: "duration", Type: proto.ColumnType_DOUBLE},
+				{Name: "duration_ms", Type: proto.ColumnType_INT},
 				{Name: "columns", Type: proto.ColumnType_JSON},
 				{Name: "limit", Type: proto.ColumnType_INT},
 				{Name: "quals", Type: proto.ColumnType_JSON},

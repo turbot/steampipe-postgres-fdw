@@ -31,7 +31,7 @@ func (m ScanMetadata) AsResultRow() map[string]interface{} {
 		"rows_fetched":  m.RowsFetched,
 		"hydrate_calls": m.HydrateCalls,
 		"start_time":    m.StartTime,
-		"duration":      m.Duration.Milliseconds(),
+		"duration_ms":   m.Duration.Milliseconds(),
 		"columns":       m.Columns,
 		"quals":         grpc.QualMapToSerializableSlice(m.Quals),
 	}

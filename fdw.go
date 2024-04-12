@@ -6,6 +6,7 @@ package main
 #include "fdw_helpers.h"
 #include "utils/rel.h"
 #include "nodes/pg_list.h"
+#include "utils/timestamp.h"
 */
 import "C"
 
@@ -287,7 +288,8 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	log.Printf("[TRACE] goFdwIterateForeignScan, table '%s' (%p)", s.Opts["table"], s.Iter)
 	// if the iterator has not started, start
 	if s.Iter.Status() == hub.QueryStatusReady {
-		log.Printf("[INFO] goFdwIterateForeignScan calling pluginHub.StartScan, table '%s' (%p)", s.Opts["table"], s.Iter)
+		ts := C.GetSQLCurrentTimestamp(0)
+		log.Printf("[INFO] goFdwIterateForeignScan calling pluginHub.StartScan, table '%s' Current timestamp: %v (%p)", s.Opts["table"], ts, s.Iter)
 		if err := pluginHub.StartScan(s.Iter); err != nil {
 			FdwError(err)
 			return slot

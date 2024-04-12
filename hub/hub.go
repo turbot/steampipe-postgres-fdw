@@ -40,7 +40,8 @@ type Hub struct {
 	connections *connectionFactory
 
 	// list of iterators currently executing scans
-	runningIterators []Iterator
+	runningIterators     map[Iterator]struct{}
+	runningIteratorsLock sync.RWMutex
 
 	// cacheSettings
 	cacheSettings *settings.HubCacheSettings
@@ -52,7 +53,8 @@ type Hub struct {
 
 	// array of scan metadata
 	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
-	scanMetadata []ScanMetadata
+	scanMetadata     []ScanMetadata
+	scanMetadataLock sync.RWMutex
 }
 
 // global hub instance
@@ -82,7 +84,9 @@ func GetHub() (*Hub, error) {
 }
 
 func newHub() (*Hub, error) {
-	hub := &Hub{}
+	hub := &Hub{
+		runningIterators: make(map[Iterator]struct{}),
+	}
 	hub.connections = newConnectionFactory(hub)
 
 	// TODO CHECK TELEMETRY ENABLED?
@@ -142,33 +146,37 @@ func getInstallDirectory() (string, error) {
 }
 
 func (h *Hub) addIterator(iterator Iterator) {
-	h.runningIterators = append(h.runningIterators, iterator)
+	h.runningIteratorsLock.Lock()
+	defer h.runningIteratorsLock.Unlock()
+
+	h.runningIterators[iterator] = struct{}{}
 }
 
 // RemoveIterator removes an iterator from list of running iterators
 func (h *Hub) RemoveIterator(iterator Iterator) {
-	for idx, it := range h.runningIterators {
-		if it == iterator {
-			// remove from list
-			h.runningIterators = append(h.runningIterators[:idx], h.runningIterators[idx+1:]...)
-			return
-		}
-	}
+	h.runningIteratorsLock.Lock()
+	defer h.runningIteratorsLock.Unlock()
+
+	delete(h.runningIterators, iterator)
 }
 
 // EndScan is called when Postgres terminates the scan (because it has received enough rows of data)
 func (h *Hub) EndScan(iter Iterator, limit int64) {
+	log.Printf("[INFO] EndScan for iterator %p, status %s", iter, iter.Status())
 	// is the iterator still running? If so it means postgres is stopping a scan before all rows have been read
 	if iter.Status() == QueryStatusStarted {
+		// we normally add the scan metadata when the scan completes - if the scan has not completed, we need to
+		// add the metadata here
 		h.AddScanMetadata(iter)
 		log.Printf("[TRACE] ending scan before iterator complete - limit: %v, iterator: %p", limit, iter)
 		iter.Close()
 	}
-
-	h.RemoveIterator(iter)
 }
 
 func (h *Hub) AddScanMetadata(iter Iterator) {
+	h.scanMetadataLock.Lock()
+	defer h.scanMetadataLock.Unlock()
+
 	// nothing to do for an in memory iterator
 	if _, ok := iter.(*inMemoryIterator); ok {
 		return
@@ -187,7 +195,7 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	connectionName := iter.ConnectionName()
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
-		log.Printf("[TRACE] AddScanMetadata for iterator %p (%s) failed - error getting connectionPlugin: %s", iter, iter.ConnectionName(), err.Error())
+		log.Printf("[WARN] AddScanMetadata for iterator %p (%s) failed - error getting connectionPlugin: %s", iter, iter.ConnectionName(), err.Error())
 		return
 	}
 
@@ -216,7 +224,7 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 
 	// limit size of scan metadataLen
 	h.trimScanMetadata(metadataLen)
-
+	log.Printf("[INFO] AddScanMetadata %d entries after trimming ", len(h.scanMetadata))
 }
 
 func (h *Hub) trimScanMetadata(metadataLen int) {
@@ -225,12 +233,6 @@ func (h *Hub) trimScanMetadata(metadataLen int) {
 		startOffset := metadataLen - scanMetadataBufferSize
 		h.scanMetadata = h.scanMetadata[startOffset:]
 	}
-}
-
-// ClearScanMetadata deletes all stored scan metadata. It is called by steampipe after retrieving timing information
-// for the previous query
-func (h *Hub) ClearScanMetadata() {
-	h.scanMetadata = nil
 }
 
 // Close shuts down all plugin clients
@@ -247,14 +249,17 @@ func (h *Hub) Close() {
 func (h *Hub) Abort() {
 	log.Printf("[INFO] Hub Abort")
 	// for all running iterators
-	for _, iter := range h.runningIterators {
+	h.runningIteratorsLock.RLock()
+	defer h.runningIteratorsLock.RUnlock()
+
+	for iter := range h.runningIterators {
 		// read the scan metadata from the iterator and add to our stack
 		h.AddScanMetadata(iter)
 		// close the iterator
 		iter.Close()
-		// remove it from the saved list of iterators
-		h.RemoveIterator(iter)
 	}
+	// clear running iterators
+	h.runningIterators = nil
 }
 
 //// public fdw functions ////
@@ -765,12 +770,14 @@ func (h *Hub) GetLegacySettingsSchema() map[string]*proto.TableSchema {
 func (h *Hub) executeCommandScan(connectionName, table string) (Iterator, error) {
 	switch table {
 	case constants.ForeignTableScanMetadata, constants.LegacyCommandTableScanMetadata:
+		h.scanMetadataLock.RLock()
 		res := &QueryResult{
 			Rows: make([]map[string]interface{}, len(h.scanMetadata)),
 		}
 		for i, m := range h.scanMetadata {
 			res.Rows[i] = m.AsResultRow()
 		}
+		h.scanMetadataLock.RUnlock()
 		return newInMemoryIterator(connectionName, res), nil
 	default:
 		return nil, fmt.Errorf("cannot select from command table '%s'", table)

@@ -100,17 +100,15 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
-		// close the span
-		i.closeSpan()
-
+		// close the span and set the status
+		i.Close()
+		// remove from hub running iterators
+		i.hub.RemoveIterator(i)
 		// if iterator is in error, return the error
 		if i.Status() == QueryStatusError {
 			// return error
 			return nil, i.err
 		}
-		// otherwise mark iterator complete, caching result
-		i.status = QueryStatusComplete
-
 	} else {
 
 		// so we got a row
@@ -125,21 +123,12 @@ func (i *scanIterator) Next() (map[string]interface{}, error) {
 }
 
 func (i *scanIterator) closeSpan() {
-	// if we have scan metadata, add to span
-	// TODO SUM ALL metadata
-	//if i.scanMetadata != nil {
-	//	i.traceCtx.Span.SetAttributes(
-	//		attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
-	//		attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
-	//		attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
-	//	)
-	//}
-
 	i.traceCtx.Span.End()
 }
 
 func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc) {
 	logging.LogTime("[hub] start")
+	log.Printf("[INFO] scanIterator Start (%p) (%s)", i, i.callId)
 	i.status = QueryStatusStarted
 	i.pluginRowStream = stream
 	i.cancel = cancel
@@ -149,6 +138,7 @@ func (i *scanIterator) Start(stream proto.WrapperPlugin_ExecuteClient, ctx conte
 }
 
 func (i *scanIterator) Close() {
+	log.Printf("[INFO] scanIterator Close (%p) (%s)", i, i.callId)
 	// call the context cancellation function
 	i.cancel()
 
@@ -158,7 +148,6 @@ func (i *scanIterator) Close() {
 	}
 
 	i.closeSpan()
-
 }
 
 // CanIterate returns true if this iterator has results available to iterate
@@ -180,21 +169,34 @@ func (i *scanIterator) GetScanMetadata() []ScanMetadata {
 	var res = make([]ScanMetadata, 0, len(i.scanMetadata))
 
 	for connection, m := range i.scanMetadata {
-		res = append(res, ScanMetadata{
-			Connection:   connection,
-			Table:        i.table,
-			Columns:      i.queryContext.Columns,
-			Quals:        i.queryContext.Quals,
-			StartTime:    i.startTime,
-			Duration:     time.Since(i.startTime),
-			CacheHit:     m.CacheHit,
-			RowsFetched:  m.RowsFetched,
-			HydrateCalls: m.HydrateCalls,
-			Limit:        i.connectionLimitMap[connection],
-		})
+		res = append(res, i.newScanMetadata(connection, m))
+	}
+	// if there is no scan metadata, add an empty one
+	if len(res) == 0 {
+		for connection := range i.connectionLimitMap {
+			res = append(res, i.newScanMetadata(connection, nil))
+		}
 	}
 	return res
 
+}
+
+func (i *scanIterator) newScanMetadata(connection string, m *proto.QueryMetadata) ScanMetadata {
+	res := ScanMetadata{
+		Connection: connection,
+		Table:      i.table,
+		Columns:    i.queryContext.Columns,
+		Quals:      i.queryContext.Quals,
+		StartTime:  i.startTime,
+		Duration:   time.Since(i.startTime),
+		Limit:      i.connectionLimitMap[connection],
+	}
+	if m != nil {
+		res.CacheHit = m.CacheHit
+		res.RowsFetched = m.RowsFetched
+		res.HydrateCalls = m.HydrateCalls
+	}
+	return res
 }
 
 func (i *scanIterator) GetTraceContext() *telemetry.TraceCtx {

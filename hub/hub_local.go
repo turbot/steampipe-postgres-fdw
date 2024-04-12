@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	typehelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -269,4 +270,18 @@ func (l *HubLocal) cacheTTL(s string) time.Duration {
 		return l.cacheTTL(s)
 	}
 	return 10 * time.Hour
+}
+
+// resolve the server cache enabled property
+func (l *HubLocal) getServerCacheEnabled() bool {
+	var res = true
+	if val, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
+		if boolVal, err := typehelpers.ToBool(val); err == nil {
+			res = boolVal
+		}
+	}
+
+	log.Printf("[INFO] Hub.getServerCacheEnabled returning %v", res)
+
+	return res
 }

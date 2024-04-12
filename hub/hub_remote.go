@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	typehelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -321,4 +322,22 @@ func (h *RemoteHub) cacheTTL(connectionName string) time.Duration {
 		ttl = now.Sub(h.cacheSettings.ClearTime)
 	}
 	return ttl
+}
+
+// resolve the server cache enabled property
+func (h *RemoteHub) getServerCacheEnabled() bool {
+	var res = true
+	if val, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
+		if boolVal, err := typehelpers.ToBool(val); err == nil {
+			res = boolVal
+		}
+	}
+
+	if steampipeconfig.GlobalConfig.DatabaseOptions != nil && steampipeconfig.GlobalConfig.DatabaseOptions.Cache != nil {
+		res = *steampipeconfig.GlobalConfig.DatabaseOptions.Cache
+	}
+
+	log.Printf("[INFO] Hub.getServerCacheEnabled returning %v", res)
+
+	return res
 }

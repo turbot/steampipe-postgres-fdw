@@ -3,9 +3,7 @@ package hub
 import (
 	"context"
 	"fmt"
-	typehelpers "github.com/turbot/go-kit/types"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -504,22 +502,4 @@ func (h *hubBase) cacheTTL(connectionName string) time.Duration {
 	}
 	log.Printf("[INFO] cacheTTL 5")
 	return ttl
-}
-
-// resolve the server cache enabled property
-func (h *hubBase) getServerCacheEnabled() bool {
-	var res = true
-	if val, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
-		if boolVal, err := typehelpers.ToBool(val); err == nil {
-			res = boolVal
-		}
-	}
-
-	if steampipeconfig.GlobalConfig.DatabaseOptions != nil && steampipeconfig.GlobalConfig.DatabaseOptions.Cache != nil {
-		res = *steampipeconfig.GlobalConfig.DatabaseOptions.Cache
-	}
-
-	log.Printf("[INFO] Hub.getServerCacheEnabled returning %v", res)
-
-	return res
 }

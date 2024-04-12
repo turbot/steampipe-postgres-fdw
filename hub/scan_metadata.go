@@ -7,6 +7,13 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
+type QueryRowSummary struct {
+	Table        string
+	RowsFetched  int64
+	HydrateCalls int64
+	Scans        map[Iterator]struct{}
+}
+
 type ScanMetadata struct {
 	Id           int
 	Connection   string

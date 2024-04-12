@@ -254,7 +254,9 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	}
 	// if we are NOT explaining, create an iterator to scan for us
 	if !explain {
-		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), opts)
+		ts := int64(C.GetSQLCurrentTimestamp(0))
+
+		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), opts, ts)
 		if err != nil {
 			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
 			FdwError(err)
@@ -288,8 +290,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	log.Printf("[TRACE] goFdwIterateForeignScan, table '%s' (%p)", s.Opts["table"], s.Iter)
 	// if the iterator has not started, start
 	if s.Iter.Status() == hub.QueryStatusReady {
-		ts := C.GetSQLCurrentTimestamp(0)
-		log.Printf("[INFO] goFdwIterateForeignScan calling pluginHub.StartScan, table '%s' Current timestamp: %v (%p)", s.Opts["table"], ts, s.Iter)
+		log.Printf("[INFO] goFdwIterateForeignScan calling pluginHub.StartScan, table '%s' Current timestamp: %d (%p)", s.Opts["table"], s.Iter)
 		if err := pluginHub.StartScan(s.Iter); err != nil {
 			FdwError(err)
 			return slot

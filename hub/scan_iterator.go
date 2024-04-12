@@ -44,12 +44,15 @@ type scanIterator struct {
 	cancel             context.CancelFunc
 	traceCtx           *telemetry.TraceCtx
 	queryContext       *proto.QueryContext
+	// the query timestamp is used to uniquely identify the parent query
+	// NOTE: all scans for the query will have the same timestamp
+	queryTimestamp int64
 
 	startTime time.Time
 	callId    string
 }
 
-func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx) *scanIterator {
+func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx, queryTimestamp int64) *scanIterator {
 	return &scanIterator{
 		status:             QueryStatusReady,
 		rows:               make(chan *proto.Row, rowBufferSize),
@@ -63,6 +66,7 @@ func newScanIterator(hub *Hub, connectionPlugin *steampipeconfig.ConnectionPlugi
 		startTime:          time.Now(),
 		queryContext:       proto.NewQueryContext(columns, qualMap, limit),
 		callId:             grpc.BuildCallId(),
+		queryTimestamp:     queryTimestamp,
 	}
 }
 
@@ -179,6 +183,10 @@ func (i *scanIterator) GetScanMetadata() []ScanMetadata {
 	}
 	return res
 
+}
+
+func (i *scanIterator) GetQueryTimestamp() int64 {
+	return i.queryTimestamp
 }
 
 func (i *scanIterator) newScanMetadata(connection string, m *proto.QueryMetadata) ScanMetadata {

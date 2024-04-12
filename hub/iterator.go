@@ -15,5 +15,6 @@ type Iterator interface {
 	Error() error
 	CanIterate() bool
 	GetScanMetadata() []ScanMetadata
+	GetQueryTimestamp() int64
 	GetTraceContext() *telemetry.TraceCtx
 }

@@ -53,8 +53,11 @@ type Hub struct {
 
 	// array of scan metadata
 	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
-	scanMetadata     []ScanMetadata
-	scanMetadataLock sync.RWMutex
+	scanMetadata map[int64][]ScanMetadata
+	// map of scan totals, keyed by query timestamp (which is a unique query identifier
+	queryRowSummary        map[int64]*QueryRowSummary
+	scanMetadataLock       sync.RWMutex
+	scanMetadataExclusions map[int64]struct{}
 }
 
 // global hub instance
@@ -85,7 +88,10 @@ func GetHub() (*Hub, error) {
 
 func newHub() (*Hub, error) {
 	hub := &Hub{
-		runningIterators: make(map[Iterator]struct{}),
+		runningIterators:       make(map[Iterator]struct{}),
+		scanMetadata:           make(map[int64][]ScanMetadata),
+		queryRowSummary:        make(map[int64]*QueryRowSummary),
+		scanMetadataExclusions: make(map[int64]struct{}),
 	}
 	hub.connections = newConnectionFactory(hub)
 
@@ -150,6 +156,8 @@ func (h *Hub) addIterator(iterator Iterator) {
 	defer h.runningIteratorsLock.Unlock()
 
 	h.runningIterators[iterator] = struct{}{}
+
+	// if this is a scan iterator, add the scan metadata
 }
 
 // RemoveIterator removes an iterator from list of running iterators
@@ -181,14 +189,19 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 	if _, ok := iter.(*inMemoryIterator); ok {
 		return
 	}
+	queryTimestamp := iter.GetQueryTimestamp()
+	// ensure we only keep scan metadata for this query
+	h.removeStaleScanMetadata(queryTimestamp)
 
 	log.Printf("[TRACE] AddScanMetadata for iterator %p (%s)", iter, iter.ConnectionName())
 	// get the id of the last metadata item we currently have
 	// (id starts at 1)
+
+	metadataForQuery := h.scanMetadata[queryTimestamp]
 	id := 1
-	metadataLen := len(h.scanMetadata)
+	metadataLen := len(metadataForQuery)
 	if metadataLen > 0 {
-		id = h.scanMetadata[metadataLen-1].Id + 1
+		id = metadataForQuery[metadataLen-1].Id + 1
 	}
 	ctx := iter.GetTraceContext().Ctx
 
@@ -209,7 +222,7 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 		log.Printf("[TRACE] got metadata table: %s cache hit: %v, rows fetched %d, hydrate calls: %d",
 			m.Table, m.CacheHit, m.RowsFetched, m.HydrateCalls)
 		// read the scan metadata from the iterator and add to our stack
-		h.scanMetadata = append(h.scanMetadata, m)
+		metadataForQuery = append(metadataForQuery, m)
 
 		// hydrate metric labels
 		labels := []attribute.KeyValue{
@@ -275,7 +288,7 @@ func (h *Hub) GetSchema(remoteSchema string, localSchema string) (*proto.Schema,
 }
 
 // GetIterator creates and returns an iterator
-func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options) (Iterator, error) {
+func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options, queryTimestamp int64) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := h.buildQualMap(quals)
 	connectionName := opts["connection"]
@@ -283,12 +296,12 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestric
 	log.Printf("[TRACE] Hub GetIterator() table '%s'", table)
 
 	if connectionName == constants.InternalSchema || connectionName == constants.LegacyCommandSchema {
-		return h.executeCommandScan(connectionName, table)
+		return h.executeCommandScan(connectionName, table, queryTimestamp)
 	}
 
 	// create a span for this scan
 	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
-	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx)
+	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx, queryTimestamp)
 
 	if err != nil {
 		log.Printf("[TRACE] Hub GetIterator() failed :( %s", err)
@@ -453,7 +466,7 @@ func (h *Hub) traceContextForScan(table string, columns []string, limit int64, q
 }
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator or a legacyScanIterator
-func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
+func (h *Hub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx, queryTimestamp int64) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {
 			// close the span in case of errir
@@ -502,7 +515,7 @@ func (h *Hub) startScanForConnection(connectionName string, table string, qualMa
 	}
 
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	iterator := newScanIterator(h, connectionPlugin, connectionName, table, connectionLimitMap, qualMap, columns, limit, scanTraceCtx)
+	iterator := newScanIterator(h, connectionPlugin, connectionName, table, connectionLimitMap, qualMap, columns, limit, scanTraceCtx, queryTimestamp)
 	return iterator, nil
 }
 
@@ -767,7 +780,7 @@ func (h *Hub) GetLegacySettingsSchema() map[string]*proto.TableSchema {
 	}
 }
 
-func (h *Hub) executeCommandScan(connectionName, table string) (Iterator, error) {
+func (h *Hub) executeCommandScan(connectionName, table string, queryTimestamp int64) (Iterator, error) {
 	switch table {
 	case constants.ForeignTableScanMetadata, constants.LegacyCommandTableScanMetadata:
 		h.scanMetadataLock.RLock()
@@ -778,7 +791,7 @@ func (h *Hub) executeCommandScan(connectionName, table string) (Iterator, error)
 			res.Rows[i] = m.AsResultRow()
 		}
 		h.scanMetadataLock.RUnlock()
-		return newInMemoryIterator(connectionName, res), nil
+		return newInMemoryIterator(connectionName, res, queryTimestamp), nil
 	default:
 		return nil, fmt.Errorf("cannot select from command table '%s'", table)
 	}
@@ -845,4 +858,21 @@ func (h *Hub) getServerCacheEnabled() bool {
 	log.Printf("[INFO] Hub.getServerCacheEnabled returning %v", res)
 
 	return res
+}
+
+func (h *Hub) removeStaleScanMetadata(timestamp int64) {
+	// if we have exceeded our maximum length, remove all  metadata
+	// and add the current timestamp to the list of long queries for which we will not save granular timing
+	if len(h.scanMetadata) > scanMetadataBufferSize {
+		h.scanMetadata = map[int64][]ScanMetadata{}
+		h.scanMetadataExclusions[timestamp] = struct{}{}
+		return
+	}
+
+	// clear all query metadata for previous queries
+	for existingTimestamp := range h.scanMetadata {
+		if existingTimestamp != timestamp {
+			delete(h.queryRowSummary, existingTimestamp)
+		}
+	}
 }

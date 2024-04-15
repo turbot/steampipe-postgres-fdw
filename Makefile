@@ -22,7 +22,7 @@ install: build
 # build standalone 
 standalone: validate_plugin prebuild.go
 	@echo "Building standalone FDW for plugin: $(plugin)"
-	go run generate/generator.go templates . $(plugin) $(plugin_github_url)
+	# go run generate/generator.go templates . $(plugin) $(plugin_github_url)
 	go mod tidy
 	$(MAKE) -C ./fdw clean
 	$(MAKE) -C ./fdw go

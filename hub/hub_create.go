@@ -1,8 +1,9 @@
 package hub
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"sync"
+
+	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 )
 
 // global hub instance
@@ -17,9 +18,10 @@ func GetHub() Hub {
 	hubMux.Lock()
 	defer hubMux.Unlock()
 	return hubSingleton
+
 }
 
-// CreateHub creates the hub
+// create the hub
 func CreateHub() error {
 	logging.LogTime("GetHub start")
 
@@ -28,8 +30,10 @@ func CreateHub() error {
 	defer hubMux.Unlock()
 
 	var err error
-	hubSingleton, err = newRemoteHub()
+	// TODO configure build to select between local and remote hub
+	// TODO get connection config from import foreign schema options
 
+	hubSingleton, err = newRemoteHub()
 	if err != nil {
 		return err
 	}

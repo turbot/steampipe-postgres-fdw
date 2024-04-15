@@ -19,6 +19,7 @@ require (
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/turbot/steampipe-plugin-net v0.12.0
 	go.opentelemetry.io/otel/metric v1.23.1
 )
 
@@ -57,6 +58,7 @@ require (
 	github.com/karrick/gows v0.3.0 // indirect
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
+	github.com/miekg/dns v1.1.50 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/oras-project/oras-credentials-go v0.3.1 // indirect
 	github.com/rs/xid v1.5.0 // indirect
@@ -70,8 +72,10 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.45.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
+	golang.org/x/mod v0.13.0 // indirect
 	golang.org/x/term v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
+	golang.org/x/tools v0.14.0 // indirect
 	google.golang.org/api v0.153.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240102182953-50ed04b92917 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240102182953-50ed04b92917 // indirect

@@ -1,5 +1,5 @@
 # fdw extension
-comment = 'Steampipe Foreign Data Wrapper'
+comment = 'Steampipe net Foreign Data Wrapper'
 default_version = '1.0'
-module_pathname = '$libdir/steampipe_postgres_fdw.so'
+module_pathname = '$libdir/steampipe_postgres_net.so'
 relocatable = true

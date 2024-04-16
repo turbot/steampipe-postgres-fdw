@@ -37,7 +37,7 @@ func newLocalHub() (*HubLocal, error) {
 		pluginAlias: pluginAlias,
 		connections: make(map[string]*proto.ConnectionConfig),
 	}
-	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, hub.getServerCacheEnabled())
+	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, true)
 
 	// TODO CHECK TELEMETRY ENABLED?
 	if err := hub.initialiseTelemetry(); err != nil {

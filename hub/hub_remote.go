@@ -4,6 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"path"
+	"time"
+
 	typehelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -17,10 +22,6 @@ import (
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 	"github.com/turbot/steampipe/pkg/steampipeconfig/modconfig"
 	"github.com/turbot/steampipe/pkg/utils"
-	"log"
-	"os"
-	"path"
-	"time"
 )
 
 const (
@@ -58,7 +59,7 @@ func newRemoteHub() (*RemoteHub, error) {
 		return nil, err
 	}
 
-	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, hub.getServerCacheEnabled())
+	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, true)
 
 	return hub, nil
 }

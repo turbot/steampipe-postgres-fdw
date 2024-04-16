@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	scanMetadataBufferSize = 20
+	scanMetadataBufferSize = 500
 )
 
 type queryTimingMetadata struct {
@@ -67,4 +67,16 @@ func (m *queryTimingMetadata) removeStaleScanMetadata(currentTimestamp int64) {
 			delete(m.queryRowSummary, existingTimestamp)
 		}
 	}
+}
+
+func (m *queryTimingMetadata) clearSummary() {
+	m.scanMetadataLock.Lock()
+	defer m.scanMetadataLock.Unlock()
+	m.queryRowSummary = make(map[int64]*queryresult.QueryRowSummary)
+}
+
+func (m *queryTimingMetadata) clearScanMetadata() {
+	m.scanMetadataLock.Lock()
+	defer m.scanMetadataLock.Unlock()
+	m.scanMetadata = make(map[int64][]queryresult.ScanMetadataRow)
 }

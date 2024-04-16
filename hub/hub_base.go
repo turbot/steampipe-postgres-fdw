@@ -197,7 +197,7 @@ func (h *hubBase) EndScan(iter Iterator, limit int64) {
 // the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
 func (h *hubBase) AddScanMetadata(i Iterator) {
 	// for local hub we do not store scan metadata
-	if h.queryTiming != nil {
+	if h.queryTiming == nil {
 		return
 	}
 	// if iterator is not a pluginIterator, do nothing
@@ -208,6 +208,7 @@ func (h *hubBase) AddScanMetadata(i Iterator) {
 	}
 
 	queryTimestamp := iter.GetQueryTimestamp()
+
 	log.Printf("[INFO] AddScanMetadata for iterator %p query timestamp %d (%s)", iter, queryTimestamp, iter.GetConnectionName())
 
 	h.queryTiming.scanMetadataLock.Lock()
@@ -242,7 +243,6 @@ func (h *hubBase) AddScanMetadata(i Iterator) {
 			attribute.String("connection", connectionName),
 			attribute.String("plugin", pluginName),
 		}
-		log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
 		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
 	}
 	// write the scan metadata and summary back to the hub
@@ -345,7 +345,7 @@ func (h *hubBase) ProcessImportForeignSchemaOptions(types.Options, string) error
 func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestamp int64) (Iterator, error) {
 	switch table {
 	case constants.ForeignTableScanMetadataSummary:
-		// we expect to only have metadata for  one query at a time - this is ebforced by the metadata writing code
+		// we expect to only have metadata for  one query at a time - this is enforced by the metadata writing code
 		if summaryCount := len(h.queryTiming.queryRowSummary); summaryCount > 1 {
 			return nil, fmt.Errorf(" executeCommandScan for table '%s' - %d summaries in metadata store - there should only be 1. ", table, summaryCount)
 		}
@@ -354,6 +354,8 @@ func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestam
 		for _, summary := range h.queryTiming.queryRowSummary {
 			res.Rows = append(res.Rows, summary.AsResultRow())
 		}
+		// now we have read the summary, we can clear the cached data
+		h.queryTiming.clearSummary()
 
 		return newInMemoryIterator(connectionName, res, queryTimestamp), nil
 	case constants.ForeignTableScanMetadata, constants.LegacyCommandTableScanMetadata:
@@ -368,6 +370,8 @@ func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestam
 				res.Rows = append(res.Rows, m.AsResultRow())
 			}
 		}
+		// now we have read the scan metadata, we can clear the cached data
+		h.queryTiming.clearScanMetadata()
 
 		return newInMemoryIterator(connectionName, res, queryTimestamp), nil
 	default:

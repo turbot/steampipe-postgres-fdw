@@ -2,14 +2,15 @@ package hub
 
 import (
 	"context"
+	"log"
+
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
-	"log"
-	"time"
+	"golang.org/x/exp/maps"
 )
 
 // TODO think about when we reset status from complete to ready
@@ -50,23 +51,15 @@ func (i *scanIterator) execute(req *proto.ExecuteRequest) (row_stream.Receiver, 
 func (i *scanIterator) GetScanMetadata() []queryresult.ScanMetadataRow {
 	log.Printf("[INFO] scanIterator GetScanMetadata (%p) (%s)", i, i.callId)
 	defer log.Printf("[INFO] scanIterator GetScanMetadata end (%p) (%s)", i, i.callId)
-	var res = make([]queryresult.ScanMetadataRow, 0, len(i.scanMetadata))
-
-	for connection, m := range i.scanMetadata {
-		res = append(res, i.newScanMetadata(connection, m))
+	// if we have scan metadata, return it
+	if len(i.scanMetadata) > 0 {
+		return maps.Values(i.scanMetadata)
 	}
+
 	// if there is no scan metadata, add an empty one
-	if len(res) == 0 {
-		for connection := range i.connectionLimitMap {
-			res = append(res, i.newScanMetadata(connection, nil))
-		}
+	var res []queryresult.ScanMetadataRow
+	for connection := range i.connectionLimitMap {
+		res = append(res, i.newScanMetadata(connection, nil))
 	}
-	return res
-
-}
-
-func (i *scanIterator) newScanMetadata(connection string, m *proto.QueryMetadata) queryresult.ScanMetadataRow {
-	res := queryresult.NewScanMetadataRow(connection, i.table, i.queryContext.Columns, i.queryContext.Quals, i.startTime, time.Since(i.startTime), i.connectionLimitMap[connection], m)
-
 	return res
 }

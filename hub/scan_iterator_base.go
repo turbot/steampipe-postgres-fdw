@@ -12,6 +12,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"log"
 	"time"
@@ -21,7 +22,7 @@ type scanIteratorBase struct {
 	status             queryStatus
 	err                error
 	rows               chan *proto.Row
-	scanMetadata       map[string]*proto.QueryMetadata
+	scanMetadata       map[string]queryresult.ScanMetadataRow
 	pluginRowStream    row_stream.Receiver
 	rel                *types.Relation
 	hub                Hub
@@ -43,7 +44,7 @@ func newBaseScanIterator(hub Hub, connectionName, table string, connectionLimitM
 	return scanIteratorBase{
 		status:             QueryStatusReady,
 		rows:               make(chan *proto.Row, rowBufferSize),
-		scanMetadata:       make(map[string]*proto.QueryMetadata),
+		scanMetadata:       make(map[string]queryresult.ScanMetadataRow),
 		hub:                hub,
 		table:              table,
 		connectionName:     connectionName,
@@ -73,12 +74,10 @@ func (i *scanIteratorBase) Error() error {
 // Next implements Iterator
 // return the next row. Nil row means there are no more rows to scan.
 func (i *scanIteratorBase) Next() (map[string]interface{}, error) {
-	log.Printf("[Trace] scanIteratorBase Next")
 	// check the iterator state - has an error occurred
 	if i.status == QueryStatusError {
 		return nil, i.err
 	}
-	logging.LogTime("[hub] Next start")
 
 	if !i.CanIterate() {
 		// this is a bug
@@ -110,7 +109,6 @@ func (i *scanIteratorBase) Next() (map[string]interface{}, error) {
 			return nil, err
 		}
 	}
-	logging.LogTime("[hub] Next end")
 	return res, nil
 }
 
@@ -303,7 +301,7 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 			continueReading = false
 		} else {
 			// update the scan metadata for this connection (this will overwrite any existing from the previous row)
-			i.scanMetadata[rowResult.Connection] = rowResult.Metadata
+			i.scanMetadata[rowResult.Connection] = i.newScanMetadata(rowResult.Connection, rowResult.Metadata)
 
 			// so we have a row
 			i.rows <- rowResult.Row
@@ -319,6 +317,10 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 		continueReading = false
 	}
 	return continueReading
+}
+
+func (i *scanIteratorBase) newScanMetadata(connection string, m *proto.QueryMetadata) queryresult.ScanMetadataRow {
+	return queryresult.NewScanMetadataRow(connection, i.table, i.queryContext.Columns, i.queryContext.Quals, i.startTime, time.Since(i.startTime), i.connectionLimitMap[connection], m)
 }
 
 // if there is an error other than EOF, save error and set state to QueryStatusError

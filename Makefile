@@ -1,5 +1,5 @@
 # Makefile
-default: build
+default: install
 
 STEAMPIPE_INSTALL_DIR ?= ~/.steampipe
 

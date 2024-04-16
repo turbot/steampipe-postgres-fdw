@@ -1,7 +1,6 @@
 package hub
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -115,17 +114,18 @@ func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledR
 // LoadConnectionConfig loads the connection config and returns whether it has changed
 func (h *RemoteHub) LoadConnectionConfig() (bool, error) {
 	log.Printf("[INFO] RemoteHub.LoadConnectionConfig ")
+	var connectionConfig *steampipeconfig.SteampipeConfig = new(steampipeconfig.SteampipeConfig)
 	// load connection conFig
-	connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig(context.Background())
-	if errorsAndWarnings.GetError() != nil {
-		log.Printf("[WARN] LoadConnectionConfig failed %v ", errorsAndWarnings)
-		return false, errorsAndWarnings.GetError()
-	}
+	// connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig(context.Background())
+	// if errorsAndWarnings.GetError() != nil {
+	// 	log.Printf("[WARN] LoadConnectionConfig failed %v ", errorsAndWarnings)
+	// 	return false, errorsAndWarnings.GetError()
+	// }
 
-	configChanged := steampipeconfig.GlobalConfig == connectionConfig
+	// configChanged := steampipeconfig.GlobalConfig == connectionConfig
 	steampipeconfig.GlobalConfig = connectionConfig
 
-	return configChanged, nil
+	return true, nil
 }
 
 // GetPathKeys Is a method called from the planner to add additional Path to the planner.

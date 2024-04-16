@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.10.0-rc.0
 	//join_timing
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20240416091846-b11d8943513a
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20240416155719-57f19d8b0a9e
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.10.0-rc.3
 	go.opentelemetry.io/otel v1.24.0
 	google.golang.org/protobuf v1.33.0
@@ -197,5 +197,4 @@ replace (
 	github.com/piquette/edgr => github.com/e-gineer/edgr v0.0.2-0.20210901021602-7664639af765
 	github.com/vartanbeno/go-reddit/v2 => github.com/abhiturbot/go-reddit/v2 v2.0.0-20220917030010-f0fe7d8ac15c
 	oras.land/oras-go => oras.land/oras-go v1.1.0
-	github.com/turbot/steampipe => ../steampipe
 )

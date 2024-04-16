@@ -178,8 +178,6 @@ func (h *hubBase) StartScan(i Iterator) error {
 
 // EndScan is called when Postgres terminates the scan (because it has received enough rows of data)
 func (h *hubBase) EndScan(iter Iterator, limit int64) {
-	log.Printf("[INFO] hubBase EndScan")
-
 	// is the iterator still running? If so it means postgres is stopping a scan before all rows have been read
 	if iter.Status() == QueryStatusStarted {
 		log.Printf("[INFO] ending scan before iterator complete - limit: %v, iterator: %p", limit, iter)
@@ -203,7 +201,6 @@ func (h *hubBase) AddScanMetadata(i Iterator) {
 	// if iterator is not a pluginIterator, do nothing
 	iter, ok := i.(pluginIterator)
 	if !ok {
-		log.Printf("[INFO] AddScanMetadata  - not a pluginIterator so returning")
 		return
 	}
 
@@ -247,9 +244,6 @@ func (h *hubBase) AddScanMetadata(i Iterator) {
 	}
 	// write the scan metadata and summary back to the hub
 	h.queryTiming.queryRowSummary[queryTimestamp] = querySummary
-
-	log.Printf("[INFO] AddScanMetadata complete - there are now %d entries for query timestamp %d", len(h.queryTiming.scanMetadata[queryTimestamp]), queryTimestamp)
-	log.Printf("[INFO] summary: %v", h.queryTiming.queryRowSummary)
 }
 
 // Close shuts down all plugin clients
@@ -286,7 +280,6 @@ func (h *hubBase) ApplySetting(key string, value string) error {
 }
 
 func (h *hubBase) GetSettingsSchema() map[string]*proto.TableSchema {
-	// todo kai only in remote???
 	return map[string]*proto.TableSchema{
 		constants.ForeignTableSettings: {
 			Columns: []*proto.ColumnDefinition{
@@ -294,7 +287,6 @@ func (h *hubBase) GetSettingsSchema() map[string]*proto.TableSchema {
 				{Name: constants.ForeignTableSettingsValueColumn, Type: proto.ColumnType_STRING},
 			},
 		},
-		// todo kai only in remote???
 		constants.ForeignTableScanMetadata: {
 			Columns: []*proto.ColumnDefinition{
 				{Name: "connection", Type: proto.ColumnType_STRING},
@@ -309,7 +301,6 @@ func (h *hubBase) GetSettingsSchema() map[string]*proto.TableSchema {
 				{Name: "quals", Type: proto.ColumnType_JSON},
 			},
 		},
-		// todo kai only in remote???
 		constants.ForeignTableScanMetadataSummary: {
 			Columns: []*proto.ColumnDefinition{
 				{Name: "cached_rows_fetched", Type: proto.ColumnType_INT},
@@ -365,7 +356,6 @@ func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestam
 
 		res := &QueryResult{}
 		for _, scansForQuery := range h.queryTiming.scanMetadata {
-			log.Printf("[INFO] metadata rows %d", len(scansForQuery))
 			for _, m := range scansForQuery {
 				res.Rows = append(res.Rows, m.AsResultRow())
 			}

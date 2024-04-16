@@ -49,8 +49,6 @@ func (i *scanIterator) execute(req *proto.ExecuteRequest) (row_stream.Receiver, 
 // note: if this is an aggregator query, we will have a scan metadata for each connection
 // we need to combine them into a single scan metadata object
 func (i *scanIterator) GetScanMetadata() []queryresult.ScanMetadataRow {
-	log.Printf("[INFO] scanIterator GetScanMetadata (%p) (%s)", i, i.callId)
-	defer log.Printf("[INFO] scanIterator GetScanMetadata end (%p) (%s)", i, i.callId)
 	// if we have scan metadata, return it
 	if len(i.scanMetadata) > 0 {
 		return maps.Values(i.scanMetadata)

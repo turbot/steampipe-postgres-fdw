@@ -156,7 +156,6 @@ func (h *RemoteHub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 //// internal implementation ////
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator or a legacyScanIterator
-
 func (h *RemoteHub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx, queryTimestamp int64) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {

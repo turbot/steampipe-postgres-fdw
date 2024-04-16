@@ -31,15 +31,6 @@ standalone: validate_plugin prebuild.go
 	
 	rm -f prebuild.go
 
-build: prebuild.go
-	$(MAKE) -C ./fdw clean
-	$(MAKE) -C ./fdw go
-	$(MAKE) -C ./fdw
-	$(MAKE) -C ./fdw inst
-
-	rm -f prebuild.go
-
-
 # render target
 render: validate_plugin prebuild.go
 	@echo "Rendering code for plugin: $(plugin)"

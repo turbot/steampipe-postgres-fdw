@@ -198,7 +198,6 @@ func (l *HubLocal) startScanForConnection(connectionName string, table string, q
 
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
 	iterator := newScanIteratorLocal(l, connectionName, table, l.pluginName, connectionLimitMap, qualMap, columns, limit, scanTraceCtx)
-
 	return iterator, nil
 }
 

@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"log"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -169,8 +170,10 @@ func (i *scanIterator) CanIterate() bool {
 // GetScanMetadata returns the scan metadata for this iterator
 // note: if this is an aggregator query, we will have a scan metadata for each connection
 // we need to combine them into a single scan metadata object
-func (i *scanIterator) GetScanMetadata() []ScanMetadata {
-	var res = make([]ScanMetadata, 0, len(i.scanMetadata))
+func (i *scanIterator) GetScanMetadata() []queryresult.ScanMetadataRow {
+	log.Printf("[INFO] scanIterator GetScanMetadata (%p) (%s)", i, i.callId)
+	defer log.Printf("[INFO] scanIterator GetScanMetadata end (%p) (%s)", i, i.callId)
+	var res = make([]queryresult.ScanMetadataRow, 0, len(i.scanMetadata))
 
 	for connection, m := range i.scanMetadata {
 		res = append(res, i.newScanMetadata(connection, m))
@@ -189,21 +192,9 @@ func (i *scanIterator) GetQueryTimestamp() int64 {
 	return i.queryTimestamp
 }
 
-func (i *scanIterator) newScanMetadata(connection string, m *proto.QueryMetadata) ScanMetadata {
-	res := ScanMetadata{
-		Connection: connection,
-		Table:      i.table,
-		Columns:    i.queryContext.Columns,
-		Quals:      i.queryContext.Quals,
-		StartTime:  i.startTime,
-		Duration:   time.Since(i.startTime),
-		Limit:      i.connectionLimitMap[connection],
-	}
-	if m != nil {
-		res.CacheHit = m.CacheHit
-		res.RowsFetched = m.RowsFetched
-		res.HydrateCalls = m.HydrateCalls
-	}
+func (i *scanIterator) newScanMetadata(connection string, m *proto.QueryMetadata) queryresult.ScanMetadataRow {
+	res := queryresult.NewScanMetadataRow(connection, i.table, i.queryContext.Columns, i.queryContext.Quals, i.startTime, time.Since(i.startTime), i.connectionLimitMap[connection], m)
+
 	return res
 }
 

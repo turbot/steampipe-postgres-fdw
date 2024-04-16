@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"log"
 	"os"
 	"path"
@@ -31,8 +32,7 @@ import (
 )
 
 const (
-	rowBufferSize          = 100
-	scanMetadataBufferSize = 5000
+	rowBufferSize = 100
 )
 
 // Hub is a structure representing plugin hub
@@ -51,13 +51,7 @@ type Hub struct {
 	telemetryShutdownFunc func()
 	hydrateCallsCounter   metric.Int64Counter
 
-	// array of scan metadata
-	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
-	scanMetadata map[int64][]ScanMetadata
-	// map of scan totals, keyed by query timestamp (which is a unique query identifier
-	queryRowSummary        map[int64]*QueryRowSummary
-	scanMetadataLock       sync.RWMutex
-	scanMetadataExclusions map[int64]struct{}
+	queryTiming queryTimingMetadata
 }
 
 // global hub instance
@@ -88,10 +82,8 @@ func GetHub() (*Hub, error) {
 
 func newHub() (*Hub, error) {
 	hub := &Hub{
-		runningIterators:       make(map[Iterator]struct{}),
-		scanMetadata:           make(map[int64][]ScanMetadata),
-		queryRowSummary:        make(map[int64]*QueryRowSummary),
-		scanMetadataExclusions: make(map[int64]struct{}),
+		runningIterators: make(map[Iterator]struct{}),
+		queryTiming:      newQueryTimingMetadata(),
 	}
 	hub.connections = newConnectionFactory(hub)
 
@@ -155,6 +147,8 @@ func (h *Hub) addIterator(iterator Iterator) {
 	h.runningIteratorsLock.Lock()
 	defer h.runningIteratorsLock.Unlock()
 
+	log.Printf("[INFO] addIterator")
+	defer log.Printf("[INFO] addIterator done")
 	h.runningIterators[iterator] = struct{}{}
 
 	// if this is a scan iterator, add the scan metadata
@@ -182,27 +176,16 @@ func (h *Hub) EndScan(iter Iterator, limit int64) {
 }
 
 func (h *Hub) AddScanMetadata(iter Iterator) {
-	h.scanMetadataLock.Lock()
-	defer h.scanMetadataLock.Unlock()
-
 	// nothing to do for an in memory iterator
 	if _, ok := iter.(*inMemoryIterator); ok {
 		return
 	}
 	queryTimestamp := iter.GetQueryTimestamp()
-	// ensure we only keep scan metadata for this query
-	h.removeStaleScanMetadata(queryTimestamp)
+	log.Printf("[INFO] AddScanMetadata for iterator %p query timestamp %d (%s)", iter, queryTimestamp, iter.ConnectionName())
 
-	log.Printf("[TRACE] AddScanMetadata for iterator %p (%s)", iter, iter.ConnectionName())
-	// get the id of the last metadata item we currently have
-	// (id starts at 1)
+	h.queryTiming.scanMetadataLock.Lock()
+	defer h.queryTiming.scanMetadataLock.Unlock()
 
-	metadataForQuery := h.scanMetadata[queryTimestamp]
-	id := 1
-	metadataLen := len(metadataForQuery)
-	if metadataLen > 0 {
-		id = metadataForQuery[metadataLen-1].Id + 1
-	}
 	ctx := iter.GetTraceContext().Ctx
 
 	connectionName := iter.ConnectionName()
@@ -214,15 +197,21 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 
 	// get scan metadata from iterator
 	scanMetadata := iter.GetScanMetadata()
+	querySummary := h.queryTiming.queryRowSummary[queryTimestamp]
+	if querySummary == nil {
+		querySummary = queryresult.NewQueryRowSummary()
+	}
+
+	// ensure we only keep scan metadata for this query, and limit the amount of metadata we keep
+	h.queryTiming.removeStaleScanMetadata(queryTimestamp)
 
 	for _, m := range scanMetadata {
-		// set ID
-		m.Id = id
-		id++
-		log.Printf("[TRACE] got metadata table: %s cache hit: %v, rows fetched %d, hydrate calls: %d",
-			m.Table, m.CacheHit, m.RowsFetched, m.HydrateCalls)
-		// read the scan metadata from the iterator and add to our stack
-		metadataForQuery = append(metadataForQuery, m)
+		// update summary
+		querySummary.Update(m)
+
+		// add the scan metadata to the list
+		// (if we have exceeded the max number of scan metadata items, this will keep the slowest items
+		h.queryTiming.addScanMetadata(queryTimestamp, m)
 
 		// hydrate metric labels
 		labels := []attribute.KeyValue{
@@ -232,20 +221,12 @@ func (h *Hub) AddScanMetadata(iter Iterator) {
 		}
 		log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
 		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
-
 	}
+	// write the scan metadata and summary back to the hub
+	h.queryTiming.queryRowSummary[queryTimestamp] = querySummary
 
-	// limit size of scan metadataLen
-	h.trimScanMetadata(metadataLen)
-	log.Printf("[INFO] AddScanMetadata %d entries after trimming ", len(h.scanMetadata))
-}
-
-func (h *Hub) trimScanMetadata(metadataLen int) {
-	// now trim scan metadata - max 1000 items
-	if metadataLen > scanMetadataBufferSize {
-		startOffset := metadataLen - scanMetadataBufferSize
-		h.scanMetadata = h.scanMetadata[startOffset:]
-	}
+	log.Printf("[INFO] AddScanMetadata complete - there are now %d entries for query timestamp %d", len(h.queryTiming.scanMetadata[queryTimestamp]), queryTimestamp)
+	log.Printf("[INFO] summary: %v", h.queryTiming.queryRowSummary)
 }
 
 // Close shuts down all plugin clients
@@ -260,7 +241,6 @@ func (h *Hub) Close() {
 
 // Abort shuts down currently running queries
 func (h *Hub) Abort() {
-	log.Printf("[INFO] Hub Abort")
 	// for all running iterators
 	h.runningIteratorsLock.RLock()
 	defer h.runningIteratorsLock.RUnlock()
@@ -272,7 +252,7 @@ func (h *Hub) Abort() {
 		iter.Close()
 	}
 	// clear running iterators
-	h.runningIterators = nil
+	h.runningIterators = make(map[Iterator]struct{})
 }
 
 //// public fdw functions ////
@@ -316,7 +296,7 @@ func (h *Hub) GetIterator(columns []string, quals *proto.Quals, unhandledRestric
 func (h *Hub) LoadConnectionConfig() (bool, error) {
 	log.Printf("[INFO] Hub.LoadConnectionConfig ")
 	// load connection conFig
-	connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig()
+	connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig(context.Background())
 	if errorsAndWarnings.GetError() != nil {
 		log.Printf("[WARN] LoadConnectionConfig failed %v ", errorsAndWarnings)
 		return false, errorsAndWarnings.GetError()
@@ -641,7 +621,7 @@ func (h *Hub) StartScan(i Iterator) error {
 		req.ExecuteConnectionData[connectionName] = data
 	}
 
-	log.Printf("[INFO] StartScan for table: %s, cache enabled: %v, iterator %p, %d quals (%s)", table, req.CacheEnabled, iterator, len(iterator.queryContext.Quals), iterator.callId)
+	log.Printf("[INFO] StartScan for table: %s, cache enabled: %v, iterator %p, %d quals query %d (%s)", table, req.CacheEnabled, iterator, len(iterator.queryContext.Quals), iterator.queryTimestamp, iterator.callId)
 	stream, ctx, cancel, err := connectionPlugin.PluginClient.Execute(req)
 	// format GRPC errors and ignore not implemented errors for backwards compatibility
 	err = grpc.HandleGrpcError(err, connectionPlugin.PluginName, "Execute")
@@ -753,6 +733,17 @@ func (h *Hub) GetSettingsSchema() map[string]*proto.TableSchema {
 				{Name: "quals", Type: proto.ColumnType_JSON},
 			},
 		},
+		constants.ForeignTableScanMetadataSummary: {
+			Columns: []*proto.ColumnDefinition{
+				{Name: "id", Type: proto.ColumnType_INT},
+				{Name: "cached_rows_fetched", Type: proto.ColumnType_INT},
+				{Name: "uncached_rows_fetched", Type: proto.ColumnType_INT},
+				{Name: "hydrate_calls", Type: proto.ColumnType_INT},
+				{Name: "duration_ms", Type: proto.ColumnType_INT},
+				{Name: "scan_count", Type: proto.ColumnType_INT},
+				{Name: "connection_count", Type: proto.ColumnType_INT},
+			},
+		},
 	}
 }
 
@@ -781,20 +772,40 @@ func (h *Hub) GetLegacySettingsSchema() map[string]*proto.TableSchema {
 }
 
 func (h *Hub) executeCommandScan(connectionName, table string, queryTimestamp int64) (Iterator, error) {
+	h.queryTiming.scanMetadataLock.Lock()
+	defer h.queryTiming.scanMetadataLock.Unlock()
+
 	switch table {
+	case constants.ForeignTableScanMetadataSummary:
+		// we expect to only have metadata for  one query at a time - this is ebforced by the metadata writing code
+		if summaryCount := len(h.queryTiming.queryRowSummary); summaryCount > 1 {
+			return nil, fmt.Errorf(" executeCommandScan for table '%s' - %d summaries in metadata store - there should only be 1. ", table, summaryCount)
+		}
+
+		res := &QueryResult{}
+		for _, summary := range h.queryTiming.queryRowSummary {
+			res.Rows = append(res.Rows, summary.AsResultRow())
+		}
+
+		return newInMemoryIterator(connectionName, res, queryTimestamp), nil
 	case constants.ForeignTableScanMetadata, constants.LegacyCommandTableScanMetadata:
-		h.scanMetadataLock.RLock()
-		res := &QueryResult{
-			Rows: make([]map[string]interface{}, len(h.scanMetadata)),
+		if metadataCount := len(h.queryTiming.scanMetadata); metadataCount > 1 {
+			return nil, fmt.Errorf(" executeCommandScan for table '%s' - %d summaries in metadata store - there should only be 1. ", metadataCount, table)
 		}
-		for i, m := range h.scanMetadata {
-			res.Rows[i] = m.AsResultRow()
+
+		res := &QueryResult{}
+		for _, scansForQuery := range h.queryTiming.scanMetadata {
+			log.Printf("[INFO] metadata rows %d", len(scansForQuery))
+			for _, m := range scansForQuery {
+				res.Rows = append(res.Rows, m.AsResultRow())
+			}
 		}
-		h.scanMetadataLock.RUnlock()
+
 		return newInMemoryIterator(connectionName, res, queryTimestamp), nil
 	default:
 		return nil, fmt.Errorf("cannot select from command table '%s'", table)
 	}
+
 }
 
 func (h *Hub) HandleLegacyCacheCommand(command string) error {
@@ -858,21 +869,4 @@ func (h *Hub) getServerCacheEnabled() bool {
 	log.Printf("[INFO] Hub.getServerCacheEnabled returning %v", res)
 
 	return res
-}
-
-func (h *Hub) removeStaleScanMetadata(timestamp int64) {
-	// if we have exceeded our maximum length, remove all  metadata
-	// and add the current timestamp to the list of long queries for which we will not save granular timing
-	if len(h.scanMetadata) > scanMetadataBufferSize {
-		h.scanMetadata = map[int64][]ScanMetadata{}
-		h.scanMetadataExclusions[timestamp] = struct{}{}
-		return
-	}
-
-	// clear all query metadata for previous queries
-	for existingTimestamp := range h.scanMetadata {
-		if existingTimestamp != timestamp {
-			delete(h.queryRowSummary, existingTimestamp)
-		}
-	}
 }

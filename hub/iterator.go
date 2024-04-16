@@ -1,6 +1,9 @@
 package hub
 
-import "github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+import (
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
+)
 
 // Iterator is an interface for table scanner implementations.
 type Iterator interface {
@@ -14,7 +17,7 @@ type Iterator interface {
 	Status() queryStatus
 	Error() error
 	CanIterate() bool
-	GetScanMetadata() []ScanMetadata
+	GetScanMetadata() []queryresult.ScanMetadataRow
 	GetQueryTimestamp() int64
 	GetTraceContext() *telemetry.TraceCtx
 }

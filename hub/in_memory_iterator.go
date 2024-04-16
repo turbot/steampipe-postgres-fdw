@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"log"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
@@ -67,7 +68,7 @@ func (i *inMemoryIterator) CanIterate() bool {
 	}
 }
 
-func (i *inMemoryIterator) GetScanMetadata() []ScanMetadata {
+func (i *inMemoryIterator) GetScanMetadata() []queryresult.ScanMetadataRow {
 	return nil
 }
 func (i *inMemoryIterator) GetTraceContext() *telemetry.TraceCtx {

@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.10.0-rc.0
 	//join_timing
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20240411132851-4ab72dc58d00
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20240416091846-b11d8943513a
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.10.0-rc.3
 	go.opentelemetry.io/otel v1.24.0
 	google.golang.org/protobuf v1.33.0

@@ -30,6 +30,7 @@ func newLocalHub() (*HubLocal, error) {
 	imageRef := ociinstaller.NewSteampipeImageRef(pluginAlias).DisplayImageRef()
 
 	hub := &HubLocal{
+		hubBase: newHubBase(false),
 		plugin: plugin.Server(&plugin.ServeOpts{
 			PluginFunc: getPluginFunc(),
 		}),
@@ -107,7 +108,7 @@ func (l *HubLocal) GetSchema(_, connectionName string) (*proto.Schema, error) {
 	return res.GetSchema(), nil
 }
 
-func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options) (Iterator, error) {
+func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options, queryTimestamp int64) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
 	connectionName := opts["connection"]
@@ -115,7 +116,7 @@ func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRe
 	log.Printf("[TRACE] RemoteHub GetIterator() table '%s'", table)
 
 	if connectionName == constants.InternalSchema || connectionName == constants.LegacyCommandSchema {
-		return l.executeCommandScan(connectionName, table)
+		return l.executeCommandScan(connectionName, table, queryTimestamp)
 	}
 
 	// create a span for this scan

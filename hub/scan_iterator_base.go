@@ -12,6 +12,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"log"
 	"time"
@@ -21,7 +22,7 @@ type scanIteratorBase struct {
 	status             queryStatus
 	err                error
 	rows               chan *proto.Row
-	scanMetadata       map[string]*proto.QueryMetadata
+	scanMetadata       map[string]queryresult.ScanMetadataRow
 	pluginRowStream    row_stream.Receiver
 	rel                *types.Relation
 	hub                Hub
@@ -31,16 +32,19 @@ type scanIteratorBase struct {
 	cancel             context.CancelFunc
 	traceCtx           *telemetry.TraceCtx
 	queryContext       *proto.QueryContext
+	// the query timestamp is used to uniquely identify the parent query
+	// NOTE: all scans for the query will have the same timestamp
+	queryTimestamp int64
 
 	startTime time.Time
 	callId    string
 }
 
-func newBaseScanIterator(hub Hub, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx) scanIteratorBase {
+func newBaseScanIterator(hub Hub, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx, queryTimestamp int64) scanIteratorBase {
 	return scanIteratorBase{
 		status:             QueryStatusReady,
 		rows:               make(chan *proto.Row, rowBufferSize),
-		scanMetadata:       make(map[string]*proto.QueryMetadata),
+		scanMetadata:       make(map[string]queryresult.ScanMetadataRow),
 		hub:                hub,
 		table:              table,
 		connectionName:     connectionName,
@@ -49,6 +53,7 @@ func newBaseScanIterator(hub Hub, connectionName, table string, connectionLimitM
 		startTime:          time.Now(),
 		queryContext:       proto.NewQueryContext(columns, qualMap, limit),
 		callId:             grpc.BuildCallId(),
+		queryTimestamp:     queryTimestamp,
 	}
 }
 
@@ -69,12 +74,10 @@ func (i *scanIteratorBase) Error() error {
 // Next implements Iterator
 // return the next row. Nil row means there are no more rows to scan.
 func (i *scanIteratorBase) Next() (map[string]interface{}, error) {
-	log.Printf("[Trace] scanIteratorBase Next")
 	// check the iterator state - has an error occurred
 	if i.status == QueryStatusError {
 		return nil, i.err
 	}
-	logging.LogTime("[hub] Next start")
 
 	if !i.CanIterate() {
 		// this is a bug
@@ -87,8 +90,10 @@ func (i *scanIteratorBase) Next() (map[string]interface{}, error) {
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
 	if row == nil {
-		// close the span
-		i.closeSpan()
+		// close the span and set the status
+		i.Close()
+		// remove from hub running iterators
+		i.hub.RemoveIterator(i)
 
 		// if iterator is in error, return the error
 		if i.Status() == QueryStatusError {
@@ -96,10 +101,7 @@ func (i *scanIteratorBase) Next() (map[string]interface{}, error) {
 			return nil, i.err
 		}
 		// otherwise mark iterator complete, caching result
-		i.status = QueryStatusComplete
-
 	} else {
-
 		// so we got a row
 		var err error
 		res, err = i.populateRow(row)
@@ -107,21 +109,10 @@ func (i *scanIteratorBase) Next() (map[string]interface{}, error) {
 			return nil, err
 		}
 	}
-	logging.LogTime("[hub] Next end")
 	return res, nil
 }
 
 func (i *scanIteratorBase) closeSpan() {
-	// if we have scan metadata, add to span
-	// TODO SUM ALL metadata
-	//if i.scanMetadata != nil {
-	//	i.traceCtx.Span.SetAttributes(
-	//		attribute.Int64("hydrate_calls", i.scanMetadata.HydrateCalls),
-	//		attribute.Int64("rows_fetched", i.scanMetadata.RowsFetched),
-	//		attribute.Bool("cache_hit", i.scanMetadata.CacheHit),
-	//	)
-	//}
-
 	i.traceCtx.Span.End()
 }
 
@@ -135,7 +126,6 @@ func (i *scanIteratorBase) Close() {
 	}
 
 	i.closeSpan()
-
 }
 
 // CanIterate returns true if this iterator has results available to iterate
@@ -147,26 +137,6 @@ func (i *scanIteratorBase) CanIterate() bool {
 	default:
 		return true
 	}
-
-}
-
-// note: if this is an aggregator query, we will have a scan metadata for each connection
-// we need to combine them into a single scan metadata object
-
-func (i *scanIteratorBase) GetScanMetadata() ScanMetadata {
-	res := ScanMetadata{
-		Table:     i.table,
-		Columns:   i.queryContext.Columns,
-		Quals:     i.queryContext.Quals,
-		StartTime: i.startTime,
-		Duration:  time.Since(i.startTime),
-	}
-	for _, m := range i.scanMetadata {
-		res.CacheHit = res.CacheHit || m.CacheHit
-		res.RowsFetched += m.RowsFetched
-		res.HydrateCalls += m.HydrateCalls
-	}
-	return res
 
 }
 
@@ -212,6 +182,15 @@ func (i *scanIteratorBase) Start(executor pluginExecutor) error {
 	// read the results - this will loop until it hits an error or the stream is closed
 	go i.readThread(ctx)
 	return nil
+}
+
+// GetPluginName implements Iterator (this should be implemented by the concrete iterator)
+func (i *scanIteratorBase) GetPluginName() string {
+	panic("method GetPluginName not implemented")
+}
+
+func (i *scanIteratorBase) GetQueryTimestamp() int64 {
+	return i.queryTimestamp
 }
 
 func (i *scanIteratorBase) newExecuteRequest() *proto.ExecuteRequest {
@@ -322,7 +301,7 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 			continueReading = false
 		} else {
 			// update the scan metadata for this connection (this will overwrite any existing from the previous row)
-			i.scanMetadata[rowResult.Connection] = rowResult.Metadata
+			i.scanMetadata[rowResult.Connection] = i.newScanMetadata(rowResult.Connection, rowResult.Metadata)
 
 			// so we have a row
 			i.rows <- rowResult.Row
@@ -338,6 +317,10 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 		continueReading = false
 	}
 	return continueReading
+}
+
+func (i *scanIteratorBase) newScanMetadata(connection string, m *proto.QueryMetadata) queryresult.ScanMetadataRow {
+	return queryresult.NewScanMetadataRow(connection, i.table, i.queryContext.Columns, i.queryContext.Quals, i.startTime, time.Since(i.startTime), i.connectionLimitMap[connection], m)
 }
 
 // if there is an error other than EOF, save error and set state to QueryStatusError

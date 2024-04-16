@@ -5,6 +5,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 )
 
 // Iterator is an interface for table scanner implementations.
@@ -19,6 +20,7 @@ type Iterator interface {
 	Status() queryStatus
 	Error() error
 	CanIterate() bool
+	GetQueryTimestamp() int64
 	GetTraceContext() *telemetry.TraceCtx
 }
 
@@ -33,6 +35,6 @@ type pluginIterator interface {
 	GetConnectionLimitMap() map[string]int64
 	SetError(err error)
 	GetTable() string
-	GetScanMetadata() ScanMetadata
+	GetScanMetadata() []queryresult.ScanMetadataRow
 	Start(pluginExecutor) error
 }

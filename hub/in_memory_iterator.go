@@ -2,23 +2,26 @@ package hub
 
 import (
 	"context"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"log"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 )
 
 type inMemoryIterator struct {
-	name   string
-	rows   []map[string]interface{}
-	index  int
-	status queryStatus
+	name           string
+	rows           []map[string]interface{}
+	index          int
+	status         queryStatus
+	queryTimestamp int64
 }
 
-func newInMemoryIterator(name string, result *QueryResult) *inMemoryIterator {
+func newInMemoryIterator(name string, result *QueryResult, queryTimestamp int64) *inMemoryIterator {
 	return &inMemoryIterator{
-		name:   name,
-		rows:   result.Rows,
-		status: QueryStatusStarted, // set as started
+		name:           name,
+		rows:           result.Rows,
+		status:         QueryStatusStarted, // set as started
+		queryTimestamp: queryTimestamp,
 	}
 }
 
@@ -70,9 +73,13 @@ func (i *inMemoryIterator) CanIterate() bool {
 	}
 }
 
-func (i *inMemoryIterator) GetScanMetadata() ScanMetadata {
-	return ScanMetadata{}
+func (i *inMemoryIterator) GetScanMetadata() []queryresult.ScanMetadataRow {
+	return nil
 }
 func (i *inMemoryIterator) GetTraceContext() *telemetry.TraceCtx {
 	return &telemetry.TraceCtx{Ctx: context.Background()}
+}
+
+func (i *inMemoryIterator) GetQueryTimestamp() int64 {
+	return i.queryTimestamp
 }

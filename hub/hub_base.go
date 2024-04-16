@@ -3,8 +3,10 @@ package hub
 import (
 	"context"
 	"fmt"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
@@ -21,12 +23,8 @@ import (
 )
 
 type hubBase struct {
-	// array of scan metadata
-	// we append to this every time a scan completes (either due to end of data, or Postgres terminating)
-	scanMetadata []ScanMetadata
-
-	// list of iterators currently executing scans
-	runningIterators []Iterator
+	runningIterators     map[Iterator]struct{}
+	runningIteratorsLock sync.RWMutex
 
 	// cacheSettings
 	cacheSettings *settings.HubCacheSettings
@@ -35,6 +33,17 @@ type hubBase struct {
 	// callback function to shutdown telemetry
 	telemetryShutdownFunc func()
 	hydrateCallsCounter   metric.Int64Counter
+	queryTiming           *queryTimingMetadata
+}
+
+func newHubBase(enableScanMetadata bool) hubBase {
+	h := hubBase{
+		runningIterators: make(map[Iterator]struct{}),
+	}
+	if enableScanMetadata {
+		h.queryTiming = newQueryTimingMetadata()
+	}
+	return h
 }
 
 // GetRelSize is a method called from the planner to estimate the resulting relation size for a scan.
@@ -147,17 +156,6 @@ func (h *hubBase) Explain(columns []string, quals []*proto.Qual, sortKeys []stri
 	return make([]string, 0), nil
 }
 
-// RemoveIterator removes an iterator from list of running iterators
-func (h *hubBase) RemoveIterator(iterator Iterator) {
-	for idx, it := range h.runningIterators {
-		if it == iterator {
-			// remove from list
-			h.runningIterators = append(h.runningIterators[:idx], h.runningIterators[idx+1:]...)
-			return
-		}
-	}
-}
-
 // StartScan starts a scan
 func (h *hubBase) StartScan(i Iterator) error {
 	log.Printf("[INFO] hubBase StartScan")
@@ -180,10 +178,14 @@ func (h *hubBase) StartScan(i Iterator) error {
 
 // EndScan is called when Postgres terminates the scan (because it has received enough rows of data)
 func (h *hubBase) EndScan(iter Iterator, limit int64) {
+	log.Printf("[INFO] hubBase EndScan")
+
 	// is the iterator still running? If so it means postgres is stopping a scan before all rows have been read
 	if iter.Status() == QueryStatusStarted {
+		log.Printf("[INFO] ending scan before iterator complete - limit: %v, iterator: %p", limit, iter)
+		// we normally add the scan metadata when the scan completes - if the scan has not completed, we need to
+		// add the metadata here
 		h.AddScanMetadata(iter)
-		log.Printf("[TRACE] ending scan before iterator complete - limit: %v, iterator: %p", limit, iter)
 		iter.Close()
 	}
 
@@ -194,56 +196,60 @@ func (h *hubBase) EndScan(iter Iterator, limit int64) {
 // we append to this every time a scan completes (either due to end of data, or Postgres terminating)
 // the full array is returned whenever a pop_scan_metadata command is received and the array is cleared
 func (h *hubBase) AddScanMetadata(i Iterator) {
+	// for local hub we do not store scan metadata
+	if h.queryTiming != nil {
+		return
+	}
 	// if iterator is not a pluginIterator, do nothing
-	iterator, ok := i.(pluginIterator)
+	iter, ok := i.(pluginIterator)
 	if !ok {
+		log.Printf("[INFO] AddScanMetadata  - not a pluginIterator so returning")
 		return
 	}
 
-	log.Printf("[TRACE] AddScanMetadata for iterator %p (%s)", iterator, iterator.GetConnectionName())
-	// get the id of the last metadata item we currently have
-	// (id starts at 1)
-	id := 1
-	metadataLen := len(h.scanMetadata)
-	if metadataLen > 0 {
-		id = h.scanMetadata[metadataLen-1].Id + 1
-	}
-	ctx := iterator.GetTraceContext().Ctx
+	queryTimestamp := iter.GetQueryTimestamp()
+	log.Printf("[INFO] AddScanMetadata for iterator %p query timestamp %d (%s)", iter, queryTimestamp, iter.GetConnectionName())
 
-	connectionName := iterator.GetConnectionName()
-	pluginName := iterator.GetPluginName()
+	h.queryTiming.scanMetadataLock.Lock()
+	defer h.queryTiming.scanMetadataLock.Unlock()
+
+	ctx := iter.GetTraceContext().Ctx
+
+	connectionName := iter.GetConnectionName()
+	pluginName := iter.GetPluginName()
 
 	// get scan metadata from iterator
-	m := iterator.GetScanMetadata()
-
-	// set ID
-	m.Id = id
-	log.Printf("[TRACE] got metadata table: %s cache hit: %v, rows fetched %d, hydrate calls: %d",
-		m.Table, m.CacheHit, m.RowsFetched, m.HydrateCalls)
-	// read the scan metadata from the iterator and add to our stack
-	h.scanMetadata = append(h.scanMetadata, m)
-
-	// hydrate metric labels
-	labels := []attribute.KeyValue{
-		attribute.String("table", m.Table),
-		attribute.String("connection", connectionName),
-		attribute.String("plugin", pluginName),
+	scanMetadata := iter.GetScanMetadata()
+	querySummary := h.queryTiming.queryRowSummary[queryTimestamp]
+	if querySummary == nil {
+		querySummary = queryresult.NewQueryRowSummary()
 	}
-	log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
-	h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
 
-	// now trim scan metadata - max 1000 items
-	const maxMetadataItems = 1000
-	if metadataLen > maxMetadataItems {
-		startOffset := maxMetadataItems - 1000
-		h.scanMetadata = h.scanMetadata[startOffset:]
+	// ensure we only keep scan metadata for this query, and limit the amount of metadata we keep
+	h.queryTiming.removeStaleScanMetadata(queryTimestamp)
+
+	for _, m := range scanMetadata {
+		// update summary
+		querySummary.Update(m)
+
+		// add the scan metadata to the list
+		// (if we have exceeded the max number of scan metadata items, this will keep the slowest items
+		h.queryTiming.addScanMetadata(queryTimestamp, m)
+
+		// hydrate metric labels
+		labels := []attribute.KeyValue{
+			attribute.String("table", m.Table),
+			attribute.String("connection", connectionName),
+			attribute.String("plugin", pluginName),
+		}
+		log.Printf("[TRACE] update hydrate calls counter with %d", m.HydrateCalls)
+		h.hydrateCallsCounter.Add(ctx, m.HydrateCalls, metric.WithAttributes(labels...))
 	}
-}
+	// write the scan metadata and summary back to the hub
+	h.queryTiming.queryRowSummary[queryTimestamp] = querySummary
 
-// ClearScanMetadata deletes all stored scan metadata. It is called by steampipe after retrieving timing information
-// for the previous query
-func (h *hubBase) ClearScanMetadata() {
-	h.scanMetadata = nil
+	log.Printf("[INFO] AddScanMetadata complete - there are now %d entries for query timestamp %d", len(h.queryTiming.scanMetadata[queryTimestamp]), queryTimestamp)
+	log.Printf("[INFO] summary: %v", h.queryTiming.queryRowSummary)
 }
 
 // Close shuts down all plugin clients
@@ -254,22 +260,22 @@ func (h *hubBase) Close() {
 		log.Println("[TRACE] shutdown telemetry")
 		h.telemetryShutdownFunc()
 	}
-
-	// TODO KAI should this shut plugins
 }
 
 // Abort shuts down currently running queries
 func (h *hubBase) Abort() {
-	log.Printf("[INFO] RemoteHub Abort")
 	// for all running iterators
-	for _, iter := range h.runningIterators {
+	h.runningIteratorsLock.RLock()
+	defer h.runningIteratorsLock.RUnlock()
+
+	for iter := range h.runningIterators {
 		// read the scan metadata from the iterator and add to our stack
 		h.AddScanMetadata(iter)
 		// close the iterator
 		iter.Close()
-		// remove it from the saved list of iterators
-		h.RemoveIterator(iter)
 	}
+	// clear running iterators
+	h.runningIterators = make(map[Iterator]struct{})
 }
 
 // settings
@@ -280,6 +286,7 @@ func (h *hubBase) ApplySetting(key string, value string) error {
 }
 
 func (h *hubBase) GetSettingsSchema() map[string]*proto.TableSchema {
+	// todo kai only in remote???
 	return map[string]*proto.TableSchema{
 		constants.ForeignTableSettings: {
 			Columns: []*proto.ColumnDefinition{
@@ -287,18 +294,30 @@ func (h *hubBase) GetSettingsSchema() map[string]*proto.TableSchema {
 				{Name: constants.ForeignTableSettingsValueColumn, Type: proto.ColumnType_STRING},
 			},
 		},
+		// todo kai only in remote???
 		constants.ForeignTableScanMetadata: {
 			Columns: []*proto.ColumnDefinition{
-				{Name: "id", Type: proto.ColumnType_INT},
+				{Name: "connection", Type: proto.ColumnType_STRING},
 				{Name: "table", Type: proto.ColumnType_STRING},
 				{Name: "cache_hit", Type: proto.ColumnType_BOOL},
 				{Name: "rows_fetched", Type: proto.ColumnType_INT},
 				{Name: "hydrate_calls", Type: proto.ColumnType_INT},
 				{Name: "start_time", Type: proto.ColumnType_TIMESTAMP},
-				{Name: "duration", Type: proto.ColumnType_DOUBLE},
+				{Name: "duration_ms", Type: proto.ColumnType_INT},
 				{Name: "columns", Type: proto.ColumnType_JSON},
 				{Name: "limit", Type: proto.ColumnType_INT},
-				{Name: "quals", Type: proto.ColumnType_STRING},
+				{Name: "quals", Type: proto.ColumnType_JSON},
+			},
+		},
+		// todo kai only in remote???
+		constants.ForeignTableScanMetadataSummary: {
+			Columns: []*proto.ColumnDefinition{
+				{Name: "cached_rows_fetched", Type: proto.ColumnType_INT},
+				{Name: "uncached_rows_fetched", Type: proto.ColumnType_INT},
+				{Name: "hydrate_calls", Type: proto.ColumnType_INT},
+				{Name: "duration_ms", Type: proto.ColumnType_INT},
+				{Name: "scan_count", Type: proto.ColumnType_INT},
+				{Name: "connection_count", Type: proto.ColumnType_INT},
 			},
 		},
 	}
@@ -323,16 +342,34 @@ func (h *hubBase) ProcessImportForeignSchemaOptions(types.Options, string) error
 	return nil
 }
 
-func (h *hubBase) executeCommandScan(connectionName, table string) (Iterator, error) {
+func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestamp int64) (Iterator, error) {
 	switch table {
+	case constants.ForeignTableScanMetadataSummary:
+		// we expect to only have metadata for  one query at a time - this is ebforced by the metadata writing code
+		if summaryCount := len(h.queryTiming.queryRowSummary); summaryCount > 1 {
+			return nil, fmt.Errorf(" executeCommandScan for table '%s' - %d summaries in metadata store - there should only be 1. ", table, summaryCount)
+		}
+
+		res := &QueryResult{}
+		for _, summary := range h.queryTiming.queryRowSummary {
+			res.Rows = append(res.Rows, summary.AsResultRow())
+		}
+
+		return newInMemoryIterator(connectionName, res, queryTimestamp), nil
 	case constants.ForeignTableScanMetadata, constants.LegacyCommandTableScanMetadata:
-		res := &QueryResult{
-			Rows: make([]map[string]interface{}, len(h.scanMetadata)),
+		if metadataCount := len(h.queryTiming.scanMetadata); metadataCount > 1 {
+			return nil, fmt.Errorf(" executeCommandScan for table '%s' - %d summaries in metadata store - there should only be 1. ", metadataCount, table)
 		}
-		for i, m := range h.scanMetadata {
-			res.Rows[i] = m.AsResultRow()
+
+		res := &QueryResult{}
+		for _, scansForQuery := range h.queryTiming.scanMetadata {
+			log.Printf("[INFO] metadata rows %d", len(scansForQuery))
+			for _, m := range scansForQuery {
+				res.Rows = append(res.Rows, m.AsResultRow())
+			}
 		}
-		return newInMemoryIterator(connectionName, res), nil
+
+		return newInMemoryIterator(connectionName, res, queryTimestamp), nil
 	default:
 		return nil, fmt.Errorf("cannot select from command table '%s'", table)
 	}
@@ -426,10 +463,19 @@ func (h *hubBase) initialiseTelemetry() error {
 }
 
 func (h *hubBase) addIterator(iterator Iterator) {
-	h.runningIterators = append(h.runningIterators, iterator)
+	h.runningIteratorsLock.Lock()
+	defer h.runningIteratorsLock.Unlock()
+
+	h.runningIterators[iterator] = struct{}{}
 }
 
-// legacy remove
+// RemoveIterator removes an iterator from list of running iterators
+func (h *hubBase) RemoveIterator(iterator Iterator) {
+	h.runningIteratorsLock.Lock()
+	defer h.runningIteratorsLock.Unlock()
+
+	delete(h.runningIterators, iterator)
+}
 
 func (h *hubBase) GetLegacySettingsSchema() map[string]*proto.TableSchema {
 	return map[string]*proto.TableSchema{

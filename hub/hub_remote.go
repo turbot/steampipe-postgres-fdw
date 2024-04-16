@@ -4,6 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"path"
+	"time"
+
 	typehelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -17,10 +22,6 @@ import (
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 	"github.com/turbot/steampipe/pkg/steampipeconfig/modconfig"
 	"github.com/turbot/steampipe/pkg/utils"
-	"log"
-	"os"
-	"path"
-	"time"
 )
 
 const (
@@ -36,7 +37,9 @@ type RemoteHub struct {
 //// lifecycle ////
 
 func newRemoteHub() (*RemoteHub, error) {
-	hub := &RemoteHub{}
+	hub := &RemoteHub{
+		hubBase: newHubBase(true),
+	}
 	hub.connections = newConnectionFactory(hub)
 
 	// TODO CHECK TELEMETRY ENABLED?
@@ -87,7 +90,7 @@ func (h *RemoteHub) GetSchema(remoteSchema string, localSchema string) (*proto.S
 }
 
 // GetIterator creates and returns an iterator
-func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options) (Iterator, error) {
+func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options, queryTimestamp int64) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
 	connectionName := opts["connection"]
@@ -95,12 +98,12 @@ func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledR
 	log.Printf("[TRACE] RemoteHub GetIterator() table '%s'", table)
 
 	if connectionName == constants.InternalSchema || connectionName == constants.LegacyCommandSchema {
-		return h.executeCommandScan(connectionName, table)
+		return h.executeCommandScan(connectionName, table, queryTimestamp)
 	}
 
 	// create a span for this scan
 	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
-	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx)
+	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx, queryTimestamp)
 
 	if err != nil {
 		log.Printf("[TRACE] RemoteHub GetIterator() failed :( %s", err)
@@ -153,7 +156,8 @@ func (h *RemoteHub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 //// internal implementation ////
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator or a legacyScanIterator
-func (h *RemoteHub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
+
+func (h *RemoteHub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx, queryTimestamp int64) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {
 			// close the span in case of errir
@@ -202,12 +206,12 @@ func (h *RemoteHub) startScanForConnection(connectionName string, table string, 
 	}
 
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	iterator := newScanIterator(h, connectionPlugin, connectionName, table, connectionLimitMap, qualMap, columns, limit, scanTraceCtx)
+	iterator := newScanIterator(h, connectionPlugin, connectionName, table, connectionLimitMap, qualMap, columns, limit, scanTraceCtx, queryTimestamp)
 	return iterator, nil
 }
 
 func (h *RemoteHub) buildConnectionLimitMap(table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, connectionNames []string, limit int64, connectionPlugin *steampipeconfig.ConnectionPlugin) (map[string]int64, error) {
-	log.Printf("[TRACE] buildConnectionLimitMap, table: '%s', %d %s, limit: %d", table, len(connectionNames), utils.Pluralize("connection", len(connectionNames)), limit)
+	log.Printf("[INFO] buildConnectionLimitMap, table: '%s', %d %s, limit: %d", table, len(connectionNames), utils.Pluralize("connection", len(connectionNames)), limit)
 
 	connectionSchema, err := connectionPlugin.GetSchema(connectionNames[0])
 	if err != nil {
@@ -219,7 +223,7 @@ func (h *RemoteHub) buildConnectionLimitMap(table string, qualMap map[string]*pr
 	// for a static schema, the limit will be the same for all connections (i.e. we either pushdown for all or none)
 	// check once whether we should push down
 	if limit != -1 && schemaMode == plugin.SchemaModeStatic {
-		log.Printf("[TRACE] static schema - using same limit for all connections")
+		log.Printf("[INFO] static schema - using same limit for all connections")
 		if !h.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
 			limit = -1
 		}

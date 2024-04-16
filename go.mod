@@ -7,7 +7,7 @@ toolchain go1.21.3
 require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/golang/protobuf v1.5.4
-	github.com/hashicorp/go-hclog v1.6.2
+	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.9.0
 	// main

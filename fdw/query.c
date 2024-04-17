@@ -408,12 +408,11 @@ void computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate,
   Assert(*deparsed_pathkeys == NIL);
 
   /* Don't ask FDW if nothing to sort */
-  if (deparsed == NIL)
+  if (deparsed == NIL){
     return;
+    }
 
-  // TODO - Fdw doesn't support this yet
-  // sortable_fields = canSort(planstate, deparsed);
-  sortable_fields = NIL;
+  sortable_fields = goFdwCanSort(deparsed,planstate);
 
   /* Don't go further if FDW can't enforce any sort */
   if (sortable_fields == NIL)
@@ -546,7 +545,7 @@ findPaths(PlannerInfo *root, RelOptInfo *baserel, List *possiblePaths,
 
 /*
  * Deparse a list of PathKey and return a list of FdwDeparsedSortGroup.
- * This function will return data iif all the PathKey belong to the current
+ * This function will return data if all the PathKey belong to the current
  * foreign table.
  */
 List *

@@ -89,6 +89,8 @@ typedef struct FdwDeparsedSortGroup
   PathKey *key;
 } FdwDeparsedSortGroup;
 
+static inline FdwDeparsedSortGroup *cellGetFdwDeparsedSortGroup(ListCell *n) { return (FdwDeparsedSortGroup *)n->ptr_value; }
+
 // datum.c
 char *datumString(Datum datum, ConversionInfo *cinfo);
 int64 datumInt16(Datum datum, ConversionInfo *cinfo);

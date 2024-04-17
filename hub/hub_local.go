@@ -108,7 +108,7 @@ func (l *HubLocal) GetSchema(_, connectionName string) (*proto.Schema, error) {
 	return res.GetSchema(), nil
 }
 
-func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options, queryTimestamp int64) (Iterator, error) {
+func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
 	connectionName := opts["connection"]
@@ -121,7 +121,7 @@ func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRe
 
 	// create a span for this scan
 	scanTraceCtx := l.traceContextForScan(table, columns, limit, qualMap, connectionName)
-	iterator, err := l.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx)
+	iterator, err := l.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, sortOrder, queryTimestamp, scanTraceCtx)
 
 	if err != nil {
 		log.Printf("[TRACE] RemoteHub GetIterator() failed :( %s", err)
@@ -144,8 +144,8 @@ func (l *HubLocal) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 
 }
 
-func (h *HubLocal) GetConnectionConfigByName(name string) *proto.ConnectionConfig {
-	return h.connections[name]
+func (l *HubLocal) GetConnectionConfigByName(name string) *proto.ConnectionConfig {
+	return l.connections[name]
 }
 
 func (l *HubLocal) ProcessImportForeignSchemaOptions(opts types.Options, connection string) error {
@@ -165,7 +165,7 @@ func (l *HubLocal) ProcessImportForeignSchemaOptions(opts types.Options, connect
 }
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator or a legacyScanIterator
-func (l *HubLocal) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
+func (l *HubLocal) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {
 			// close the span in case of errir
@@ -197,7 +197,7 @@ func (l *HubLocal) startScanForConnection(connectionName string, table string, q
 	}
 
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	iterator := newScanIteratorLocal(l, connectionName, table, l.pluginName, connectionLimitMap, qualMap, columns, limit, scanTraceCtx)
+	iterator := newScanIteratorLocal(l, connectionName, table, l.pluginName, connectionLimitMap, qualMap, columns, limit, sortOrder, queryTimestamp, scanTraceCtx)
 	return iterator, nil
 }
 

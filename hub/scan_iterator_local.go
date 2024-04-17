@@ -15,9 +15,9 @@ type scanIteratorLocal struct {
 	pluginName string
 }
 
-func newScanIteratorLocal(hub Hub, connectionName, table, pluginName string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx) *scanIteratorLocal {
+func newScanIteratorLocal(hub Hub, connectionName, table, pluginName string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, traceCtx *telemetry.TraceCtx) *scanIteratorLocal {
 	return &scanIteratorLocal{
-		scanIteratorBase: newBaseScanIterator(hub, connectionName, table, connectionLimitMap, qualMap, columns, limit, traceCtx, 0),
+		scanIteratorBase: newBaseScanIterator(hub, connectionName, table, connectionLimitMap, qualMap, columns, limit, sortOrder, queryTimestamp, traceCtx),
 		pluginName:       pluginName,
 	}
 }

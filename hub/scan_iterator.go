@@ -21,9 +21,9 @@ type scanIterator struct {
 	hub              *RemoteHub
 }
 
-func newScanIterator(hub Hub, connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx, queryTimestamp int64) *scanIterator {
+func newScanIterator(hub Hub, connectionPlugin *steampipeconfig.ConnectionPlugin, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, traceCtx *telemetry.TraceCtx) *scanIterator {
 	return &scanIterator{
-		scanIteratorBase: newBaseScanIterator(hub, connectionName, table, connectionLimitMap, qualMap, columns, limit, traceCtx, queryTimestamp),
+		scanIteratorBase: newBaseScanIterator(hub, connectionName, table, connectionLimitMap, qualMap, columns, limit, sortOrder, queryTimestamp, traceCtx),
 		connectionPlugin: connectionPlugin,
 	}
 }

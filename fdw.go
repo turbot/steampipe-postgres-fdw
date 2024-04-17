@@ -4,9 +4,13 @@ package main
 #cgo linux LDFLAGS: -Wl,-unresolved-symbols=ignore-all
 #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 #include "fdw_helpers.h"
+
 #include "utils/rel.h"
 #include "nodes/pg_list.h"
 #include "utils/timestamp.h"
+
+static Name deserializeDeparsedSortListCell(ListCell *lc);
+
 */
 import "C"
 
@@ -18,6 +22,7 @@ import (
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
@@ -63,6 +68,63 @@ func init() {
 	log.Printf("[INFO] Version:   v%s\n", version.FdwVersion.String())
 	log.Printf("[INFO] Log level: %s\n", level)
 
+}
+
+//export goLog
+func goLog(msg *C.char) {
+	log.Println("[WARN] " + C.GoString(msg))
+}
+
+// Given a list of FdwDeparsedSortGroup and a FdwPlanState,
+// construct a list FdwDeparsedSortGroup that can be pushed down
+//
+//export goFdwCanSort
+func goFdwCanSort(deparsed *C.List, planstate *C.FdwPlanState) *C.List {
+	log.Println("[WARN] goFdwCanSort deparsed", deparsed)
+	// This will be the list of FdwDeparsedSortGroup items that can be pushed down
+	var pushDownList *C.List = nil
+
+	// Iterate over the deparsed list
+	if deparsed == nil {
+		return pushDownList
+	}
+
+	// Convert the sortable fields into a lookup
+	sortableFields := getSortableFields(planstate.foreigntableid)
+	if len(sortableFields) == 0 {
+		return pushDownList
+	}
+
+	for it := C.list_head(deparsed); it != nil; it = C.lnext(deparsed, it) {
+		deparsedSortGroup := C.cellGetFdwDeparsedSortGroup(it)
+		columnName := C.GoString(C.nameStr(deparsedSortGroup.attname))
+
+		supportedOrder := sortableFields[columnName]
+		requiredOrder := proto.SortOrder_Asc
+		if deparsedSortGroup.reversed {
+			requiredOrder = proto.SortOrder_Desc
+		}
+		log.Println("[INFO] goFdwCanSort column", columnName, "supportedOrder", supportedOrder, "requiredOrder", requiredOrder)
+
+		if supportedOrder == requiredOrder || supportedOrder == proto.SortOrder_All {
+			log.Printf("[INFO] goFdwCanSort column %s can be pushed down", columnName)
+			// add deparsedSortGroup to pushDownList
+			pushDownList = C.lappend(pushDownList, unsafe.Pointer(deparsedSortGroup))
+		} else {
+			log.Printf("[INFO] goFdwCanSort column %s CANNOT be pushed down", columnName)
+		}
+	}
+
+	return pushDownList
+}
+
+func getSortableFields(foreigntableid C.Oid) map[string]proto.SortOrder {
+	opts := GetFTableOptions(types.Oid(foreigntableid))
+	connection := GetSchemaNameFromForeignTableId(types.Oid(foreigntableid))
+
+	tableName := opts["table"]
+	pluginHub := hub.GetHub()
+	return pluginHub.GetSortableFields(tableName, connection)
 }
 
 //export goFdwGetRelSize
@@ -242,8 +304,9 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	}
 	// if we are NOT explaining, create an iterator to scan for us
 	if !explain {
+		var sortOrder = getSortColumns(execState)
 		ts := int64(C.GetSQLCurrentTimestamp(0))
-		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), opts, ts)
+		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), sortOrder, ts, opts)
 		if err != nil {
 			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
 			FdwError(err)
@@ -256,6 +319,25 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	node.fdw_state = SaveExecState(s)
 
 	logging.LogTime("[fdw] BeginForeignScan end")
+}
+
+func getSortColumns(state *C.FdwExecState) []*proto.SortColumn {
+	sortGroups := state.pathkeys
+	var res []*proto.SortColumn
+	for it := C.list_head(sortGroups); it != nil; it = C.lnext(sortGroups, it) {
+		deparsedSortGroup := C.cellGetFdwDeparsedSortGroup(it)
+		columnName := C.GoString(C.nameStr(deparsedSortGroup.attname))
+		requiredOrder := proto.SortOrder_Asc
+		if deparsedSortGroup.reversed {
+			requiredOrder = proto.SortOrder_Desc
+		}
+
+		res = append(res, &proto.SortColumn{
+			Column: columnName,
+			Order:  requiredOrder,
+		})
+	}
+	return res
 }
 
 //export goFdwIterateForeignScan

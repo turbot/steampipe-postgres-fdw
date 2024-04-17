@@ -1,6 +1,7 @@
 ## v1.11.0  [tbd]
-Add support for running plugins in-process. ([#383](https://github.com/turbot/steampipe-postgres-fdw/issues/383))
-Fixes issue where the install script fails if pg_config in not in users path. ([#404](https://github.com/turbot/steampipe-postgres-fdw/issues/404))
+* Update Steampipe timing output to show all scans for all connections. ([#439](https://github.com/turbot/steampipe-postgres-fdw/issues/439))
+* Add support for running plugins in-process. ([#383](https://github.com/turbot/steampipe-postgres-fdw/issues/383))
+* Fixes issue where the install script fails if pg_config in not in users path. ([#404](https://github.com/turbot/steampipe-postgres-fdw/issues/404))
 
 ## v1.10.0 [2024-03-04]
 _Whats new_

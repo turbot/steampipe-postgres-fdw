@@ -12,7 +12,7 @@ type Hub interface {
 	GetConnectionConfigByName(string) *proto.ConnectionConfig
 	LoadConnectionConfig() (bool, error)
 	GetSchema(remoteSchema string, localSchema string) (*proto.Schema, error)
-	GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options, queryTimestamp int64) (Iterator, error)
+	GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, opts types.Options) (Iterator, error)
 	GetRelSize(columns []string, quals []*proto.Qual, opts types.Options) (types.RelSize, error)
 	GetPathKeys(opts types.Options) ([]types.PathKey, error)
 	Explain(columns []string, quals []*proto.Qual, sortKeys []string, verbose bool, opts types.Options) ([]string, error)
@@ -30,4 +30,5 @@ type Hub interface {
 	ValidateCacheCommand(command string) error
 	cacheTTL(name string) time.Duration
 	cacheEnabled(name string) bool
+	GetSortableFields(table, connection string) map[string]proto.SortOrder
 }

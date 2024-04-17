@@ -48,58 +48,58 @@ func newLocalHub() (*HubLocal, error) {
 	return hub, nil
 }
 
-func (h *HubLocal) SetConnectionConfig(connectionName, configString string) error {
+func (l *HubLocal) SetConnectionConfig(connectionName, configString string) error {
 	log.Printf("[INFO] HubLocal SetConnectionConfig: connection: %s, config: %s", connectionName, configString)
 
-	h.connections[connectionName] =
+	l.connections[connectionName] =
 		&proto.ConnectionConfig{
 			Connection:      connectionName,
-			Plugin:          h.pluginName,
-			PluginShortName: h.pluginAlias,
+			Plugin:          l.pluginName,
+			PluginShortName: l.pluginAlias,
 			Config:          configString,
-			PluginInstance:  h.pluginName,
+			PluginInstance:  l.pluginName,
 		}
 
-	_, err := h.plugin.SetAllConnectionConfigs(&proto.SetAllConnectionConfigsRequest{
-		Configs: maps.Values(h.connections),
+	_, err := l.plugin.SetAllConnectionConfigs(&proto.SetAllConnectionConfigsRequest{
+		Configs: maps.Values(l.connections),
 	})
 	return err
 }
 
-func (h *HubLocal) UpdateConnectionConfig(connectionName, configString string) error {
+func (l *HubLocal) UpdateConnectionConfig(connectionName, configString string) error {
 	log.Printf("[INFO] HubLocal UpdateConnectionConfig: connection: %s, config: %s", connectionName, configString)
-	h.connections[connectionName] =
+	l.connections[connectionName] =
 		&proto.ConnectionConfig{
 			Connection:      connectionName,
-			Plugin:          h.pluginName,
-			PluginShortName: h.pluginAlias,
+			Plugin:          l.pluginName,
+			PluginShortName: l.pluginAlias,
 			Config:          configString,
-			PluginInstance:  h.pluginName,
+			PluginInstance:  l.pluginName,
 		}
 
-	_, err := h.plugin.UpdateConnectionConfigs(&proto.UpdateConnectionConfigsRequest{
-		Changed: []*proto.ConnectionConfig{h.connections[connectionName]},
+	_, err := l.plugin.UpdateConnectionConfigs(&proto.UpdateConnectionConfigsRequest{
+		Changed: []*proto.ConnectionConfig{l.connections[connectionName]},
 	})
 	return err
 }
 
-func (h *HubLocal) LoadConnectionConfig() (bool, error) {
+func (l *HubLocal) LoadConnectionConfig() (bool, error) {
 	// do nothing
 	return false, nil
 }
 
-func (h *HubLocal) GetSchema(_, connectionName string) (*proto.Schema, error) {
+func (l *HubLocal) GetSchema(_, connectionName string) (*proto.Schema, error) {
 	log.Printf("[INFO] GetSchema")
-	res, err := h.plugin.GetSchema(&proto.GetSchemaRequest{Connection: connectionName})
+	res, err := l.plugin.GetSchema(&proto.GetSchemaRequest{Connection: connectionName})
 
 	if err != nil {
 		log.Printf("[INFO] GetSchema retry")
 		// TODO tactical - if no connection config has been set for this connection, set now
-		if err := h.SetConnectionConfig(connectionName, ""); err != nil {
+		if err := l.SetConnectionConfig(connectionName, ""); err != nil {
 
 			return nil, err
 		}
-		res, err = h.plugin.GetSchema(&proto.GetSchemaRequest{Connection: connectionName})
+		res, err = l.plugin.GetSchema(&proto.GetSchemaRequest{Connection: connectionName})
 		if err != nil {
 			log.Printf("[INFO] GetSchema retry failed")
 			return nil, err
@@ -108,7 +108,7 @@ func (h *HubLocal) GetSchema(_, connectionName string) (*proto.Schema, error) {
 	return res.GetSchema(), nil
 }
 
-func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options, queryTimestamp int64,  sortOrder []*proto.SortColumn, ) (Iterator, error) {
+func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
 	connectionName := opts["connection"]
@@ -120,8 +120,8 @@ func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRe
 	}
 
 	// create a span for this scan
-	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
-	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, sortOrder, scanTraceCtx)
+	scanTraceCtx := l.traceContextForScan(table, columns, limit, qualMap, connectionName)
+	iterator, err := l.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, sortOrder, queryTimestamp, scanTraceCtx)
 
 	if err != nil {
 		log.Printf("[TRACE] RemoteHub GetIterator() failed :( %s", err)
@@ -132,40 +132,40 @@ func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRe
 	return iterator, nil
 }
 
-func (h *HubLocal) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
+func (l *HubLocal) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 	connectionName := opts["connection"]
 
-	connectionSchema, err := h.GetSchema("", connectionName)
+	connectionSchema, err := l.GetSchema("", connectionName)
 	if err != nil {
 		return nil, err
 	}
 
-	return h.getPathKeys(connectionSchema, opts)
+	return l.getPathKeys(connectionSchema, opts)
 
 }
 
-func (h *HubLocal) GetConnectionConfigByName(name string) *proto.ConnectionConfig {
-	return h.connections[name]
+func (l *HubLocal) GetConnectionConfigByName(name string) *proto.ConnectionConfig {
+	return l.connections[name]
 }
 
-func (h *HubLocal) ProcessImportForeignSchemaOptions(opts types.Options, connection string) error {
+func (l *HubLocal) ProcessImportForeignSchemaOptions(opts types.Options, connection string) error {
 	// NOTE: if no connection config is passed, set an empty connection config
 	config, _ := opts["config"]
 
 	// do we already have this connection
-	connectionConfig, ok := h.connections[connection]
+	connectionConfig, ok := l.connections[connection]
 	if ok {
 		// we have already set the config - update it
 		connectionConfig.Config = config
-		return h.UpdateConnectionConfig(connection, config)
+		return l.UpdateConnectionConfig(connection, config)
 	}
 
 	// we have not yet set the config - set it
-	return h.SetConnectionConfig(connection, config)
+	return l.SetConnectionConfig(connection, config)
 }
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator or a legacyScanIterator
-func (h *HubLocal) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, sortOrder []*proto.SortColumn, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
+func (l *HubLocal) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {
 			// close the span in case of errir
@@ -177,13 +177,13 @@ func (h *HubLocal) startScanForConnection(connectionName string, table string, q
 	// if this connection is NOT an aggregator, only execute for the named connection
 
 	//// get connection config
-	//connectionConfig, ok := h.getConnectionconfig(ConnectionName)
+	//connectionConfig, ok := l.getConnectionconfig(ConnectionName)
 	//if !ok {
 	//	return nil, fmt.Errorf("no connection config loaded for connection '%s'", ConnectionName)
 	//}
 
 	// determine whether to pushdown the limit
-	connectionLimitMap, err := h.buildConnectionLimitMap(connectionName, table, qualMap, unhandledRestrictions, limit)
+	connectionLimitMap, err := l.buildConnectionLimitMap(connectionName, table, qualMap, unhandledRestrictions, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -197,12 +197,12 @@ func (h *HubLocal) startScanForConnection(connectionName string, table string, q
 	}
 
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	iterator := newScanIteratorLocal(h, connectionName, table, h.pluginName, connectionLimitMap, qualMap, columns, limit, sortOrder, scanTraceCtx)
+	iterator := newScanIteratorLocal(l, connectionName, table, l.pluginName, connectionLimitMap, qualMap, columns, limit, sortOrder, queryTimestamp, scanTraceCtx)
 	return iterator, nil
 }
 
-func (h *HubLocal) buildConnectionLimitMap(connection, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, limit int64) (map[string]int64, error) {
-	connectionSchema, err := h.GetSchema("", connection)
+func (l *HubLocal) buildConnectionLimitMap(connection, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, limit int64) (map[string]int64, error) {
+	connectionSchema, err := l.GetSchema("", connection)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func (h *HubLocal) buildConnectionLimitMap(connection, table string, qualMap map
 	// check once whether we should push down
 	if limit != -1 && schemaMode == plugin.SchemaModeStatic {
 		log.Printf("[TRACE] static schema - using same limit for all connections")
-		if !h.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
+		if !l.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
 			limit = -1
 		}
 	}
@@ -222,7 +222,7 @@ func (h *HubLocal) buildConnectionLimitMap(connection, table string, qualMap map
 	var connectionLimitMap = make(map[string]int64)
 	connectionLimit := limit
 	// if schema mode is dynamic, check whether we should push down for each connection
-	if schemaMode == plugin.SchemaModeDynamic && !h.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
+	if schemaMode == plugin.SchemaModeDynamic && !l.shouldPushdownLimit(table, qualMap, unhandledRestrictions, connectionSchema) {
 		log.Printf("[INFO] not pushing limit down for connection %s", connection)
 		connectionLimit = -1
 	}
@@ -231,9 +231,9 @@ func (h *HubLocal) buildConnectionLimitMap(connection, table string, qualMap map
 	return connectionLimitMap, nil
 }
 
-func (h *HubLocal) clearConnectionCache(connection string) error {
+func (l *HubLocal) clearConnectionCache(connection string) error {
 
-	_, err := h.plugin.SetConnectionCacheOptions(&proto.SetConnectionCacheOptionsRequest{ClearCacheForConnection: connection})
+	_, err := l.plugin.SetConnectionCacheOptions(&proto.SetConnectionCacheOptionsRequest{ClearCacheForConnection: connection})
 	if err != nil {
 		log.Printf("[WARN] clearConnectionCache failed for connection %s: SetConnectionCacheOptions returned %s", connection, err)
 	}
@@ -241,34 +241,34 @@ func (h *HubLocal) clearConnectionCache(connection string) error {
 	return err
 }
 
-func (h *HubLocal) cacheEnabled(s string) bool {
+func (l *HubLocal) cacheEnabled(s string) bool {
 	// if the caching is disabled for the server, just return false
-	if !h.cacheSettings.ServerCacheEnabled {
+	if !l.cacheSettings.ServerCacheEnabled {
 		return false
 	}
 
-	if h.cacheSettings.ClientCacheEnabled != nil {
-		return *h.cacheSettings.ClientCacheEnabled
+	if l.cacheSettings.ClientCacheEnabled != nil {
+		return *l.cacheSettings.ClientCacheEnabled
 	}
 
 	if envStr, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
 		// set this so that we don't keep looking up the env var
-		h.cacheSettings.SetEnabled(envStr)
-		return h.cacheEnabled(s)
+		l.cacheSettings.SetEnabled(envStr)
+		return l.cacheEnabled(s)
 	}
 	return true
 }
 
-func (h *HubLocal) cacheTTL(s string) time.Duration {
+func (l *HubLocal) cacheTTL(s string) time.Duration {
 	log.Printf("[INFO] cacheTTL 1")
 	// if the cache ttl has been overridden, then enforce the value
-	if h.cacheSettings.Ttl != nil {
-		return *h.cacheSettings.Ttl
+	if l.cacheSettings.Ttl != nil {
+		return *l.cacheSettings.Ttl
 	}
 	if envStr, ok := os.LookupEnv(constants.EnvCacheMaxTTL); ok {
 		// set this so that we don't keep looking up the env var
-		h.cacheSettings.SetTtl(envStr)
-		return h.cacheTTL(s)
+		l.cacheSettings.SetTtl(envStr)
+		return l.cacheTTL(s)
 	}
 	return 10 * time.Hour
 }

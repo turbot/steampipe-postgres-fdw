@@ -40,7 +40,7 @@ type scanIteratorBase struct {
 	callId    string
 }
 
-func newBaseScanIterator(hub Hub, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, traceCtx *telemetry.TraceCtx, queryTimestamp int64, sortOrder []*proto.SortColumn) scanIteratorBase {
+func newBaseScanIterator(hub Hub, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, traceCtx *telemetry.TraceCtx) scanIteratorBase {
 	return scanIteratorBase{
 		status:             QueryStatusReady,
 		rows:               make(chan *proto.Row, rowBufferSize),

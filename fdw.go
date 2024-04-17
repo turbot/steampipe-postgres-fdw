@@ -9,7 +9,6 @@ package main
 #include "nodes/pg_list.h"
 #include "utils/timestamp.h"
 
-static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static Name deserializeDeparsedSortListCell(ListCell *lc);
 
 */
@@ -17,13 +16,13 @@ import "C"
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"io"
 	"log"
 	"time"
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"github.com/turbot/steampipe-postgres-fdw/hub"
@@ -293,8 +292,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	// create a wrapper struct for cinfos
 	cinfos := newConversionInfos(execState)
-	quals,
-	unhandledRestrictions := restrictionsToQuals(node, cinfos)
+	quals, unhandledRestrictions := restrictionsToQuals(node, cinfos)
 
 	// start the plugin hub
 
@@ -308,7 +306,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	if !explain {
 		var sortOrder = getSortColumns(execState)
 		ts := int64(C.GetSQLCurrentTimestamp(0))
-		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), opts, ts, sortOrder)
+		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), sortOrder, ts, opts)
 		if err != nil {
 			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
 			FdwError(err)
@@ -338,9 +336,7 @@ func getSortColumns(state *C.FdwExecState) []*proto.SortColumn {
 			Column: columnName,
 			Order:  requiredOrder,
 		})
-
 	}
-
 	return res
 }
 

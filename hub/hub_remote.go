@@ -90,7 +90,7 @@ func (h *RemoteHub) GetSchema(remoteSchema string, localSchema string) (*proto.S
 }
 
 // GetIterator creates and returns an iterator
-func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, opts types.Options, queryTimestamp int64,  sortOrder []*proto.SortColumn) (Iterator, error) {
+func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
 	connectionName := opts["connection"]
@@ -103,7 +103,7 @@ func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledR
 
 	// create a span for this scan
 	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
-	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, scanTraceCtx, queryTimestamp, sortOrder)
+	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, sortOrder, queryTimestamp, scanTraceCtx)
 
 	if err != nil {
 		log.Printf("[TRACE] RemoteHub GetIterator() failed :( %s", err)
@@ -156,7 +156,7 @@ func (h *RemoteHub) GetPathKeys(opts types.Options) ([]types.PathKey, error) {
 //// internal implementation ////
 
 // startScanForConnection starts a scan for a single connection, using a scanIterator or a legacyScanIterator
-func (h *RemoteHub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, scanTraceCtx *telemetry.TraceCtx, queryTimestamp int64, sortOrder []*proto.SortColumn ) (_ Iterator, err error) {
+func (h *RemoteHub) startScanForConnection(connectionName string, table string, qualMap map[string]*proto.Quals, unhandledRestrictions int, columns []string, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, scanTraceCtx *telemetry.TraceCtx) (_ Iterator, err error) {
 	defer func() {
 		if err != nil {
 			// close the span in case of errir
@@ -205,7 +205,7 @@ func (h *RemoteHub) startScanForConnection(connectionName string, table string, 
 	}
 
 	log.Printf("[TRACE] startScanForConnection creating a new scan iterator")
-	iterator := newScanIterator(h, connectionPlugin, connectionName, table, connectionLimitMap, qualMap, columns, limit, scanTraceCtx, queryTimestamp, sortOrder)
+	iterator := newScanIterator(h, connectionPlugin, connectionName, table, connectionLimitMap, qualMap, columns, limit, sortOrder, queryTimestamp, scanTraceCtx)
 	return iterator, nil
 }
 
@@ -345,7 +345,8 @@ func (h *RemoteHub) getServerCacheEnabled() bool {
 	return res
 }
 
-// GetSortableFields
+// GetSortableFields returns a slice of fields which are defined as sortable bythe plugin schema,
+// as well as the sort order(s) supported
 func (h *RemoteHub) GetSortableFields(tableName, connectionName string) map[string]proto.SortOrder {
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {
@@ -371,6 +372,8 @@ func (h *RemoteHub) GetSortableFields(tableName, connectionName string) map[stri
 		sortableFields[column.Name] = column.SortOrder
 	}
 
-	log.Printf("[WARN] GetSortableFields for connection '%s`, table `%s`: %v", connectionName, tableName, sortableFields)
+	if len(sortableFields) > 0 {
+		log.Printf("[INFO] GetSortableFields for connection '%s`, table `%s`: %v", connectionName, tableName, sortableFields)
+	}
 	return sortableFields
 }

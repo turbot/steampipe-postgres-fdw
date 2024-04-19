@@ -72,7 +72,7 @@ func init() {
 
 //export goLog
 func goLog(msg *C.char) {
-	log.Println("[WARN] " + C.GoString(msg))
+	log.Println("[INFO] " + C.GoString(msg))
 }
 
 // Given a list of FdwDeparsedSortGroup and a FdwPlanState,
@@ -80,7 +80,6 @@ func goLog(msg *C.char) {
 //
 //export goFdwCanSort
 func goFdwCanSort(deparsed *C.List, planstate *C.FdwPlanState) *C.List {
-	log.Println("[WARN] goFdwCanSort deparsed", deparsed)
 	// This will be the list of FdwDeparsedSortGroup items that can be pushed down
 	var pushDownList *C.List = nil
 
@@ -111,7 +110,8 @@ func goFdwCanSort(deparsed *C.List, planstate *C.FdwPlanState) *C.List {
 			// add deparsedSortGroup to pushDownList
 			pushDownList = C.lappend(pushDownList, unsafe.Pointer(deparsedSortGroup))
 		} else {
-			log.Printf("[INFO] goFdwCanSort column %s CANNOT be pushed down", columnName)
+			log.Printf("[INFO] goFdwCanSort column %s CANNOT be pushed down - not pushing down any further columns", columnName)
+			break
 		}
 	}
 
@@ -121,6 +121,9 @@ func goFdwCanSort(deparsed *C.List, planstate *C.FdwPlanState) *C.List {
 func getSortableFields(foreigntableid C.Oid) map[string]proto.SortOrder {
 	opts := GetFTableOptions(types.Oid(foreigntableid))
 	connection := GetSchemaNameFromForeignTableId(types.Oid(foreigntableid))
+	if connection == constants.InternalSchema || connection == constants.LegacyCommandSchema {
+		return nil
+	}
 
 	tableName := opts["table"]
 	pluginHub := hub.GetHub()
@@ -305,6 +308,8 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	// if we are NOT explaining, create an iterator to scan for us
 	if !explain {
 		var sortOrder = getSortColumns(execState)
+		log.Printf("[INFO] goFdwBeginForeignScan, table '%s', sortOrder: %v", opts["table"], sortOrder)
+
 		ts := int64(C.GetSQLCurrentTimestamp(0))
 		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), sortOrder, ts, opts)
 		if err != nil {

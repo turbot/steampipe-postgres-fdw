@@ -680,29 +680,33 @@ deserializeDeparsedSortGroup(List *items)
     FdwDeparsedSortGroup *key =
         palloc0(sizeof(FdwDeparsedSortGroup));
 
-    lc = list_head(lfirst(k));
-    key->attname = (Name)strdup(strVal(lfirst(lc)));
 
-    lc = lnext(items, lc);
-    key->attnum = (int)intVal(lfirst(lc));
+  List *list = lfirst(k);
 
-    lc = lnext(items, lc);
-    key->reversed = (bool)intVal(lfirst(lc));
+  		lc = list_head(lfirst(k));
+  		key->attname = (Name) strdup(strVal(lfirst(lc)));
 
-    lc = lnext(items, lc);
-    key->nulls_first = (bool)intVal(lfirst(lc));
+  		lc = lnext(list, lc);
+  		key->attnum = (int) intVal(lfirst(lc));
 
-    lc = lnext(items, lc);
-    if (lfirst(lc) != NULL)
-      key->collate = (Name)strdup(strVal(lfirst(lc)));
-    else
-      key->collate = NULL;
+  		lc = lnext(list, lc);
+  		key->reversed = (bool) intVal(lfirst(lc));
 
-    lc = lnext(items, lc);
-    key->key = (PathKey *)lfirst(lc);
+  		lc = lnext(list, lc);
+  		key->nulls_first = (bool) intVal(lfirst(lc));
 
-    result = lappend(result, key);
-  }
+  		lc = lnext(list, lc);
+  		if(lfirst(lc) != NULL)
+  			key->collate = (Name) strdup(strVal(lfirst(lc)));
+  		else
+  			key->collate = NULL;
 
-  return result;
+  		lc = lnext(list, lc);
+  		key->key = (PathKey *) lfirst(lc);
+
+  		result = lappend(result, key);
+  	}
+
+  	return result;
+
 }

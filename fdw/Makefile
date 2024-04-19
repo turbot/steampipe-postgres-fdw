@@ -35,10 +35,8 @@ include $(PGXS)
 # Determine the operating system
 OS := $(shell uname)
 
-# Check if the OS is Mac OS/Darwin
-ifeq ($(OS),Darwin)
-  BUILD_TAGS = netgo
-endif
+# Always enable netgo for the build
+BUILD_TAGS = netgo
 
 ifeq ($(shell uname -s),Darwin)
 	export CGO_LDFLAGS = -Wl,-undefined,dynamic_lookup

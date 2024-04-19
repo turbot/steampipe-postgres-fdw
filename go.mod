@@ -197,5 +197,4 @@ replace (
 	github.com/piquette/edgr => github.com/e-gineer/edgr v0.0.2-0.20210901021602-7664639af765
 	github.com/vartanbeno/go-reddit/v2 => github.com/abhiturbot/go-reddit/v2 v2.0.0-20220917030010-f0fe7d8ac15c
 	oras.land/oras-go => oras.land/oras-go v1.1.0
-	github.com/turbot/steampipe => ../steampipe
 )

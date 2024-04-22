@@ -711,8 +711,8 @@ github.com/turbot/pipe-fittings v1.1.1 h1:W1F/O3tWaR2W9HTnFskJS5sLHpZXwOTbhTtDor
 github.com/turbot/pipe-fittings v1.1.1/go.mod h1:Cgy232VEhVjtDibJS8v5Zf4lKQnfZJOBtsuUNZ7MzTc=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20240417105518-bd915693c2ea h1:wb2sAxZ+haYdUSM5wJuYRGPMr0wC2vu1voHyH8CfLHo=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20240417105518-bd915693c2ea/go.mod h1:If2VvE6PYUVhP6HDenst19E//vyniNLCxafj8OHFH5E=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.11.0-alpha.0 h1:lABwRQmtTFgsHxzzeA5PSEmtu3JVqfSo2JBZsQ6NLGw=
-github.com/turbot/steampipe-plugin-sdk/v5 v5.11.0-alpha.0/go.mod h1:a6f869uShOJDiU4p6fHnSGE9xVTJF1ZyCGf6k0CR31Q=
+github.com/turbot/steampipe-plugin-sdk/v5 v5.11.0-alpha.1 h1:TsHa+WNBoeC2C3JzLuzi7E9zpM28E/84K5vlD2ujOOM=
+github.com/turbot/steampipe-plugin-sdk/v5 v5.11.0-alpha.1/go.mod h1:a6f869uShOJDiU4p6fHnSGE9xVTJF1ZyCGf6k0CR31Q=
 github.com/turbot/terraform-components v0.0.0-20231213122222-1f3526cab7a7 h1:qDMxFVd8Zo0rIhnEBdCIbR+T6WgjwkxpFZMN8zZmmjg=
 github.com/turbot/terraform-components v0.0.0-20231213122222-1f3526cab7a7/go.mod h1:5hzpfalEjfcJWp9yq75/EZoEu2Mzm34eJAPm3HOW2tw=
 github.com/ulikunitz/xz v0.5.10 h1:t92gobL9l3HE202wg3rlk19F6X+JOxl9BBrCCMYEYd8=

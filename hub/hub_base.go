@@ -161,8 +161,13 @@ func (h *hubBase) StartScan(i Iterator) error {
 	log.Printf("[INFO] hubBase StartScan")
 
 	// if iterator is not a pluginIterator, do nothing
+	// (i.e. is it an InMemoryIterator
+	// This code should never be called for them anyway as they are initialized to be in a `started` state,
+	// and the scan is started using the function executeCommandScan)
 	iterator, ok := i.(pluginIterator)
 	if !ok {
+		// unexpected
+		log.Printf("[WARN] StartScan called for non-pluginIterator %T", i)
 		return nil
 	}
 

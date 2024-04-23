@@ -193,6 +193,10 @@ func (i *scanIteratorBase) GetQueryTimestamp() int64 {
 	return i.queryTimestamp
 }
 
+func (i *scanIteratorBase) GetScanMetadata() []queryresult.ScanMetadataRow {
+	return nil
+}
+
 func (i *scanIteratorBase) newExecuteRequest() *proto.ExecuteRequest {
 	req := &proto.ExecuteRequest{
 		Table:        i.table,

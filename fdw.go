@@ -70,11 +70,6 @@ func init() {
 
 }
 
-//export goLog
-func goLog(msg *C.char) {
-	log.Println("[INFO] " + C.GoString(msg))
-}
-
 // Given a list of FdwDeparsedSortGroup and a FdwPlanState,
 // construct a list FdwDeparsedSortGroup that can be pushed down
 //

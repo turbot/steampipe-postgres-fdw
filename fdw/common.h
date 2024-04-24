@@ -48,6 +48,7 @@ typedef struct FdwPlanState
   int startupCost;
   ConversionInfo **cinfos;
   List *pathkeys; /* list of FdwDeparsedSortGroup) */
+  bool pushDownAllSortColumns;
   /* For some reason, `baserel->reltarget->width` gets changed
    * outside of our control somewhere between GetForeignPaths and
    * GetForeignPlan, which breaks tests.
@@ -113,7 +114,7 @@ String *colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState *state);
 #else
 Value *colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState *state);
 #endif
-void computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate, List **apply_pathkeys, List **deparsed_pathkeys);
+bool computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate, List **apply_pathkeys, List **deparsed_pathkeys);
 List *findPaths(PlannerInfo *root, RelOptInfo *baserel, List *possiblePaths, int startupCost, FdwPlanState *state, List *apply_pathkeys, List *deparsed_pathkeys);
 List *deparse_sortgroup(PlannerInfo *root, Oid foreigntableid, RelOptInfo *rel);
 List *serializeDeparsedSortGroup(List *pathkeys);

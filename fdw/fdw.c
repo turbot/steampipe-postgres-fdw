@@ -34,8 +34,8 @@ void _PG_init(void)
 {
     // TACTICAL
     // certain postgres errors (`out of shared memory`, `schema already exists`)
-    // sometimes result in a signal 16 being sent from the C code
-    // this causes a crash as the signal handler is not set up correctly for Go (SA_ONSTACK is not set)
+    // sometimes in a signal 16 being sent from the C code
+    // this sometimes causes a crash as the signal handler is not set up correctly for Go (SA_ONSTACK is not set)
     // To avoid this, handle the signal directly and swallow it
 
     struct sigaction sa;

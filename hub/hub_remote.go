@@ -164,7 +164,7 @@ func (h *RemoteHub) startScanForConnection(connectionName string, table string, 
 		}
 	}()
 
-	log.Printf("[TRACE] RemoteHub startScanForConnection '%s'", connectionName)
+	log.Printf("[INFO] RemoteHub startScanForConnection '%s' limit %d", connectionName, limit)
 	// get connection plugin for this connection
 	connectionPlugin, err := h.getConnectionPlugin(connectionName)
 	if err != nil {

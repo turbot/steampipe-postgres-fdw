@@ -39,6 +39,11 @@ typedef struct ConversionInfo
   bool need_quote;
 } ConversionInfo;
 
+typedef struct FdwPathData {
+    List *deparsed_pathkeys;
+    bool canPushdownAllSortFields;
+} FdwPathData;
+
 typedef struct FdwPlanState
 {
   Oid foreigntableid;
@@ -55,6 +60,10 @@ typedef struct FdwPlanState
    * XXX: This is very crude hack to transfer width, calculated by
    * getRelSize to GetForeignPlan.
    */
+  // can all sort fields be pushed down?
+  // this is tru if there are NO sort fields, or if ALL sort fields can be pushed down
+  // this is used by goFdwBeginForeignScan to decide whether to push down the limit
+  bool canPushdownAllSortFields;
   int width;
   // the number of rows to return (limit+offset). -1 means no limit
   int limit;
@@ -76,7 +85,10 @@ typedef struct FdwExecState
   List *pathkeys; /* list of FdwDeparsedSortGroup) */
   // the number of rows to return (limit+offset). -1 means no limit
   int limit;
-
+  // can all sort fields be pushed down?
+  // this is tru if there are NO sort fields, or if ALL sort fields can be pushed down
+  // this is used by goFdwBeginForeignScan to decide whether to push down the limit
+  bool canPushdownAllSortFields;
 } FdwExecState;
 
 typedef struct FdwDeparsedSortGroup
@@ -113,7 +125,7 @@ String *colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState *state);
 #else
 Value *colnameFromVar(Var *var, PlannerInfo *root, FdwPlanState *state);
 #endif
-void computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate, List **apply_pathkeys, List **deparsed_pathkeys);
+bool computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate, List **apply_pathkeys, List **deparsed_pathkeys);
 List *findPaths(PlannerInfo *root, RelOptInfo *baserel, List *possiblePaths, int startupCost, FdwPlanState *state, List *apply_pathkeys, List *deparsed_pathkeys);
 List *deparse_sortgroup(PlannerInfo *root, Oid foreigntableid, RelOptInfo *rel);
 List *serializeDeparsedSortGroup(List *pathkeys);

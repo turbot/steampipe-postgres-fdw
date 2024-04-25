@@ -39,6 +39,11 @@ typedef struct ConversionInfo
   bool need_quote;
 } ConversionInfo;
 
+typedef struct FdwPathData {
+    List *deparsed_pathkeys;
+    bool canPushdownAllSortFields;
+} FdwPathData;
+
 typedef struct FdwPlanState
 {
   Oid foreigntableid;
@@ -48,7 +53,6 @@ typedef struct FdwPlanState
   int startupCost;
   ConversionInfo **cinfos;
   List *pathkeys; /* list of FdwDeparsedSortGroup) */
-  bool pushDownAllSortColumns;
   /* For some reason, `baserel->reltarget->width` gets changed
    * outside of our control somewhere between GetForeignPaths and
    * GetForeignPlan, which breaks tests.
@@ -56,6 +60,8 @@ typedef struct FdwPlanState
    * XXX: This is very crude hack to transfer width, calculated by
    * getRelSize to GetForeignPlan.
    */
+
+  bool canPushdownAllSortFields;
   int width;
   // the number of rows to return (limit+offset). -1 means no limit
   int limit;
@@ -77,7 +83,8 @@ typedef struct FdwExecState
   List *pathkeys; /* list of FdwDeparsedSortGroup) */
   // the number of rows to return (limit+offset). -1 means no limit
   int limit;
-
+  // can all sort fields be pushed down
+  bool canPushdownAllSortFields;
 } FdwExecState;
 
 typedef struct FdwDeparsedSortGroup

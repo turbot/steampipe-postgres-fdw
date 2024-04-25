@@ -61,17 +61,20 @@ static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, Ran
 
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid)
 {
+  FdwPlanState *planstate;
+  ForeignTable *ftable;
+  ListCell *lc;
+  TupleDesc desc;
+  bool needWholeRow = false;
+
   elog(NOTICE, "fdwGetForeignRelSize");
   // initialise logging`
   // to set the log level for fdw logging from C code, set log_min_messages in postgresql.conf
   goInit();
 
-  FdwPlanState *planstate = palloc0(sizeof(FdwPlanState));
-  ForeignTable *ftable = GetForeignTable(foreigntableid);
+  planstate = palloc0(sizeof(FdwPlanState));
+  ftable = GetForeignTable(foreigntableid);
 
-  ListCell *lc;
-  bool needWholeRow = false;
-  TupleDesc desc;
 
   // Save plan state information
   baserel->fdw_private = planstate;
@@ -191,18 +194,40 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
   elog(NOTICE, "fdwGetForeignPaths");
 
   List *paths; /* List of ForeignPath */
-  FdwPlanState *planstate = baserel->fdw_private;
   ListCell *lc;
+  FdwPathData *fdw_private;
+  FdwPlanState *planstate = baserel->fdw_private;
+
   /* These lists are used to handle sort pushdown */
   List *apply_pathkeys = NULL;
-  List *deparsed_pathkeys = NULL;
-  bool canPushdownAllSortFields = true;
+  fdw_private = (FdwPathData *) palloc(sizeof(FdwPathData));
+  fdw_private->deparsed_pathkeys =  NULL;
+  fdw_private->canPushdownAllSortFields = true;
 
   /* Extract a friendly version of the pathkeys. */
   List *possiblePaths = goFdwGetPathKeys(planstate);
 
   /* Try to find parameterized paths */
-  paths = findPaths(root, baserel, possiblePaths, planstate->startupCost, planstate, apply_pathkeys, deparsed_pathkeys);
+  paths = findPaths(root, baserel, possiblePaths, planstate->startupCost, planstate, apply_pathkeys, fdw_private->deparsed_pathkeys);
+
+/* Handle sort pushdown */
+  if (root->query_pathkeys)
+  {
+    List *deparsed;
+
+    elog(NOTICE, "fdwGetForeignPaths - there are query_pathkeys");
+    deparsed = deparse_sortgroup(root, foreigntableid, baserel);
+    if (deparsed)
+    {
+      /* Update the sort_*_pathkeys lists if needed */
+      fdw_private->canPushdownAllSortFields = computeDeparsedSortGroup(deparsed, planstate, &apply_pathkeys, &fdw_private->deparsed_pathkeys);
+      elog(NOTICE, "canPushdownAllSortFields: %d", fdw_private->canPushdownAllSortFields);
+    } else {
+        /* we could not deparse the query_pathkeys so cannot push down - mark canPushdownAllSortFields as false so we do not puch down limit */
+        elog(NOTICE, "fdwGetForeignPaths - there are query_pathkeys but we could not deparse them - mark canPushdownAllSortFields as false ");
+        fdw_private->canPushdownAllSortFields = false;
+    }
+  }
 
   /* Add a simple default path */
   paths = lappend(paths, create_foreignscan_path(
@@ -215,32 +240,24 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
                              NIL,                                                /* no pathkeys */
                              NULL,
                              NULL,
-                             NULL));
+                              (void *)fdw_private));
 
 
-  /* Handle sort pushdown */
-  if (root->query_pathkeys)
-  {
-    List *deparsed = deparse_sortgroup(root, foreigntableid, baserel);
-    if (deparsed)
-    {
-      /* Update the sort_*_pathkeys lists if needed */
-      canPushdownAllSortFields = computeDeparsedSortGroup(deparsed, planstate, &apply_pathkeys, &deparsed_pathkeys);
-      elog(NOTICE, "canPushdownAllSortFields: %d", canPushdownAllSortFields);
-    }
-  }
+
 
 //  baserel->canPushdownAllSortFields = canPushdownAllSortFields;
 
   /* Add each ForeignPath previously found */
   foreach (lc, paths)
   {
+    elog(NOTICE, "ADD PATH");
     ForeignPath *path = (ForeignPath *)lfirst(lc);
     /* Add the path without modification */
     add_path(baserel, (Path *)path);
     /* Add the path with sort pushdown if possible */
-    if (apply_pathkeys && deparsed_pathkeys)
+    if (apply_pathkeys && fdw_private->deparsed_pathkeys)
     {
+      elog(NOTICE, "ADD PATH with pushdown");
       ForeignPath *newpath;
       newpath = create_foreignscan_path(
           root,
@@ -250,11 +267,12 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
           path->path.startup_cost, path->path.total_cost,
           apply_pathkeys, NULL,
           NULL,
-          (void *)deparsed_pathkeys);
+          (void *)fdw_private);
       newpath->path.param_info = path->path.param_info;
       add_path(baserel, (Path *)newpath);
     }
   }
+  elog(NOTICE, "DONE");
 }
 
 /*
@@ -270,12 +288,25 @@ static ForeignScan *fdwGetForeignPlan(
     List *scan_clauses,
     Plan *outer_plan)
 {
+  elog(NOTICE, "fdwGetForeignPlan");
+  FdwPathData *pathdata = NULL;
+
   Index scan_relid = baserel->relid;
   FdwPlanState *planstate = (FdwPlanState *)baserel->fdw_private;
   best_path->path.pathtarget->width = planstate->width;
   scan_clauses = extract_actual_clauses(scan_clauses, false);
 
-  planstate->pathkeys = (List *)best_path->fdw_private;
+  if (best_path->fdw_private != NULL) {
+    pathdata = (FdwPathData *)best_path->fdw_private;
+    planstate->canPushdownAllSortFields = pathdata->canPushdownAllSortFields;
+  }
+  else {
+    // not expected
+    elog(NOTICE, "fdwGetForeignPlan - best_path->fdw_private is NULL - this is unexpected. Defaulting to setting canPushdownAllSortFields to false");
+      planstate->canPushdownAllSortFields = false;
+  }
+  planstate->pathkeys = pathdata->deparsed_pathkeys;
+
   ForeignScan *s = make_foreignscan(
       tlist,
       scan_clauses,
@@ -285,6 +316,7 @@ static ForeignScan *fdwGetForeignPlan(
       NULL,
       NULL, /* All quals are meant to be rechecked */
       NULL);
+  elog(NOTICE, "fdwGetForeignPlan DONE");
   return s;
 }
 
@@ -295,10 +327,20 @@ static ForeignScan *fdwGetForeignPlan(
 void *serializePlanState(FdwPlanState *state)
 {
   List *result = NULL;
+  // Serialize the number of attributes
   result = lappend(result, makeConst(INT4OID, -1, InvalidOid, 4, Int32GetDatum(state->numattrs), false, true));
+
+  // Serialize the target list
   result = lappend(result, state->target_list);
+
+  // Serialize the deparsed sort groups
   result = lappend(result, serializeDeparsedSortGroup(state->pathkeys));
+
+  // Serialize the limit
   result = lappend(result, makeConst(INT4OID, -1, InvalidOid, 4, Int32GetDatum(state->limit), false, true));
+
+  // Serialize the canPushdownAllSortFields boolean field
+  result = lappend(result, makeConst(BOOLOID, -1, InvalidOid, 1, BoolGetDatum(state->canPushdownAllSortFields), false, true));
 
   return result;
 }
@@ -311,16 +353,19 @@ FdwExecState *initializeExecState(void *internalstate)
 {
   FdwExecState *execstate = palloc0(sizeof(FdwExecState));
   // internalstate is actually a list generated by serializePlanState consisting of:
-  //  numattrs, target_list, pathkeys, limit
+  //  numattrs, target_list, pathkeys, limit, canPushdownAllSortFields
   List *values = (List *)internalstate;
   AttrNumber numattrs = ((Const *)linitial(values))->constvalue;
   List *pathkeys;
   int limit;
+  bool canPushdownAllSortFields;
   /* Those list must be copied, because their memory context can become */
   /* invalid during the execution (in particular with the cursor interface) */
   execstate->target_list = copyObject(lsecond(values));
   pathkeys = lthird(values);
   limit = ((Const *)lfourth(values))->constvalue;
+  limit = ((Const *)lfourth(values))->constvalue;
+  canPushdownAllSortFields = ((Const *)lfirst(list_tail(values)))->constvalue;
 
   execstate->pathkeys = deserializeDeparsedSortGroup(pathkeys);
   execstate->buffer = makeStringInfo();
@@ -329,6 +374,7 @@ FdwExecState *initializeExecState(void *internalstate)
   execstate->values = palloc(numattrs * sizeof(Datum));
   execstate->nulls = palloc(numattrs * sizeof(bool));
   execstate->limit = limit;
+  execstate->canPushdownAllSortFields = canPushdownAllSortFields;
   return execstate;
 }
 

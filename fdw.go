@@ -279,6 +279,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	var execState *C.FdwExecState = C.initializeExecState(unsafe.Pointer(plan.fdw_private))
 
+	log.Printf("[INFO] goFdwBeginForeignScan, canPushdownAllSortFields %v", execState.canPushdownAllSortFields)
 	var columns []string
 	if execState.target_list != nil {
 		columns = CStringListToGoArray(execState.target_list)
@@ -304,9 +305,17 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	if !explain {
 		var sortOrder = getSortColumns(execState)
 		log.Printf("[INFO] goFdwBeginForeignScan, table '%s', sortOrder: %v", opts["table"], sortOrder)
+		// get the limit
+		limit := int64(execState.limit)
+		// if we cannot push down all sort fields, do not push down limit
+		if !execState.canPushdownAllSortFields {
+			log.Printf("[INFO] goFdwBeginForeignScan, table '%s', cannot push down all sort fields, setting limit to -1", opts["table"])
+			limit = -1
+		}
 
+		log.Printf("[INFO] goFdwBeginForeignScan, table '%s', quals: %v, unhandledRestrictions: %v, limit: %d, sortOrder: %v", opts["table"], quals, unhandledRestrictions, limit, sortOrder)
 		ts := int64(C.GetSQLCurrentTimestamp(0))
-		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, int64(execState.limit), sortOrder, ts, opts)
+		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, limit, sortOrder, ts, opts)
 		if err != nil {
 			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
 			FdwError(err)

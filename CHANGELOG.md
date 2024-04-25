@@ -1,11 +1,18 @@
 ## v1.11.0  [tbd]
-* Update Steampipe timing output to show all scans for all connections. 
+_Whats new_
 * Add support for pushing down sort order. ([#447](https://github.com/turbot/steampipe-postgres-fdw/issues/447))
+* Update limit pushdown logic to push down the limit if all sort clauses are pushed down. ([#458](https://github.com/turbot/steampipe-postgres-fdw/issues/458))
+* Update Steampipe timing output to show all scans for all connections. ([#439](https://github.com/turbot/steampipe-postgres-fdw/issues/439))
+* Add support for WHERE column=val1 OR column=val2 OR column=val3...  ([#440](https://github.com/turbot/steampipe-postgres-fdw/issues/440))
 * Add support for running plugins in-process. ([#383](https://github.com/turbot/steampipe-postgres-fdw/issues/383))
 * Fixes issue where the install script fails if pg_config in not in users path. ([#404](https://github.com/turbot/steampipe-postgres-fdw/issues/404))
+* Always build with netgo to fix runtime error `undefined symbol: __res_search` when building on ubuntu20. ([#450](https://github.com/turbot/steampipe-postgres-fdw/issues/450))
+
+* _Bug fixes_
+* Add signal handler for signal 16 to avoid FDW crash. ([#457](https://github.com/turbot/steampipe-postgres-fdw/issues/457))
 
 ## v1.10.0 [2024-03-04]
-_Whats new_
+  _Whats new_
 * If `STEAMPIPE_FDW_PARALLEL_SAFE` env var is set is set, mark FDW as PARALLEL SAFE to improve performance. ([#428](https://github.com/turbot/steampipe-postgres-fdw/issues/428))
 
 ## v1.9.3 [2024-02-09]

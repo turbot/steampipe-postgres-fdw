@@ -15,8 +15,8 @@ env:
 
 jobs:
   build-osx:
-    name: Build for Darwin
-    runs-on: macos-latest
+    name: Build for Darwin x86_64
+    runs-on: macos-13
     steps:
     - name: Install PostgreSQL@14
       run: brew install --force postgresql@14
@@ -135,7 +135,7 @@ jobs:
 
   build-osx-arm:
     name: Build for Darwin ARM64
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
     - name: Install PostgreSQL@14
       run: brew install --force postgresql@14

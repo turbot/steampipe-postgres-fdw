@@ -67,7 +67,6 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
   TupleDesc desc;
   bool needWholeRow = false;
 
-  elog(NOTICE, "fdwGetForeignRelSize");
   // initialise logging`
   // to set the log level for fdw logging from C code, set log_min_messages in postgresql.conf
   goInit();
@@ -128,8 +127,6 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
   // Deduce the limit, if one was specified
   planstate->limit = deparseLimit(root);
 
-  elog(NOTICE, "fdwGetForeignPaths limit: %d", planstate->limit );
-
   // Inject the "rows" and "width" attribute into the baserel
   goFdwGetRelSize(planstate, root, &baserel->rows, &baserel->reltarget->width, baserel);
 
@@ -147,16 +144,14 @@ static int deparseLimit(PlannerInfo *root)
   /* don't push down LIMIT if the query has a GROUP BY, DISTINCT, ORDER BY clause or aggregates
      or if the query refers to more than 1 table */
   if (root->parse->groupClause != NULL ||
+// NOTE: do not take sort clause into account here. Instead, we determ,ine in the planning phase
+// whether we can push down all sort fields and if so, we can safely push down the limit
 //      root->parse->sortClause != NULL ||
       root->parse->distinctClause != NULL ||
       root->parse->hasAggs ||
       root->parse->hasDistinctOn ||
       bms_num_members(root->all_baserels) != 1)
     return -1;
-
-  // if there is a sort clause, we only push down limit if we can push down all sort clauses
-//  if root->parse->sortClause != NULL {
-//  }
 
   /* only push down constant LIMITs that are not NULL */
   if (root->parse->limitCount != NULL && IsA(root->parse->limitCount, Const))
@@ -191,8 +186,6 @@ static int deparseLimit(PlannerInfo *root)
  */
 static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid)
 {
-  elog(NOTICE, "fdwGetForeignPaths");
-
   List *paths; /* List of ForeignPath */
   ListCell *lc;
   FdwPathData *fdw_private;
@@ -202,6 +195,7 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
   List *apply_pathkeys = NULL;
   fdw_private = (FdwPathData *) palloc(sizeof(FdwPathData));
   fdw_private->deparsed_pathkeys =  NULL;
+  // default canPushdownAllSortFields to true - this will be set to false
   fdw_private->canPushdownAllSortFields = true;
 
   /* Extract a friendly version of the pathkeys. */
@@ -210,21 +204,21 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
   /* Try to find parameterized paths */
   paths = findPaths(root, baserel, possiblePaths, planstate->startupCost, planstate, apply_pathkeys, fdw_private->deparsed_pathkeys);
 
-/* Handle sort pushdown */
+  /* Handle sort pushdown */
   if (root->query_pathkeys)
   {
     List *deparsed;
 
-    elog(NOTICE, "fdwGetForeignPaths - there are query_pathkeys");
+    elog(INFO, "fdwGetForeignPaths - there are query_pathkeys");
     deparsed = deparse_sortgroup(root, foreigntableid, baserel);
     if (deparsed)
     {
       /* Update the sort_*_pathkeys lists if needed */
       fdw_private->canPushdownAllSortFields = computeDeparsedSortGroup(deparsed, planstate, &apply_pathkeys, &fdw_private->deparsed_pathkeys);
-      elog(NOTICE, "canPushdownAllSortFields: %d", fdw_private->canPushdownAllSortFields);
+      elog(INFO, "canPushdownAllSortFields: %d", fdw_private->canPushdownAllSortFields);
     } else {
         /* we could not deparse the query_pathkeys so cannot push down - mark canPushdownAllSortFields as false so we do not puch down limit */
-        elog(NOTICE, "fdwGetForeignPaths - there are query_pathkeys but we could not deparse them - mark canPushdownAllSortFields as false ");
+        elog(INFO, "fdwGetForeignPaths - there are query_pathkeys but we could not deparse them - mark canPushdownAllSortFields as false ");
         fdw_private->canPushdownAllSortFields = false;
     }
   }
@@ -250,14 +244,12 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
   /* Add each ForeignPath previously found */
   foreach (lc, paths)
   {
-    elog(NOTICE, "ADD PATH");
     ForeignPath *path = (ForeignPath *)lfirst(lc);
     /* Add the path without modification */
     add_path(baserel, (Path *)path);
     /* Add the path with sort pushdown if possible */
     if (apply_pathkeys && fdw_private->deparsed_pathkeys)
     {
-      elog(NOTICE, "ADD PATH with pushdown");
       ForeignPath *newpath;
       newpath = create_foreignscan_path(
           root,
@@ -272,7 +264,6 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
       add_path(baserel, (Path *)newpath);
     }
   }
-  elog(NOTICE, "DONE");
 }
 
 /*
@@ -288,7 +279,6 @@ static ForeignScan *fdwGetForeignPlan(
     List *scan_clauses,
     Plan *outer_plan)
 {
-  elog(NOTICE, "fdwGetForeignPlan");
   FdwPathData *pathdata = NULL;
 
   Index scan_relid = baserel->relid;
@@ -316,7 +306,6 @@ static ForeignScan *fdwGetForeignPlan(
       NULL,
       NULL, /* All quals are meant to be rechecked */
       NULL);
-  elog(NOTICE, "fdwGetForeignPlan DONE");
   return s;
 }
 

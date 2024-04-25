@@ -395,6 +395,7 @@ clausesInvolvingAttr(Index relid, AttrNumber attnum,
  * Given a list of FdwDeparsedSortGroup and a FdwPlanState,
  * construct a list of PathKey and FdwDeparsedSortGroup that belongs to
  * the FDW and that the FDW say it can enforce.
+ * returns whether ALL sort fields can be pushed down
  */
 bool computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate,
                               List **apply_pathkeys,
@@ -417,7 +418,7 @@ bool computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate,
    int numSortableFields = list_length(deparsed);
   bool canPushdownAllSortFields = numSortFields == numSortableFields;
 
-  elog(NOTICE, "computeDeparsedSortGroup: numSortFields %d, numSortableFields %d, canPushdownAllSortFields %d", numSortFields, numSortableFields, canPushdownAllSortFields);
+  elog(INFO, "computeDeparsedSortGroup: numSortFields %d, numSortableFields %d, canPushdownAllSortFields %d", numSortFields, numSortableFields, canPushdownAllSortFields);
 
   /* Don't go further if FDW can't enforce any sort */
   if (sortable_fields == NIL)

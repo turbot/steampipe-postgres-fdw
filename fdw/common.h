@@ -60,7 +60,9 @@ typedef struct FdwPlanState
    * XXX: This is very crude hack to transfer width, calculated by
    * getRelSize to GetForeignPlan.
    */
-
+  // can all sort fields be pushed down?
+  // this is tru if there are NO sort fields, or if ALL sort fields can be pushed down
+  // this is used by goFdwBeginForeignScan to decide whether to push down the limit
   bool canPushdownAllSortFields;
   int width;
   // the number of rows to return (limit+offset). -1 means no limit
@@ -83,7 +85,9 @@ typedef struct FdwExecState
   List *pathkeys; /* list of FdwDeparsedSortGroup) */
   // the number of rows to return (limit+offset). -1 means no limit
   int limit;
-  // can all sort fields be pushed down
+  // can all sort fields be pushed down?
+  // this is tru if there are NO sort fields, or if ALL sort fields can be pushed down
+  // this is used by goFdwBeginForeignScan to decide whether to push down the limit
   bool canPushdownAllSortFields;
 } FdwExecState;
 

@@ -177,14 +177,19 @@ static int deparseLimit(PlannerInfo *root)
   /* don't push down LIMIT if the query has a GROUP BY, DISTINCT, ORDER BY clause or aggregates
      or if the query refers to more than 1 table */
   if (root->parse->groupClause != NULL ||
-// NOTE: do not take sort clause into account here. Instead, we determ,ine in the planning phase
-// whether we can push down all sort fields and if so, we can safely push down the limit
-//      root->parse->sortClause != NULL ||
+  // NOTE: do not take sort clause into account here. Instead, we determ,ine in the planning phase
+  // whether we can push down all sort fields and if so, we can safely push down the limit
+  //  root->parse->sortClause != NULL ||
       root->parse->distinctClause != NULL ||
       root->parse->hasAggs ||
       root->parse->hasDistinctOn ||
       bms_num_members(root->all_baserels) != 1)
     return -1;
+
+  if (root->parse->sortClause != NULL) {
+    elog(NOTICE, "deparseLimit - there are sortClause");
+  }
+
 
   /* only push down constant LIMITs that are not NULL */
   if (root->parse->limitCount != NULL && IsA(root->parse->limitCount, Const))
@@ -242,17 +247,17 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
   {
     List *deparsed;
 
-    elog(INFO, "fdwGetForeignPaths - there are query_pathkeys");
+    elog(NOTICE, "fdwGetForeignPaths - there are query_pathkeys");
     deparsed = deparse_sortgroup(root, foreigntableid, baserel);
     if (deparsed)
     {
       /* Update the sort_*_pathkeys lists if needed */
       fdw_private->canPushdownAllSortFields = computeDeparsedSortGroup(deparsed, planstate, &apply_pathkeys, &fdw_private->deparsed_pathkeys);
-      elog(INFO, "canPushdownAllSortFields: %d", fdw_private->canPushdownAllSortFields);
+      elog(NOTICE, "computeDeparsedSortGroup returned canPushdownAllSortFields: %d", fdw_private->canPushdownAllSortFields);
     } else {
-        /* we could not deparse the query_pathkeys so cannot push down - mark canPushdownAllSortFields as false so we do not puch down limit */
-        elog(INFO, "fdwGetForeignPaths - there are query_pathkeys but we could not deparse them - mark canPushdownAllSortFields as false ");
-        fdw_private->canPushdownAllSortFields = false;
+        /* deparse_sortgroup failed returns empty list if no pathkeys for the PlannerInfo */
+        elog(NOTICE, "fdwGetForeignPaths - deparse_sortgroup returned nothing - no sort groupos to pushdown - mark canPushdownAllSortFields as true");
+        fdw_private->canPushdownAllSortFields = true;
     }
   }
 
@@ -268,11 +273,6 @@ static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid forei
                              NULL,
                              NULL,
                               (void *)fdw_private));
-
-
-
-
-//  baserel->canPushdownAllSortFields = canPushdownAllSortFields;
 
   /* Add each ForeignPath previously found */
   foreach (lc, paths)
@@ -322,13 +322,13 @@ static ForeignScan *fdwGetForeignPlan(
   if (best_path->fdw_private != NULL) {
     pathdata = (FdwPathData *)best_path->fdw_private;
     planstate->canPushdownAllSortFields = pathdata->canPushdownAllSortFields;
+    planstate->pathkeys = pathdata->deparsed_pathkeys;
   }
   else {
-    // not expected
-    elog(NOTICE, "fdwGetForeignPlan - best_path->fdw_private is NULL - this is unexpected. Defaulting to setting canPushdownAllSortFields to false");
-      planstate->canPushdownAllSortFields = false;
+    elog(NOTICE, "fdwGetForeignPlan - best_path->fdw_private is NULL. Defaulting to setting canPushdownAllSortFields to true");
+    planstate->canPushdownAllSortFields = true;
+    planstate->pathkeys = NULL;
   }
-  planstate->pathkeys = pathdata->deparsed_pathkeys;
 
   ForeignScan *s = make_foreignscan(
       tlist,

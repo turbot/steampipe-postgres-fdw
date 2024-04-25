@@ -20,6 +20,11 @@ FdwExecState *initializeExecState(void *internalstate);
 // such as being compiled against the correct major version.
 PG_MODULE_MAGIC;
 
+// Define the handler function for signal 16
+void signal_handler(int sig) {
+//    elog(NOTICE, "Caught signal %d", sig);
+}
+
 /*
  * _PG_init
  * 		Library load-time initalization.
@@ -27,9 +32,37 @@ PG_MODULE_MAGIC;
  */
 void _PG_init(void)
 {
+    // TACTICAL
+    // certain postgres errors (`out of shared memory`, `schema already exists`)
+    // sometimes in a signal 16 being sent from the C code
+    // this sometimes causes a crash as the signal handler is not set up correctly for Go (SA_ONSTACK is not set)
+    // To avoid this, handle the signal directly and swallow it
+
+    struct sigaction sa;
+
+    // Clear the sigaction structure
+    memset(&sa, 0, sizeof(sa));
+
+    // Set the pointer to the handler function
+    sa.sa_handler = signal_handler;
+
+    // Set the SA_ONSTACK flag to ensure the handler runs on a separate stack
+    sa.sa_flags = SA_ONSTACK;
+
+    // Block other signals while handling
+    sigfillset(&sa.sa_mask);
+
+    // Register the signal handler for signal 16
+    if (sigaction(16, &sa, NULL) == -1) {
+        perror("Failed to set signal handler");
+        exit(EXIT_FAILURE);
+    }
+
+
   /* register an exit hook */
   on_proc_exit(&exitHook, PointerGetDatum(NULL));
   RegisterXactCallback(pgfdw_xact_callback, NULL);
+
 }
 
 /*

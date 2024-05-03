@@ -1,4 +1,4 @@
-## v1.11.0  [tbd]
+## v1.11.0  [2024-04-03]
 _Whats new_
 * Add support for pushing down sort order. ([#447](https://github.com/turbot/steampipe-postgres-fdw/issues/447))
 * Update limit pushdown logic to push down the limit if all sort clauses are pushed down. ([#458](https://github.com/turbot/steampipe-postgres-fdw/issues/458))

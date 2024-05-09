@@ -10,26 +10,37 @@ install: build
 	if test -d ~/.steampipe/db/14.2.0; then \
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw--1.0.sql $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/share/postgresql/extension/; \
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.control $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/share/postgresql/extension/; \
-	fi
-
-	if test -f ./build-$(PLATFORM)/steampipe_postgres_fdw.so; then \
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.so $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/lib/postgresql/; \
-	fi
-	if test -f ./build-$(PLATFORM)/steampipe_postgres_fdw.dylib; then \
-		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.dylib $(STEAMPIPE_INSTALL_DIR)/db/14.2.0/postgres/lib/postgresql/; \
 	fi
 
 # build standalone 
 standalone: validate_plugin prebuild.go
 	@echo "Building standalone FDW for plugin: $(plugin)"
-	go run generate/generator.go templates . $(plugin) $(plugin_github_url)
-	go mod tidy
-	$(MAKE) -C ./fdw clean
-	$(MAKE) -C ./fdw go
-	$(MAKE) -C ./fdw
+
+	# Remove existing work dir and create a new directory for the render process
+	rm -rf work && \
+	mkdir -p work
+
+	# Copy the entire source tree, excluding .git directory, into the new directory
+	rsync -a --exclude='.git' . work/ >/dev/null 2>&1
+
+	# Change to the new directory to perform operations
+	cd work && \
+	go run generate/generator.go templates . $(plugin) $(plugin_github_url) && \
+	go mod tidy && \
+	$(MAKE) -C ./fdw clean && \
+	$(MAKE) -C ./fdw go && \
+	$(MAKE) -C ./fdw && \
 	$(MAKE) -C ./fdw standalone
-	
-	rm -f prebuild.go
+
+	# Delete existing build-${PLATFORM} and copy the binaries to the actual 
+	# build-${PLATFORM} folder
+	rm -rf build-${PLATFORM} && \
+	mkdir -p build-${PLATFORM} && \
+	cp -a work/build-${PLATFORM}/* build-${PLATFORM}/
+
+	# Note: The work directory will contain the full code tree with changes, 
+	# binaries will be copied to build-${PLATFORM} folder
 
 # render target
 render: validate_plugin prebuild.go
@@ -113,4 +124,3 @@ clean:
 # Usage: make release input="v1.7.2"
 release:
 	./scripts/upload_arm_asset.sh $(input)
-

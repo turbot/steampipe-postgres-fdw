@@ -28,8 +28,8 @@ go version
 exit_if_failed
 echo ""
 
-echo "Checkout to cloned fdw anywhere repo"
-cd steampipe-postgres-fdw-anywhere
+echo "Checkout to cloned fdw repo"
+cd steampipe-postgres-fdw
 pwd
 echo ""
 
@@ -43,10 +43,10 @@ git restore .
 exit_if_failed
 echo ""
 
-# echo "git fetch"
-# git fetch
-# exit_if_failed
-# echo ""
+echo "git fetch"
+git fetch
+exit_if_failed
+echo ""
 
 echo "git pull origin main"
 git checkout main
@@ -58,6 +58,7 @@ echo "git checkout <tag>"
 input=$1
 echo $input
 git checkout $input
+exit_if_failed
 git branch --list
 exit_if_failed
 echo ""

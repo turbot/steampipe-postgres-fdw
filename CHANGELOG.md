@@ -1,3 +1,7 @@
+## v1.11.1  [2024-05-11]
+_Bug fixes_
+* Republish to fix bad Linux Arm build.
+
 ## v1.11.0  [2024-04-03]
 _Whats new_
 * Add support for pushing down sort order. ([#447](https://github.com/turbot/steampipe-postgres-fdw/issues/447))

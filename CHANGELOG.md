@@ -1,6 +1,6 @@
 ## v1.11.2  [2024-05-17]
 _Bug fixes_
-* Removed unnecessary NOTICE level elogs. ([#469](https://github.com/turbot/steampipe-postgres-fdw/issues/469))
+* Removed unnecessary NOTICE level log messages. ([#469](https://github.com/turbot/steampipe-postgres-fdw/issues/469))
 
 ## v1.11.1  [2024-05-11]
 _Bug fixes_

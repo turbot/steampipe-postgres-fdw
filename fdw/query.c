@@ -418,8 +418,6 @@ bool computeDeparsedSortGroup(List *deparsed, FdwPlanState *planstate,
    int numSortableFields = list_length(deparsed);
   bool canPushdownAllSortFields = numSortFields == numSortableFields;
 
-  elog(NOTICE, "computeDeparsedSortGroup: numSortFields %d, numSortableFields %d, canPushdownAllSortFields %d", numSortFields, numSortableFields, canPushdownAllSortFields);
-
   /* Don't go further if FDW can't enforce any sort */
   if (sortable_fields == NIL)
     return false;

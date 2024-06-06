@@ -601,7 +601,6 @@ github.com/opencontainers/image-spec v1.1.0 h1:8SG7/vwALn54lVB/0yZ/MMwhFrPYtpEHQ
 github.com/opencontainers/image-spec v1.1.0/go.mod h1:W4s4sFTMaBeK1BQLXbG4AdM2szdn85PY75RI83NrTrM=
 github.com/otiai10/copy v1.14.0 h1:dCI/t1iTdYGtkvCuBG2BgR6KZa83PTclw4U5n2wAllU=
 github.com/otiai10/copy v1.14.0/go.mod h1:ECfuL02W+/FkTWZWgQqXPWZgW9oeKCSQ5qVfSc4qc4w=
-github.com/pdecat/steampipe v1.7.0-rc.0.0.20240408150325-0a5b8a092829/go.mod h1:4Brq9Lag9WFfzzDBxBilqsvu088zdcVpAO6EALl7D8M=
 github.com/pelletier/go-toml/v2 v2.2.2 h1:aYUidT7k73Pcl9nb2gScu7NSrKCSHIDE89b3+6Wq+LM=
 github.com/pelletier/go-toml/v2 v2.2.2/go.mod h1:1t835xjRzz80PqgE6HHgN2JOsmgYu/h4qDAS4n929Rs=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
@@ -710,6 +709,7 @@ github.com/turbot/go-kit v0.10.0-rc.0 h1:kd+jp2ibbIV33Hc8SsMAN410Dl9Pz6SJ40axbKU
 github.com/turbot/go-kit v0.10.0-rc.0/go.mod h1:fFQqR59I5z5JeeBLfK1PjSifn4Oprs3NiQx0CxeSJxs=
 github.com/turbot/pipe-fittings v1.2.0 h1:7JcSlmguYZvma+sjVCf74Nyv+oZcV++eGnVOQLzDSyU=
 github.com/turbot/pipe-fittings v1.2.0/go.mod h1:6q41X0QF4c2QjaORTvJEqXjTbp0Wp+Dx8cVLNXJQT60=
+github.com/turbot/steampipe v1.7.0-rc.0.0.20240417105518-bd915693c2ea h1:wb2sAxZ+haYdUSM5wJuYRGPMr0wC2vu1voHyH8CfLHo=
 github.com/turbot/steampipe v1.7.0-rc.0.0.20240417105518-bd915693c2ea/go.mod h1:If2VvE6PYUVhP6HDenst19E//vyniNLCxafj8OHFH5E=
 github.com/turbot/steampipe-plugin-sdk/v5 v5.11.0-alpha.1 h1:TsHa+WNBoeC2C3JzLuzi7E9zpM28E/84K5vlD2ujOOM=
 github.com/turbot/steampipe-plugin-sdk/v5 v5.11.0-alpha.1/go.mod h1:a6f869uShOJDiU4p6fHnSGE9xVTJF1ZyCGf6k0CR31Q=

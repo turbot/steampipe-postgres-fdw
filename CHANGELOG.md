@@ -1,3 +1,11 @@
+## v1.11.3  [2024-06-06]
+_Bug fixes_
+* Update CreateConnectionPlugins to do not abort when unrelated connections are not yet loaded. ([#474](https://github.com/turbot/steampipe-postgres-fdw/issues/474))
+
+* ## v1.11.2  [2024-05-17]
+_Bug fixes_
+* Removed unnecessary NOTICE level log messages. ([#469](https://github.com/turbot/steampipe-postgres-fdw/issues/469))
+
 ## v1.11.2  [2024-05-17]
 _Bug fixes_
 * Removed unnecessary NOTICE level log messages. ([#469](https://github.com/turbot/steampipe-postgres-fdw/issues/469))

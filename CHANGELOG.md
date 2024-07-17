@@ -1,3 +1,7 @@
+## v1.11.4 [2024-07-17]
+_Bug fixes_
+* Fixed the steampipe commit reference for the issue fixed in v1.11.3.
+
 ## v1.11.3  [2024-06-06]
 _Bug fixes_
 * Update CreateConnectionPlugins to do not abort when unrelated connections are not yet loaded. ([#474](https://github.com/turbot/steampipe-postgres-fdw/issues/474))

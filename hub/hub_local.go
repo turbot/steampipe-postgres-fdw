@@ -155,6 +155,7 @@ func (l *HubLocal) ProcessImportForeignSchemaOptions(opts types.Options, connect
 	// do we already have this connection
 	connectionConfig, ok := l.connections[connection]
 	if ok {
+		log.Println("[INFO] connection already exists, updating ")
 		// we have already set the config - update it
 		connectionConfig.Config = config
 		return l.UpdateConnectionConfig(connection, config)

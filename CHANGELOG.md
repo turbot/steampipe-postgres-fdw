@@ -1,3 +1,7 @@
+## v1.11.5 [2024-08-02]
+_Bug fixes_
+* Fix caching in the standalone plugin FDW extensions. ([#480](https://github.com/turbot/steampipe-postgres-fdw/issues/480))
+
 ## v1.11.4 [2024-07-17]
 _Bug fixes_
 * Fixed the steampipe commit reference for the issue fixed in v1.11.3.

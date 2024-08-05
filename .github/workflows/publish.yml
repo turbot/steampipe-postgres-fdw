@@ -87,6 +87,7 @@ jobs:
           echo $JSON_STRING > annotations.json
           cat annotations.json
 
+      # Push to GHCR
       - name: Push to registry
         run: |-
           REF="$CORE_REPO/$IMAGE_NAME:$VERSION"

@@ -1,3 +1,7 @@
+## v1.11.6 [2024-08-13]
+_Whats new_
+* Compiled with Go 1.22. ([#485](https://github.com/turbot/steampipe-postgres-fdw/issues/485))
+
 ## v1.11.5 [2024-08-02]
 _Bug fixes_
 * Fix caching in the standalone plugin FDW extensions. ([#480](https://github.com/turbot/steampipe-postgres-fdw/issues/480))

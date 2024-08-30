@@ -1,3 +1,7 @@
+## v1.11.7 [2024-08-30]
+_Whats new_
+* Update steampipe commit reference to include new HCL config to make plugin startup timeout configurable. ([#499](https://github.com/turbot/steampipe-postgres-fdw/issues/499))
+
 ## v1.11.6 [2024-08-13]
 _Whats new_
 * Compiled with Go 1.22. ([#485](https://github.com/turbot/steampipe-postgres-fdw/issues/485))

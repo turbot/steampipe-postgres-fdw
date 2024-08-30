@@ -8,8 +8,8 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/turbot/go-kit v0.10.0-rc.0
-	//v0.23.x 99d3e09e3c0b (fix: do not abort when unrelated connections are not yet loaded)
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20240717120241-99d3e09e3c0b
+	//draft a52927b9e706e6ac3c10ba63b1d81048c9dd9d11 (make plugin timeout configurable)
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20240830105832-a52927b9e706
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.11.0-alpha.1
 	go.opentelemetry.io/otel v1.26.0
 	google.golang.org/protobuf v1.34.1
@@ -50,7 +50,7 @@ require (
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/hashicorp/terraform-registry-address v0.2.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jackc/pgx/v5 v5.5.5 // indirect
+	github.com/jackc/pgx/v5 v5.6.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/karrick/gows v0.3.0 // indirect
@@ -63,7 +63,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/cobra v1.8.0 // indirect
 	github.com/thediveo/enumflag/v2 v2.0.5 // indirect
-	github.com/turbot/pipe-fittings v1.2.0 // indirect
+	github.com/turbot/pipe-fittings v1.5.2 // indirect
 	github.com/turbot/terraform-components v0.0.0-20231213122222-1f3526cab7a7 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
@@ -175,9 +175,9 @@ require (
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
+	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/text v0.17.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
 	google.golang.org/grpc v1.64.1 // indirect

@@ -138,6 +138,7 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 	log.Println("[TRACE] connection name:", connName)
 
+	// here we are loading the server options(again) so that they are not lost after the session is restarted
 	serverOpts := GetForeignServerOptionsFromFTableId(types.Oid(state.foreigntableid))
 	err := pluginHub.ProcessImportForeignSchemaOptions(serverOpts, connName)
 	if err != nil {

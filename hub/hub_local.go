@@ -68,6 +68,14 @@ func (l *HubLocal) SetConnectionConfig(connectionName, configString string) erro
 
 func (l *HubLocal) UpdateConnectionConfig(connectionName, configString string) error {
 	log.Printf("[INFO] HubLocal UpdateConnectionConfig: connection: %s, config: %s", connectionName, configString)
+
+	// if the connection already exists and the config is the same, do nothing
+	// this situation could arise when a session is restarted, the server options are loaded again, and
+	// the connection config is set again which results in the cache getting cleared
+	if conn, ok := l.connections[connectionName]; ok && conn.Config == configString {
+		return nil
+	}
+
 	l.connections[connectionName] =
 		&proto.ConnectionConfig{
 			Connection:      connectionName,

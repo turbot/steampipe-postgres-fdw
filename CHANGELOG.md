@@ -1,3 +1,7 @@
+## v1.11.8 [2024-09-05]
+_Bug fixes_
+* Fix issue where credentials from import foreign schema were lost after restarting session. ([#504](https://github.com/turbot/steampipe-postgres-fdw/issues/504))
+
 ## v1.11.7 [2024-08-30]
 _Whats new_
 * Update steampipe commit reference to include new HCL config to make plugin startup timeout configurable. ([#499](https://github.com/turbot/steampipe-postgres-fdw/issues/499))

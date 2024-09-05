@@ -133,9 +133,21 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 	pluginHub := hub.GetHub()
 
+	// get connection name
+	connName := GetSchemaNameFromForeignTableId(types.Oid(state.foreigntableid))
+
+	log.Println("[TRACE] connection name:", connName)
+
+	// here we are loading the server options(again) so that they are not lost after the session is restarted
+	serverOpts := GetForeignServerOptionsFromFTableId(types.Oid(state.foreigntableid))
+	err := pluginHub.ProcessImportForeignSchemaOptions(serverOpts, connName)
+	if err != nil {
+		FdwError(sperr.WrapWithMessage(err, "failed to process options"))
+	}
+
 	// reload connection config
 	// TODO remove need for fdw to load connection config
-	_, err := pluginHub.LoadConnectionConfig()
+	_, err = pluginHub.LoadConnectionConfig()
 	if err != nil {
 		log.Printf("[ERROR] LoadConnectionConfig failed %v ", err)
 		FdwError(err)

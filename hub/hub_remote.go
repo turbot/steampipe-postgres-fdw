@@ -10,6 +10,9 @@ import (
 	"time"
 
 	typehelpers "github.com/turbot/go-kit/types"
+	"github.com/turbot/pipe-fittings/app_specific"
+	"github.com/turbot/pipe-fittings/modconfig"
+	"github.com/turbot/pipe-fittings/utils"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -18,10 +21,7 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/settings"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/pkg/constants"
-	"github.com/turbot/steampipe/pkg/filepaths"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
-	"github.com/turbot/steampipe/pkg/steampipeconfig/modconfig"
-	"github.com/turbot/steampipe/pkg/utils"
 )
 
 const (
@@ -54,7 +54,7 @@ func newRemoteHub() (*RemoteHub, error) {
 	if err != nil {
 		return nil, err
 	}
-	filepaths.SteampipeDir = steampipeDir
+	app_specific.InstallDir = steampipeDir
 
 	log.Printf("[INFO] newRemoteHub RemoteHub.LoadConnectionConfig ")
 	if _, err := hub.LoadConnectionConfig(); err != nil {
@@ -293,14 +293,7 @@ func (h *RemoteHub) cacheEnabled(connectionName string) bool {
 		return *h.cacheSettings.ClientCacheEnabled
 	}
 
-	// ask the steampipe config for resolved plugin options - this will use default values where needed
-	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
-
-	// the config loading code should ALWAYS populate the connection options, using defaults if needed
-	if connectionOptions.Cache == nil {
-		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
-	}
-	return *connectionOptions.Cache
+	return true
 }
 
 func (h *RemoteHub) cacheTTL(connectionName string) time.Duration {
@@ -309,15 +302,7 @@ func (h *RemoteHub) cacheTTL(connectionName string) time.Duration {
 		return *h.cacheSettings.Ttl
 	}
 
-	// ask the steampipe config for resolved plugin options - this will use default values where needed
-	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
-
-	// the config loading code should ALWAYS populate the connection options, using defaults if needed
-	if connectionOptions.CacheTTL == nil {
-		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
-	}
-
-	ttl := time.Duration(*connectionOptions.CacheTTL) * time.Second
+	var ttl time.Duration
 
 	// would this give data earlier than the cacheClearTime
 	now := time.Now()

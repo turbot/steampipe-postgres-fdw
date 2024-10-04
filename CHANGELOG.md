@@ -1,3 +1,5 @@
+## v1.12.0 [tbd]
+
 ## v1.11.8 [2024-09-05]
 _Bug fixes_
 * Fix issue where credentials from import foreign schema were lost after restarting session. ([#504](https://github.com/turbot/steampipe-postgres-fdw/issues/504))

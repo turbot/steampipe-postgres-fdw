@@ -3,11 +3,12 @@ package hub
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"log"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
@@ -16,7 +17,6 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/settings"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/pkg/constants"
-	"github.com/turbot/steampipe/pkg/steampipeconfig"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -375,7 +375,7 @@ func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestam
 }
 
 func (h *hubBase) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *telemetry.TraceCtx {
-	ctx, span := telemetry.StartSpan(context.Background(), constants.FdwName, "RemoteHub.Scan (%s)", table)
+	ctx, span := telemetry.StartSpan(context.Background(), FdwName, "RemoteHub.Scan (%s)", table)
 	span.SetAttributes(
 		attribute.StringSlice("columns", columns),
 		attribute.String("table", table),
@@ -442,15 +442,15 @@ func (h *hubBase) shouldPushdownLimit(table string, qualMap map[string]*proto.Qu
 
 func (h *hubBase) initialiseTelemetry() error {
 	log.Printf("[TRACE] init telemetry")
-	shutdownTelemetry, err := telemetry.Init(constants.FdwName)
+	shutdownTelemetry, err := telemetry.Init(FdwName)
 	if err != nil {
 		return fmt.Errorf("failed to initialise telemetry: %s", err.Error())
 	}
 
 	h.telemetryShutdownFunc = shutdownTelemetry
 
-	hydrateCalls, err := otel.GetMeterProvider().Meter(constants.FdwName).Int64Counter(
-		fmt.Sprintf("%s/hydrate_calls_total", constants.FdwName),
+	hydrateCalls, err := otel.GetMeterProvider().Meter(FdwName).Int64Counter(
+		fmt.Sprintf("%s/hydrate_calls_total", FdwName),
 		metric.WithDescription("The total number of hydrate calls"),
 	)
 	if err != nil {
@@ -528,17 +528,7 @@ func (h *hubBase) cacheTTL(connectionName string) time.Duration {
 	}
 	log.Printf("[INFO] cacheTTL 2")
 
-	// ask the steampipe config for resolved plugin options - this will use default values where needed
-	connectionOptions := steampipeconfig.GlobalConfig.GetConnectionOptions(connectionName)
-	log.Printf("[INFO] cacheTTL 3")
-
-	// the config loading code should ALWAYS populate the connection options, using defaults if needed
-	if connectionOptions.CacheTTL == nil {
-		panic(fmt.Sprintf("No cache options found for connection %s", connectionName))
-	}
-	log.Printf("[INFO] cacheTTL 4")
-
-	ttl := time.Duration(*connectionOptions.CacheTTL) * time.Second
+	var ttl time.Duration
 
 	// would this give data earlier than the cacheClearTime
 	now := time.Now()

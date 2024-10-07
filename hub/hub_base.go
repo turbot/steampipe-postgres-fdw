@@ -528,15 +528,10 @@ func (h *hubBase) cacheTTL(connectionName string) time.Duration {
 	}
 	log.Printf("[INFO] cacheTTL 2")
 
-	var ttl time.Duration
+	const defaultTtl = 300 * time.Second
 
-	// would this give data earlier than the cacheClearTime
-	now := time.Now()
-	if now.Add(-ttl).Before(h.cacheSettings.ClearTime) {
-		ttl = now.Sub(h.cacheSettings.ClearTime)
-	}
-	log.Printf("[INFO] cacheTTL 5")
-	return ttl
+	log.Printf("[INFO] default cacheTTL %v", defaultTtl)
+	return defaultTtl
 }
 
 // GetSortableFields

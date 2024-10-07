@@ -286,12 +286,15 @@ func (h *RemoteHub) clearConnectionCache(connection string) error {
 func (h *RemoteHub) cacheEnabled(connectionName string) bool {
 	// if the caching is disabled for the server, just return false
 	if !h.cacheSettings.ServerCacheEnabled {
+		log.Printf("[INFO] cacheEnabled returning false since server cache is disabled")
 		return false
 	}
 
 	if h.cacheSettings.ClientCacheEnabled != nil {
+		log.Printf("[INFO] cacheEnabled returning %v since client cache is enabled", *h.cacheSettings.ClientCacheEnabled)
 		return *h.cacheSettings.ClientCacheEnabled
 	}
+	log.Printf("[INFO] default cacheEnabled returning true")
 
 	return true
 }
@@ -302,14 +305,11 @@ func (h *RemoteHub) cacheTTL(connectionName string) time.Duration {
 		return *h.cacheSettings.Ttl
 	}
 
-	var ttl time.Duration
+	// default ttl is 300 secs
+	const defaultTTL = 300 * time.Second
 
-	// would this give data earlier than the cacheClearTime
-	now := time.Now()
-	if now.Add(-ttl).Before(h.cacheSettings.ClearTime) {
-		ttl = now.Sub(h.cacheSettings.ClearTime)
-	}
-	return ttl
+	log.Printf("[INFO] default cacheTTL returning %v", defaultTTL)
+	return defaultTTL
 }
 
 // resolve the server cache enabled property

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	typehelpers "github.com/turbot/go-kit/types"
+	"github.com/turbot/pipe-fittings/ociinstaller"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -14,7 +15,6 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/settings"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/pkg/constants"
-	"github.com/turbot/steampipe/pkg/ociinstaller"
 	"golang.org/x/exp/maps"
 )
 
@@ -27,7 +27,7 @@ type HubLocal struct {
 }
 
 func newLocalHub() (*HubLocal, error) {
-	imageRef := ociinstaller.NewSteampipeImageRef(pluginAlias).DisplayImageRef()
+	imageRef := ociinstaller.NewImageRef(pluginAlias).DisplayImageRef()
 
 	hub := &HubLocal{
 		hubBase: newHubBase(false),

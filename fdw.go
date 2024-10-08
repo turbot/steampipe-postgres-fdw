@@ -28,6 +28,7 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/hub"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe-postgres-fdw/version"
+	"github.com/turbot/steampipe/pkg/cmdconfig"
 	"github.com/turbot/steampipe/pkg/constants"
 )
 
@@ -45,6 +46,8 @@ func init() {
 
 	// HACK: env vars do not all get copied into the Go env vars so explicitly copy them
 	SetEnvVars()
+	// set steampipe app specific constants
+	cmdconfig.SetAppSpecificConstants()
 
 	level := logging.LogLevel()
 	log.Printf("[INFO] Log level %s\n", level)

@@ -8,8 +8,8 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/turbot/go-kit v0.10.0-rc.0
-	//qr 2f10d3 (steampipe v1 branch)
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20241008084938-2f10d3a56658
+	//qr abf5796 (steampipe v1 branch)
+	github.com/turbot/steampipe v1.0.0-rc.1
 	//workspace_profiles
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.11.0-rc.1
 	go.opentelemetry.io/otel v1.26.0
@@ -18,7 +18,7 @@ require (
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
-	github.com/turbot/pipe-fittings v1.6.0-beta.1.0.20241007143302-9e279d8205fe
+	github.com/turbot/pipe-fittings v1.6.0-beta.1.0.20241008150745-ec081153b1b3
 	go.opentelemetry.io/otel/metric v1.26.0
 )
 

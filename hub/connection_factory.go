@@ -2,11 +2,12 @@ package hub
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe/pkg/pluginmanager"
-	"github.com/turbot/steampipe/pkg/utils"
 	"log"
 	"strings"
 	"sync"
+
+	"github.com/turbot/pipe-fittings/utils"
+	"github.com/turbot/steampipe/pkg/pluginmanager"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"

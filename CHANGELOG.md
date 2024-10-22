@@ -1,4 +1,6 @@
-## v1.12.0 [tbd]
+## v1.12.0 [2024-10-22]
+_Whats new_
+* Build FDW for Steampipe v1.0.0. ([#515](https://github.com/turbot/steampipe-postgres-fdw/issues/515))
 
 ## v1.11.8 [2024-09-05]
 _Bug fixes_

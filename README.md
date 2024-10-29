@@ -64,6 +64,36 @@ Suppose you want to build the FDW for a plugin with an alias `aws` from a GitHub
 $ make standalone plugin="aws"
 ```
 
+#### To build a local plugin or an external plugin(not maintained by Turbot)
+
+Suppose you want to build the FDW for your own plugin(not maintained by Turbot) located at https://github.com/francois2metz/steampipe-plugin-scalingo. You would need to build the FDW by running the following command:
+```
+$ make standalone plugin="scalingo" plugin_github_url="github.com/francois2metz/steampipe-plugin-scalingo"
+```
+
+#### Installing the built standalone FDW
+
+Once you have built the standalone FDW, the binaries will be available in a folder `build-Darwin` or `build-Linux` depending on your OS. Run the `install.sh` script available in that directory. This will detect the installed PostrgeSQL version and location and copy the binaries there.
+
+```
+➜  steampipe-postgres-fdw ✗ cd build-Darwin
+➜  build-Darwin ✗ ./install.sh 
+
+Discovered:
+- PostgreSQL version:   14
+- PostgreSQL location:  /opt/homebrew/Cellar/postgresql@14/14.13_1
+
+Install Steampipe PostgreSQL FDW for version 14 in /opt/homebrew/Cellar/postgresql@14/14.13_1? (Y/n): 
+
+Installing...
+
+Successfully installed steampipe_postgres_scalingo extension!
+
+Files have been copied to:
+- Library directory: /opt/homebrew/lib/postgresql@14
+- Extension directory: /opt/homebrew/share/postgresql@14/extension/
+```
+
 ## Open Source & Contributing
 
 This repository is published under the [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) license. Please see our [code of conduct](https://github.com/turbot/.github/blob/main/CODE_OF_CONDUCT.md). We look forward to collaborating with you!

@@ -3,13 +3,6 @@ package hub
 import (
 	"context"
 	"fmt"
-	"log"
-	"strings"
-	"sync"
-	"time"
-
-	"github.com/turbot/steampipe/pkg/query/queryresult"
-
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -17,9 +10,13 @@ import (
 	"github.com/turbot/steampipe-postgres-fdw/settings"
 	"github.com/turbot/steampipe-postgres-fdw/types"
 	"github.com/turbot/steampipe/pkg/constants"
+	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"log"
+	"strings"
+	"sync"
 )
 
 type hubBase struct {
@@ -518,20 +515,6 @@ func (h *hubBase) HandleLegacyCacheCommand(command string) error {
 		h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "false")
 	}
 	return nil
-}
-
-func (h *hubBase) cacheTTL(connectionName string) time.Duration {
-	log.Printf("[INFO] cacheTTL 1")
-	// if the cache ttl has been overridden, then enforce the value
-	if h.cacheSettings.Ttl != nil {
-		return *h.cacheSettings.Ttl
-	}
-	log.Printf("[INFO] cacheTTL 2")
-
-	const defaultTtl = 300 * time.Second
-
-	log.Printf("[INFO] default cacheTTL %v", defaultTtl)
-	return defaultTtl
 }
 
 // GetSortableFields

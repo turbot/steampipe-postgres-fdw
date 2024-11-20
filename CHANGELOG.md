@@ -1,3 +1,7 @@
+## v1.12.1 [2024-11-20]
+_Bug fixes_
+* Fix issue where steampipe interactive metacommand `.cache clear` was not clearing the cache. ([#520](https://github.com/turbot/steampipe-postgres-fdw/issues/520))
+
 ## v1.12.0 [2024-10-22]
 _Whats new_
 * Build FDW for Steampipe v1.0.0. ([#515](https://github.com/turbot/steampipe-postgres-fdw/issues/515))

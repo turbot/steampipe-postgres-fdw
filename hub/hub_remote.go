@@ -300,16 +300,19 @@ func (h *RemoteHub) cacheEnabled(connectionName string) bool {
 }
 
 func (h *RemoteHub) cacheTTL(connectionName string) time.Duration {
+	// initialise to default
+	ttl := 300 * time.Second
 	// if the cache ttl has been overridden, then enforce the value
 	if h.cacheSettings.Ttl != nil {
-		return *h.cacheSettings.Ttl
+		ttl = *h.cacheSettings.Ttl
+	}
+	// would this give data earlier than the cacheClearTime
+	now := time.Now()
+	if now.Add(-ttl).Before(h.cacheSettings.ClearTime) {
+		ttl = now.Sub(h.cacheSettings.ClearTime)
 	}
 
-	// default ttl is 300 secs
-	const defaultTTL = 300 * time.Second
-
-	log.Printf("[INFO] default cacheTTL returning %v", defaultTTL)
-	return defaultTTL
+	return ttl
 }
 
 // resolve the server cache enabled property

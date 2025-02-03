@@ -1,3 +1,7 @@
+## v1.12.2 [2024-02-03]
+_Dependencies_
+- Upgrade `crypto`, `net` and `go-git` packages to remediate critical and high vulnerabilities.
+
 ## v1.12.1 [2024-11-20]
 _Bug fixes_
 * Fix issue where steampipe interactive metacommand `.cache clear` was not clearing the cache. ([#520](https://github.com/turbot/steampipe-postgres-fdw/issues/520))

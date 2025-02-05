@@ -1,3 +1,7 @@
+## v1.12.3 [2024-02-05]
+_Dependencies_
+- Upgrade `pipe-fittings` to v1.6.8 and `steampipe-plugin-sdk` to v5.11.2.
+
 ## v1.12.2 [2024-02-03]
 _Dependencies_
 - Upgrade `crypto`, `net` and `go-git` packages to remediate critical and high vulnerabilities.

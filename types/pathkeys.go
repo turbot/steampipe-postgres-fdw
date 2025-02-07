@@ -2,10 +2,10 @@ package types
 
 import (
 	"log"
+	"slices"
 	"sort"
 	"strings"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 )
@@ -169,7 +169,7 @@ func columnPathsToPathKeys(columnPaths [][]string, allColumns []string, baseCost
 		})
 		// also create paths for the columns path WITH each other column
 		for _, c := range allColumns {
-			if !helpers.StringSliceContains(s, c) {
+			if !slices.Contains(s, c) {
 				// NOTE: create a new slice rather than appending onto s - to avoid clash between loop iterations
 				columnNames := append([]string{c}, s...)
 

@@ -1,3 +1,7 @@
+## v1.12.4 [2024-02-11]
+_Dependencies_
+- Upgrade `pipe-fittings` to v2.1.1 and `go-kit` to v1.0.0.
+
 ## v1.12.3 [2024-02-05]
 _Dependencies_
 - Upgrade `pipe-fittings` to v1.6.8 and `steampipe-plugin-sdk` to v5.11.2.

@@ -9,9 +9,9 @@ import "C"
 
 import (
 	"log"
+	"slices"
 	"unsafe"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-postgres-fdw/sql"
 )
@@ -44,7 +44,7 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 		if stmt.list_type == C.FDW_IMPORT_SCHEMA_LIMIT_TO {
 			log.Printf("[TRACE] list_type is FDW_IMPORT_SCHEMA_LIMIT_TO: %v", tables)
 
-			if !helpers.StringSliceContains(tables, table) {
+			if !slices.Contains(tables, table) {
 				log.Printf("[TRACE] Skipping table %s", table)
 
 				continue
@@ -52,7 +52,7 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 		} else if stmt.list_type == C.FDW_IMPORT_SCHEMA_EXCEPT {
 			log.Printf("[TRACE] list_type is FDW_IMPORT_SCHEMA_EXCEPT: %v", tables)
 
-			if helpers.StringSliceContains(tables, table) {
+			if slices.Contains(tables, table) {
 				log.Printf("[TRACE] Skipping table %s", table)
 				continue
 			}

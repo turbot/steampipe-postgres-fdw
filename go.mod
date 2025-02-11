@@ -10,15 +10,15 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/turbot/go-kit v1.0.0
-	github.com/turbot/steampipe v1.7.0-rc.0.0.20250206142410-57cd1cedc215
-	github.com/turbot/steampipe-plugin-sdk/v5 v5.11.3-rc.0
+	github.com/turbot/steampipe v1.7.0-rc.0.0.20250210104953-c81e20d80731
+	github.com/turbot/steampipe-plugin-sdk/v5 v5.11.3
 	go.opentelemetry.io/otel v1.26.0
 	google.golang.org/protobuf v1.34.2
 )
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
-	github.com/turbot/pipe-fittings/v2 v2.0.1-rc.2
+	github.com/turbot/pipe-fittings/v2 v2.1.1
 	go.opentelemetry.io/otel/metric v1.26.0
 )
 

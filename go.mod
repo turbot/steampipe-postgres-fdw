@@ -9,14 +9,14 @@ require (
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/turbot/go-kit v0.10.0-rc.0
 	github.com/turbot/steampipe v1.0.2
-	github.com/turbot/steampipe-plugin-sdk/v5 v5.11.0
+	github.com/turbot/steampipe-plugin-sdk/v5 v5.11.2
 	go.opentelemetry.io/otel v1.26.0
 	google.golang.org/protobuf v1.34.2
 )
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
-	github.com/turbot/pipe-fittings v1.6.0
+	github.com/turbot/pipe-fittings v1.6.8
 	go.opentelemetry.io/otel/metric v1.26.0
 )
 
@@ -84,7 +84,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/thediveo/enumflag/v2 v2.0.5 // indirect
-	github.com/turbot/pipes-sdk-go v0.9.1 // indirect
+	github.com/turbot/pipes-sdk-go v0.12.0 // indirect
 	github.com/turbot/steampipe-plugin-code v0.7.0 // indirect
 	github.com/turbot/terraform-components v0.0.0-20231213122222-1f3526cab7a7 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect

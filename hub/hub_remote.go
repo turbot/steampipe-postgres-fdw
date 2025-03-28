@@ -10,22 +10,22 @@ import (
 	"time"
 
 	typehelpers "github.com/turbot/go-kit/types"
-	"github.com/turbot/pipe-fittings/v2/app_specific"
-	"github.com/turbot/pipe-fittings/v2/modconfig"
-	"github.com/turbot/pipe-fittings/v2/utils"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-postgres-fdw/app_specific"
 	"github.com/turbot/steampipe-postgres-fdw/settings"
 	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe-postgres-fdw/utils"
 	"github.com/turbot/steampipe/pkg/constants"
 	"github.com/turbot/steampipe/pkg/steampipeconfig"
 )
 
 const (
-	rowBufferSize = 100
+	rowBufferSize            = 100
+	ConnectionTypeAggregator = "aggregator"
 )
 
 // RemoteHub is a structure representing plugin hub
@@ -182,7 +182,7 @@ func (h *RemoteHub) startScanForConnection(connectionName string, table string, 
 	}
 
 	var connectionNames = []string{connectionName}
-	if connectionConfig.Type == modconfig.ConnectionTypeAggregator {
+	if connectionConfig.Type == ConnectionTypeAggregator {
 		connectionNames = connectionConfig.GetResolveConnectionNames()
 		// if there are no connections, do not proceed
 		if len(connectionNames) == 0 {

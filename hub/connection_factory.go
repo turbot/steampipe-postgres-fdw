@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/turbot/pipe-fittings/v2/utils"
+	"github.com/turbot/steampipe-postgres-fdw/utils"
 	"github.com/turbot/steampipe/pkg/pluginmanager"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"

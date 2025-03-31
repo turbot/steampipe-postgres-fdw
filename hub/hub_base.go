@@ -3,7 +3,11 @@ package hub
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/go-kit/helpers"
+	"log"
+	"slices"
+	"strings"
+	"sync"
+
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
@@ -14,9 +18,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"log"
-	"strings"
-	"sync"
 )
 
 type hubBase struct {
@@ -319,7 +320,7 @@ func (h *hubBase) GetSettingsSchema() map[string]*proto.TableSchema {
 func (h *hubBase) ValidateCacheCommand(command string) error {
 	validCommands := []string{constants.LegacyCommandCacheClear, constants.LegacyCommandCacheOn, constants.LegacyCommandCacheOff}
 
-	if !helpers.StringSliceContains(validCommands, command) {
+	if !slices.Contains(validCommands, command) {
 		return fmt.Errorf("invalid command '%s' - supported commands are %s", command, strings.Join(validCommands, ","))
 	}
 	return nil
@@ -419,7 +420,7 @@ func (h *hubBase) shouldPushdownLimit(table string, qualMap map[string]*proto.Qu
 			// check whether every qual for this column has a supported operator
 			for _, q := range quals.Quals {
 				operator := q.GetStringValue()
-				if !helpers.StringSliceContains(k.Operators, operator) {
+				if !slices.Contains(k.Operators, operator) {
 					log.Printf("[INFO] operator '%s' not supported for column '%s'. NOT pushing down limit", operator, col)
 					return false
 				}

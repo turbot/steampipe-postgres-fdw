@@ -18,393 +18,395 @@ jobs:
     name: Build for Darwin x86_64
     runs-on: macos-13
     steps:
-    - name: Install PostgreSQL@14
-      run: brew install --force postgresql@14
+      - name: Install PostgreSQL@14
+        run: brew install --force postgresql@14
 
-    - name: PGConfig
-      run: |-
-        which pg_config
-        ls -l $(which pg_config)
-        PGXS=$(pg_config --pgxs)
-        SERVER_LIB=$(pg_config --includedir)/server
-        INTERNAL_LIB=$(pg_config --includedir)/internal
+      - name: PGConfig
+        run: |-
+          which pg_config
+          ls -l $(which pg_config)
+          PGXS=$(pg_config --pgxs)
+          SERVER_LIB=$(pg_config --includedir)/server
+          INTERNAL_LIB=$(pg_config --includedir)/internal
 
-        echo $PGXS
-        echo $SERVER_LIB
-        echo $INTERNAL_LIB
-        
-        ls -l $PGXS
-        ls -l $SERVER_LIB
-        ls -l $INTERNAL_LIB
+          echo $PGXS
+          echo $SERVER_LIB
+          echo $INTERNAL_LIB
+          
+          ls -l $PGXS
+          ls -l $SERVER_LIB
+          ls -l $INTERNAL_LIB
 
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup Golang
-      uses: actions/setup-go@v5
-      with:
-        go-version: 1.22
+      - name: Setup Golang
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
 
-    - name: Fetching Go Cache Paths
-      id: go-cache-paths
-      run: |
-        echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
-        echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+      - name: Fetching Go Cache Paths
+        id: go-cache-paths
+        run: |
+          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
 
-    - name: Go Build Cache
-      id: build-cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ steps.go-cache-paths.outputs.go-build }}
-        key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+      - name: Go Build Cache
+        id: build-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 
-    - name: Go Mod Cache
-      id: mod-cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ steps.go-cache-paths.outputs.go-mod }}
-        key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
-        
-    - name: make clean
-      run: |-
-        go version
-        
-        which pg_config
-        pg_config --version
-        
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
-    
-        export SERVER_LIB=$(pg_config --includedir)/server
-        export INTERNAL_LIB=$(pg_config --includedir)/internal
-
-        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-    
-        export LDFLAGS=$(pg_config --ldfalgs)
-        export PG_LDFLAGS=$(pg_config --ldfalgs)
+      - name: Go Mod Cache
+        id: mod-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+          
+      - name: make clean
+        run: |-
+          go version
+          
+          which pg_config
+          pg_config --version
+          
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
       
-        make clean
+          export SERVER_LIB=$(pg_config --includedir)/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
 
-    - name: make
-      run: |-
-        go version
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+      
+          export LDFLAGS=$(pg_config --ldfalgs)
+          export PG_LDFLAGS=$(pg_config --ldfalgs)
         
-        which pg_config
-        pg_config --version
-        
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
-    
-        export SERVER_LIB=$(pg_config --includedir)/server
-        export INTERNAL_LIB=$(pg_config --includedir)/internal
+          make clean
 
-        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-    
-        export LDFLAGS=$(pg_config --ldfalgs)
-        export PG_LDFLAGS=$(pg_config --ldfalgs)
-        
-        make
+      - name: make
+        run: |-
+          go version
+          
+          which pg_config
+          pg_config --version
+          
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
+      
+          export SERVER_LIB=$(pg_config --includedir)/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
 
-    - name: gzip the steampipe_postgres_fdw.so
-      run: |-
-        gzip build-Darwin/steampipe_postgres_fdw.so
-        mv build-Darwin/steampipe_postgres_fdw.so.gz build-Darwin/steampipe_postgres_fdw.so.darwin_amd64.gz
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+      
+          export LDFLAGS=$(pg_config --ldfalgs)
+          export PG_LDFLAGS=$(pg_config --ldfalgs)
+          
+          make
 
-    - name: Save MacOS Build Artifact - AMD64
-      uses: actions/upload-artifact@v4
-      with:
-        name: steampipe_postgres_fdw.so.darwin_amd64
-        path: build-Darwin/steampipe_postgres_fdw.so.darwin_amd64.gz
-        if-no-files-found: error
+      - name: gzip the steampipe_postgres_fdw.so
+        run: |-
+          gzip build-Darwin/steampipe_postgres_fdw.so
+          mv build-Darwin/steampipe_postgres_fdw.so.gz build-Darwin/steampipe_postgres_fdw.so.darwin_amd64.gz
 
-    - name: Save steampipe_postgres_fdw.control    # only need this once for ALL platforms
-      uses: actions/upload-artifact@v4
-      with:
-        name: steampipe_postgres_fdw.control
-        path: ./fdw/steampipe_postgres_fdw.control
-        if-no-files-found: error
+      - name: Save MacOS Build Artifact - AMD64
+        uses: actions/upload-artifact@v4
+        with:
+          name: steampipe_postgres_fdw.so.darwin_amd64
+          path: build-Darwin/steampipe_postgres_fdw.so.darwin_amd64.gz
+          if-no-files-found: error
 
-    - name: Save steampipe_postgres_fdw--1.0.sql   # only need this once for ALL platforms
-      uses: actions/upload-artifact@v4
-      with:
-        name: steampipe_postgres_fdw--1.0.sql
-        path: ./fdw/steampipe_postgres_fdw--1.0.sql
-        if-no-files-found: error
+      - name: Save steampipe_postgres_fdw.control    # only need this once for ALL platforms
+        uses: actions/upload-artifact@v4
+        with:
+          name: steampipe_postgres_fdw.control
+          path: ./fdw/steampipe_postgres_fdw.control
+          if-no-files-found: error
+
+      - name: Save steampipe_postgres_fdw--1.0.sql   # only need this once for ALL platforms
+        uses: actions/upload-artifact@v4
+        with:
+          name: steampipe_postgres_fdw--1.0.sql
+          path: ./fdw/steampipe_postgres_fdw--1.0.sql
+          if-no-files-found: error
 
   build-osx-arm:
     name: Build for Darwin ARM64
     runs-on: macos-latest
     steps:
-    - name: Install PostgreSQL@14
-      run: brew install --force postgresql@14
+      - name: Install PostgreSQL@14
+        run: brew install --force postgresql@14
 
-    - name: PGConfig
-      run: |-
-        which pg_config
-        ls -l $(which pg_config)
-        PGXS=$(pg_config --pgxs)
-        SERVER_LIB=$(pg_config --includedir)/server
-        INTERNAL_LIB=$(pg_config --includedir)/internal
+      - name: PGConfig
+        run: |-
+          which pg_config
+          ls -l $(which pg_config)
+          PGXS=$(pg_config --pgxs)
+          SERVER_LIB=$(pg_config --includedir)/server
+          INTERNAL_LIB=$(pg_config --includedir)/internal
 
-        echo $PGXS
-        echo $SERVER_LIB
-        echo $INTERNAL_LIB
-        
-        ls -l $PGXS
-        ls -l $SERVER_LIB
-        ls -l $INTERNAL_LIB
+          echo $PGXS
+          echo $SERVER_LIB
+          echo $INTERNAL_LIB
+          
+          ls -l $PGXS
+          ls -l $SERVER_LIB
+          ls -l $INTERNAL_LIB
 
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup Golang
-      uses: actions/setup-go@v5
-      with:
-        go-version: 1.22
+      - name: Setup Golang
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
 
-    - name: Fetching Go Cache Paths
-      id: go-cache-paths
-      run: |
-        echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
-        echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+      - name: Fetching Go Cache Paths
+        id: go-cache-paths
+        run: |
+          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
 
-    - name: Go Build Cache
-      id: build-cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ steps.go-cache-paths.outputs.go-build }}
-        key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+      - name: Go Build Cache
+        id: build-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 
-    - name: Go Mod Cache
-      id: mod-cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ steps.go-cache-paths.outputs.go-mod }}
-        key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
-        
-    - name: make clean
-      run: |-
-        go version
-        
-        which pg_config
-        pg_config --version
-        
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
-    
-        export SERVER_LIB=$(pg_config --includedir)/server
-        export INTERNAL_LIB=$(pg_config --includedir)/internal
-
-        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-    
-        export LDFLAGS=$(pg_config --ldfalgs)
-        export PG_LDFLAGS=$(pg_config --ldfalgs)
+      - name: Go Mod Cache
+        id: mod-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+          
+      - name: make clean
+        run: |-
+          go version
+          
+          which pg_config
+          pg_config --version
+          
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
       
-        make clean
+          export SERVER_LIB=$(pg_config --includedir)/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
 
-    - name: make
-      run: |-
-        go version
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+      
+          export LDFLAGS=$(pg_config --ldfalgs)
+          export PG_LDFLAGS=$(pg_config --ldfalgs)
         
-        which pg_config
-        pg_config --version
-        
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
-    
-        export SERVER_LIB=$(pg_config --includedir)/server
-        export INTERNAL_LIB=$(pg_config --includedir)/internal
+          make clean
 
-        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-    
-        export LDFLAGS=$(pg_config --ldfalgs)
-        export PG_LDFLAGS=$(pg_config --ldfalgs)
-        
-        make
+      - name: make
+        run: |-
+          go version
+          
+          which pg_config
+          pg_config --version
+          
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
+      
+          export SERVER_LIB=$(pg_config --includedir)/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
 
-    - name: gzip the steampipe_postgres_fdw.so
-      run: |-
-        gzip build-Darwin/steampipe_postgres_fdw.so
-        mv build-Darwin/steampipe_postgres_fdw.so.gz build-Darwin/steampipe_postgres_fdw.so.darwin_arm64.gz
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+      
+          export LDFLAGS=$(pg_config --ldfalgs)
+          export PG_LDFLAGS=$(pg_config --ldfalgs)
+          
+          make
 
-    - name: Save MacOS Build Artifact - AMD64
-      uses: actions/upload-artifact@v4
-      with:
-        name: steampipe_postgres_fdw.so.darwin_arm64
-        path: build-Darwin/steampipe_postgres_fdw.so.darwin_arm64.gz
-        if-no-files-found: error
+      - name: gzip the steampipe_postgres_fdw.so
+        run: |-
+          gzip build-Darwin/steampipe_postgres_fdw.so
+          mv build-Darwin/steampipe_postgres_fdw.so.gz build-Darwin/steampipe_postgres_fdw.so.darwin_arm64.gz
+
+      - name: Save MacOS Build Artifact - AMD64
+        uses: actions/upload-artifact@v4
+        with:
+          name: steampipe_postgres_fdw.so.darwin_arm64
+          path: build-Darwin/steampipe_postgres_fdw.so.darwin_arm64.gz
+          if-no-files-found: error
 
   build-linux:
     name: Build for Linux x86_64
     runs-on: ubuntu-20.04
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup GoLang
-      uses: actions/setup-go@v5
-      with:
-        go-version: 1.22
+      - name: Setup GoLang
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
 
-    - name: Fetching Go Cache Paths
-      id: go-cache-paths
-      run: |
-        echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
-        echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+      - name: Fetching Go Cache Paths
+        id: go-cache-paths
+        run: |
+          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
 
-    - name: Go Build Cache
-      id: build-cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ steps.go-cache-paths.outputs.go-build }}
-        key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+      - name: Go Build Cache
+        id: build-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 
-    - name: Go Mod Cache
-      id: mod-cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ steps.go-cache-paths.outputs.go-mod }}
-        key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+      - name: Go Mod Cache
+        id: mod-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
 
-    - name: Setup apt-get
-      run: |-
-        sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
-        sudo env ACCEPT_EULA=Y apt-get update
-        sudo env ACCEPT_EULA=Y apt-get upgrade
+      - name: Setup apt-get
+        run: |-
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo env ACCEPT_EULA=Y apt-get update
+          sudo env ACCEPT_EULA=Y apt-get upgrade
 
-    - name: Install PostgreSQL14 Dev
-      run: |-
-        sudo apt-get -y install postgresql-server-dev-14
+      - name: Install PostgreSQL14 Dev
+        run: |-
+          sudo apt-get -y install postgresql-server-dev-14
 
-    - name: Find stuff and set env
-      run: |-
-        
-        which pg_config
-        pg_config --version
+      - name: Find stuff and set env
+        run: |-
+          
+          which pg_config
+          pg_config --version
 
-        export PATH=$(pg_config --bindir):$PATH
-        export PGXS=$(pg_config --pgxs)
-    
-        export SERVER_LIB=$(pg_config --includedir)/14/server
-        export INTERNAL_LIB=$(pg_config --includedir)/internal
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
+      
+          export SERVER_LIB=$(pg_config --includedir)/14/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
 
-        export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-        export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
-    
-        export LDFLAGS=$(pg_config --ldflags)
-        export PG_LDFLAGS=$(pg_config --ldflags)
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+      
+          export LDFLAGS=$(pg_config --ldflags)
+          export PG_LDFLAGS=$(pg_config --ldflags)
 
-        ls -la $SERVER_LIB
-        ls -la $INTERNAL_LIB
+          ls -la $SERVER_LIB
+          ls -la $INTERNAL_LIB
 
-    - name: make clean
-      run: |-
-        go version
-        make clean
+      - name: make clean
+        run: |-
+          go version
+          make clean
 
-    - name: make
-      run: |-
-        make
+      - name: make
+        run: |-
+          make
 
-    - name: gzip the steampipe_postgres_fdw.so
-      run: |-
-        gzip build-Linux/steampipe_postgres_fdw.so
-        mv build-Linux/steampipe_postgres_fdw.so.gz build-Linux/steampipe_postgres_fdw.so.linux_amd64.gz
+      - name: gzip the steampipe_postgres_fdw.so
+        run: |-
+          gzip build-Linux/steampipe_postgres_fdw.so
+          mv build-Linux/steampipe_postgres_fdw.so.gz build-Linux/steampipe_postgres_fdw.so.linux_amd64.gz
 
-    - name: Save Linux Build Artifact - AMD64
-      uses: actions/upload-artifact@v4
-      with:
-        name: steampipe_postgres_fdw.so.linux_amd64
-        path: build-Linux/steampipe_postgres_fdw.so.linux_amd64.gz
-        if-no-files-found: error
+      - name: Save Linux Build Artifact - AMD64
+        uses: actions/upload-artifact@v4
+        with:
+          name: steampipe_postgres_fdw.so.linux_amd64
+          path: build-Linux/steampipe_postgres_fdw.so.linux_amd64.gz
+          if-no-files-found: error
 
   build-linux-arm:
-    name: Build for Linux ARM64 (on AWS EC2)
-    runs-on: ubuntu-latest
+    name: Build for Linux ARM64
+    runs-on: ubuntu-22.04-arm
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Configure AWS Credentials
-      run: |
-        mkdir ~/.aws
-        echo -e "[default]\naws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}\naws_secret_access_key = ${{ secrets.AWS_SECRET_ACCESS_KEY }}\nregion = ap-south-1" > ~/.aws/credentials
+      - name: Setup GoLang
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
 
-    - name: SSH into the system and build binary
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: 'ap-south-1'
-        PRIVATE_KEY: ${{ secrets.AWS_PRIVATE_KEY  }}
-      run: |
-        # echo $ref
-        ref=${{ github.event.ref }}
+      - name: Fetching Go Cache Paths
+        id: go-cache-paths
+        run: |
+          echo "go-build=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+          echo "go-mod=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
 
-        # echo tag
-        tag=$(echo "$ref" | sed 's/.*\///')
+      - name: Go Build Cache
+        id: build-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
 
-        # get public IP of the linux machine
-        ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
-        echo $ip
+      - name: Go Mod Cache
+        id: mod-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
 
-        # set PAGER to empty to not get cli output automatically being sent to vim
-        export PAGER=
-        
-        # whitelist the ip, add the ip to the security group to allow access into the instance
-        aws ec2 authorize-security-group-ingress --group-name pskr-sg --protocol tcp --port 22 --cidr $ip/32 --region ap-south-1
+      - name: Setup apt-get
+        run: |-
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+          sudo env ACCEPT_EULA=Y apt-get update
+          sudo env ACCEPT_EULA=Y apt-get upgrade
 
-        #start instance
-        aws ec2 start-instances --instance-ids i-05f5bb2b09b313386 --region ap-south-1 --output text
-        echo "starting instance..."
-        sleep 60
+      - name: Install PostgreSQL14 Dev
+        run: |-
+          sudo apt-get -y install postgresql-server-dev-14
 
-        # get the public ip and status of the instance
-        public_ip=$(aws ec2 describe-instances --instance-ids i-05f5bb2b09b313386 --query 'Reservations[*].Instances[*].PublicDnsName' --region ap-south-1 --output text)
-        status=$(aws ec2 describe-instance-status --instance-ids i-05f5bb2b09b313386 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
-        echo $public_ip
-        echo $status
+      - name: Find stuff and set env
+        run: |-
+          
+          which pg_config
+          pg_config --version
 
-        # check if the instance is available for use, if not, then wait for it
-        while [ $status != "running" ] ; do
-          echo "instance not yet available"
-          sleep 5
-          status=$(aws ec2 describe-instance-status --instance-ids i-05f5bb2b09b313386 --query 'InstanceStatuses[*].InstanceState.Name' --region ap-south-1 --output text)
-        done
-        
-        # set up the private key
-        echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
-        
-        # ssh into the instance and run the script to build the binary
-        ssh -o StrictHostKeyChecking=accept-new -i private_key ubuntu@$public_ip 'bash -s' < scripts/script_to_build.sh $tag
+          export PATH=$(pg_config --bindir):$PATH
+          export PGXS=$(pg_config --pgxs)
+      
+          export SERVER_LIB=$(pg_config --includedir)/14/server
+          export INTERNAL_LIB=$(pg_config --includedir)/internal
 
-        # use scp to fetch the built binary out of the instance
-        scp -i private_key ubuntu@$public_ip:/home/ubuntu/steampipe-postgres-fdw/build-Linux/steampipe_postgres_fdw.so .
-        
-        # stop instance
-        aws ec2 stop-instances --instance-ids i-05f5bb2b09b313386 --region ap-south-1
+          export CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+          export PG_CFLAGS="$(pg_config --cflags) -I${SERVER_LIB} -I${INTERNAL_LIB} -g"
+      
+          export LDFLAGS=$(pg_config --ldflags)
+          export PG_LDFLAGS=$(pg_config --ldflags)
 
-        # remove the ip from the security group
-        aws ec2 revoke-security-group-ingress --group-name pskr-sg --protocol tcp --port 22 --cidr $ip/32 --region ap-south-1
+          ls -la $SERVER_LIB
+          ls -la $INTERNAL_LIB
 
-        # check binary exists
-        file steampipe_postgres_fdw.so
+      - name: make clean
+        run: |-
+          go version
+          make clean
 
-    - name: gzip the steampipe_postgres_fdw.so
-      run: |-
-        gzip steampipe_postgres_fdw.so
-        mv steampipe_postgres_fdw.so.gz steampipe_postgres_fdw.so.linux_arm64.gz
+      - name: make
+        run: |-
+          make
 
-    - name: Save Linux Build Artifact - ARM64
-      uses: actions/upload-artifact@v4
-      with:
-        name: steampipe_postgres_fdw.so.linux_arm64
-        path: steampipe_postgres_fdw.so.linux_arm64.gz
-        if-no-files-found: error
+      - name: gzip the steampipe_postgres_fdw.so
+        run: |-
+          gzip build-Linux/steampipe_postgres_fdw.so
+          mv build-Linux/steampipe_postgres_fdw.so.gz build-Linux/steampipe_postgres_fdw.so.linux_arm64.gz
+
+      - name: Save Linux Build Artifact - AMD64
+        uses: actions/upload-artifact@v4
+        with:
+          name: steampipe_postgres_fdw.so.linux_arm64
+          path: build-Linux/steampipe_postgres_fdw.so.linux_arm64.gz
+          if-no-files-found: error
 
   build-draft-release:
     name: Build Draft Release

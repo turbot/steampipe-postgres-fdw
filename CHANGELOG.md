@@ -1,12 +1,16 @@
-## v1.12.4 [2024-02-11]
+## v1.12.5 [2025-03-31]
+_Dependencies_
+- Upgrade `containerd` and `golang.org/x/net` to remediate moderate vulnerabilities.
+
+## v1.12.4 [2025-02-11]
 _Dependencies_
 - Upgrade `pipe-fittings` to v2.1.1 and `go-kit` to v1.0.0.
 
-## v1.12.3 [2024-02-05]
+## v1.12.3 [2025-02-05]
 _Dependencies_
 - Upgrade `pipe-fittings` to v1.6.8 and `steampipe-plugin-sdk` to v5.11.2.
 
-## v1.12.2 [2024-02-03]
+## v1.12.2 [2025-02-03]
 _Dependencies_
 - Upgrade `crypto`, `net` and `go-git` packages to remediate critical and high vulnerabilities.
 

@@ -1,3 +1,7 @@
+## v1.12.6 [2025-05-26]
+_Whats new_
+- Add support to build steampipe standalone FDW for pre-release versions of plugins.
+
 ## v1.12.5 [2025-03-31]
 _Dependencies_
 - Upgrade `containerd` and `golang.org/x/net` to remediate moderate vulnerabilities.

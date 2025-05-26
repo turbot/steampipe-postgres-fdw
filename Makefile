@@ -14,7 +14,7 @@ install: build
 	fi
 
 # build standalone 
-standalone: validate_plugin prebuild.go
+standalone: validate_plugin validate_version prebuild.go
 	@echo "Building standalone FDW for plugin: $(plugin)"
 
 	# Remove existing work dir and create a new directory for the render process
@@ -26,7 +26,11 @@ standalone: validate_plugin prebuild.go
 
 	# Change to the new directory to perform operations
 	cd work && \
-	go run generate/generator.go templates . $(plugin) $(plugin_github_url) && \
+	go run generate/generator.go templates . $(plugin) $(plugin_version) $(plugin_github_url) && \
+	if [ ! -z "$(plugin_version)" ]; then \
+		echo "go get $(plugin_github_url)@$(plugin_version)" && \
+		go get $(plugin_github_url)@$(plugin_version); \
+	fi && \
 	go mod tidy && \
 	$(MAKE) -C ./fdw clean && \
 	$(MAKE) -C ./fdw go && \
@@ -43,7 +47,7 @@ standalone: validate_plugin prebuild.go
 	# binaries will be copied to build-${PLATFORM} folder
 
 # render target
-render: validate_plugin prebuild.go
+render: validate_plugin validate_version prebuild.go
 	@echo "Rendering code for plugin: $(plugin)"
 
 	# Remove existing work dir and create a new directory for the render process
@@ -55,7 +59,11 @@ render: validate_plugin prebuild.go
 
 	# Change to the new directory to perform operations
 	cd work && \
-	go run generate/generator.go templates . $(plugin) $(plugin_github_url) && \
+	go run generate/generator.go templates . $(plugin) $(plugin_version) $(plugin_github_url) && \
+	if [ ! -z "$(plugin_version)" ]; then \
+		echo "go get $(plugin_github_url)@$(plugin_version)" && \
+		go get $(plugin_github_url)@$(plugin_version); \
+	fi && \
 	go mod tidy
 
 	# Note: The work directory will contain the full code tree with rendered changes
@@ -84,9 +92,17 @@ build_from_work:
 	# Note: This target builds from the 'work' directory and copies binaries to the build-${PLATFORM} folder
 
 validate_plugin:
-    ifndef plugin
-	    $(error "You must specify the 'plugin' variable")
-    endif
+ifndef plugin
+	$(error "The 'plugin' variable is missing. Usage: make build plugin=<plugin_name> [plugin_version=<version>] [plugin_github_url=<url>]")
+endif
+
+# Check if plugin_github_url is provided when plugin_version is specified
+validate_version:
+ifdef plugin_version
+ifndef plugin_github_url
+	$(error "The 'plugin_github_url' variable is required when 'plugin_version' is specified")
+endif
+endif
 
 build: prebuild.go
 	$(MAKE) -C ./fdw clean

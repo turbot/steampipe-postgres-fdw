@@ -1,3 +1,7 @@
+## v1.12.7 [2025-06-03]
+_Dependencies_
+- Upgrade `golang.org/x/net` to remediate high vulnerabilities.
+
 ## v1.12.6 [2025-05-26]
 _Whats new_
 - Add support to build steampipe standalone FDW for pre-release versions of plugins.

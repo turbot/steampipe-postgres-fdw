@@ -134,7 +134,7 @@ func columnPathsToPathKeys(columnPaths [][]string, allColumns []string, baseCost
 		})
 		// also create paths for the columns path WITH each other column
 		for _, c := range allColumns {
-			if !helpers.StringSliceContains(s, c) {
+			if !slices.Contains(s, c) {
 				// NOTE: create a new slice rather than appending onto s - to avoid clash between loop iterations
 				columnNames := append([]string{c}, s...)
 

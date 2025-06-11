@@ -57,64 +57,99 @@ func keyColumnArrayContainsColumn(keyColumns []*proto.KeyColumn, c string) bool 
 }
 
 // keyColumnsToColumnPath returns a list of all the column sets to use in path keys
-func keyColumnsToColumnPath(keyColumns []*proto.KeyColumn) (columnPaths [][]string, baseCost Cost) {
+func keyColumnsToColumnPath(keyColumns []*proto.KeyColumn) ([][]string, Cost) {
+	var columnPaths [][]string
+	var baseCost Cost
+
 	if len(keyColumns) == 0 {
-		return
+		return columnPaths, baseCost
 	}
 
-	// collect required and optional columns - we build a single path for all of them
-	var requiredKeys, optionalKeys []string
-	// an array of paths for any of keys - each path will have a single element (the any-of key)
-	var anyOfKeys [][]string
+	// collect required and optional and any of keys
+	var requiredKeys, optionalKeys, anyOfKeys []string
 	for _, c := range keyColumns {
 		if c.Require == plugin.Required {
 			requiredKeys = append(requiredKeys, c.Name)
 		} else if c.Require == plugin.Optional {
 			optionalKeys = append(optionalKeys, c.Name)
 		} else if c.Require == plugin.AnyOf {
-			anyOfKeys = append(anyOfKeys, []string{c.Name})
+			anyOfKeys = append(anyOfKeys, c.Name)
 		}
 	}
 
-	if len(requiredKeys) > 0 {
-		// add required keys as a single path
-		columnPaths = append(columnPaths, requiredKeys)
-	}
+	var requiredColumnPaths [][]string
+	// if we have any-of keys, for each any-of key we will create a separate path containing that key and all required keys
 	if len(anyOfKeys) > 0 {
-		// add a separate path for _each_ any-of key
-		columnPaths = append(columnPaths, anyOfKeys...)
+		for _, a := range anyOfKeys {
+			columnPath := append([]string{a}, requiredKeys...)
+			requiredColumnPaths = append(requiredColumnPaths, columnPath)
+		}
+	} else if len(requiredKeys) > 0 {
+		// add required keys as a single path
+		requiredColumnPaths = append(requiredColumnPaths, requiredKeys)
 	}
+
 	// if we have any column paths (meaning we have aither required or any-of columns),
 	// we have required keys so make the base cost CHEAP
-	if len(columnPaths) > 0 {
+	if len(requiredColumnPaths) > 0 {
 		baseCost = requiredKeyColumnBaseCost
 	} else {
 		baseCost = optionalKeyColumnBaseCost
 	}
-	// if there are optional keys, add:
-	//	- a path with required keys and each optional key
-	//	- a path with each any-of key and each optional key
+
+	// create output column paths - init to the required column paths - we will add permutations with optional keys
+	columnPaths = requiredColumnPaths
+	// now create additional paths based on the required paths, with each of the optional keys
 	for _, optional := range optionalKeys {
+		col := optional
 		// NOTE: append onto optional, NOT requiredKeys - otherwise we end up reusing the underlying array
 		// and mutating values in columnPaths
 
 		// if there are any required keys, build path from optional AND required
-		if len(requiredKeys) > 0 {
-			p := append([]string{optional}, requiredKeys...)
-			columnPaths = append(columnPaths, p)
-		}
-		// if there are any anyOf keys, build path from optional AND required
-		for _, a := range anyOfKeys {
-			p := append([]string{optional}, a...)
-			columnPaths = append(columnPaths, p)
-		}
-		// if there are no required keys or anyof keys, just create a path from the optional
-		if baseCost == optionalKeyColumnBaseCost {
-			columnPaths = append(columnPaths, []string{optional})
+		if len(requiredColumnPaths) > 0 {
+			for _, requiredPath := range requiredColumnPaths {
+				p := append(append([]string{}, requiredPath...), col)
+				columnPaths = append(columnPaths, p)
+			}
+		} else {
+			// if there are no required keys or anyof keys, just create a path from the optional
+			columnPaths = append(columnPaths, []string{col})
 		}
 	}
 
-	return
+	return columnPaths, baseCost
+}
+
+func columnPathsToPathKeys(columnPaths [][]string, allColumns []string, baseCost Cost) []PathKey {
+
+	var res []PathKey
+
+	// generate path keys each column set
+	for _, s := range columnPaths {
+		// create a path for just the column path
+		res = append(res, PathKey{
+			ColumnNames: s,
+			// make this cheap so the planner prefers to give us the qual
+			Rows: baseCost * keyColumnOnlyCostMultiplier,
+		})
+		// also create paths for the columns path WITH each other column
+		for _, c := range allColumns {
+			if !slices.Contains(s, c) {
+				// NOTE: create a new slice rather than appending onto s - to avoid clash between loop iterations
+				columnNames := append([]string{c}, s...)
+
+				res = append(res, PathKey{
+					ColumnNames: columnNames,
+					// make this even cheaper - prefer to include all quals which were provided
+					Rows: baseCost,
+				})
+			}
+		}
+	}
+
+	log.Printf("[TRACE] columnPathsToPathKeys %d column paths %d all columns, %d pathkeys", len(columnPaths), len(allColumns), len(res))
+
+	return res
 }
 
 func LegacyKeyColumnsToPathKeys(requiredColumns, optionalColumns *proto.KeyColumnsSet, allColumns []string) []PathKey {
@@ -153,36 +188,5 @@ func LegacyKeyColumnsToColumnPaths(k *proto.KeyColumnsSet) [][]string {
 	if k.All != nil {
 		res = append(res, k.All)
 	}
-	return res
-}
-func columnPathsToPathKeys(columnPaths [][]string, allColumns []string, baseCost Cost) []PathKey {
-
-	var res []PathKey
-
-	// generate path keys each column set
-	for _, s := range columnPaths {
-		// create a path for just the column path
-		res = append(res, PathKey{
-			ColumnNames: s,
-			// make this cheap so the planner prefers to give us the qual
-			Rows: baseCost * keyColumnOnlyCostMultiplier,
-		})
-		// also create paths for the columns path WITH each other column
-		for _, c := range allColumns {
-			if !slices.Contains(s, c) {
-				// NOTE: create a new slice rather than appending onto s - to avoid clash between loop iterations
-				columnNames := append([]string{c}, s...)
-
-				res = append(res, PathKey{
-					ColumnNames: columnNames,
-					// make this even cheaper - prefer to include all quals which were provided
-					Rows: baseCost,
-				})
-			}
-		}
-	}
-
-	log.Printf("[TRACE] columnPathsToPathKeys %d column paths %d all columns, %d pathkeys", len(columnPaths), len(allColumns), len(res))
-
 	return res
 }

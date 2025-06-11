@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
+	"net/http"
+	"os"
 	"time"
 	"unsafe"
 
@@ -71,6 +74,18 @@ func init() {
 	log.Printf("[INFO] Version:   v%s\n", version.FdwVersion.String())
 	log.Printf("[INFO] Log level: %s\n", level)
 
+	if _, found := os.LookupEnv("STEAMPIPE_FDW_PPROF"); found {
+		log.Printf("[INFO] PROFILING!!!!")
+		go func() {
+			listener, err := net.Listen("tcp", "localhost:0")
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			log.Printf("[INFO] Check http://localhost:%d/debug/pprof/", listener.Addr().(*net.TCPAddr).Port)
+			log.Println(http.Serve(listener, nil))
+		}()
+	}
 }
 
 // Given a list of FdwDeparsedSortGroup and a FdwPlanState,

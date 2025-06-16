@@ -67,6 +67,8 @@ typedef struct FdwPlanState
   int width;
   // the number of rows to return (limit+offset). -1 means no limit
   int limit;
+  // OpenTelemetry trace context extracted from session variables
+  char *trace_context_string;
 
 } FdwPlanState;
 

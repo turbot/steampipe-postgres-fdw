@@ -18,6 +18,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type hubBase struct {
@@ -372,8 +374,19 @@ func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestam
 	}
 }
 
-func (h *hubBase) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string) *telemetry.TraceCtx {
-	ctx, span := telemetry.StartSpan(context.Background(), FdwName, "RemoteHub.Scan (%s)", table)
+func (h *hubBase) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string, opts types.Options) *telemetry.TraceCtx {
+	var baseCtx context.Context = context.Background()
+
+	// Check if we have trace context from session variables
+	if traceContextStr, exists := opts["trace_context"]; exists && traceContextStr != "" {
+		if parentCtx := h.parseTraceContext(traceContextStr); parentCtx != nil {
+			baseCtx = parentCtx
+			log.Printf("[TRACE] Using parent trace context for scan of table: %s", table)
+		}
+	}
+
+	// Create span with potentially propagated context
+	ctx, span := telemetry.StartSpan(baseCtx, FdwName, "RemoteHub.Scan (%s)", table)
 	span.SetAttributes(
 		attribute.StringSlice("columns", columns),
 		attribute.String("table", table),
@@ -384,6 +397,49 @@ func (h *hubBase) traceContextForScan(table string, columns []string, limit int6
 		span.SetAttributes(attribute.Int64("limit", limit))
 	}
 	return &telemetry.TraceCtx{Ctx: ctx, Span: span}
+}
+
+// parseTraceContext parses trace context string from session variables
+// Format: "traceparent=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01;tracestate=rojo=00f067aa0ba902b7"
+func (h *hubBase) parseTraceContext(traceContextString string) context.Context {
+	if traceContextString == "" {
+		return nil
+	}
+
+	carrier := propagation.MapCarrier{}
+
+	// Parse the trace context string format: "traceparent=..;tracestate=.."
+	parts := strings.Split(traceContextString, ";")
+	for _, part := range parts {
+		if kv := strings.SplitN(part, "=", 2); len(kv) == 2 {
+			key := strings.TrimSpace(kv[0])
+			value := strings.TrimSpace(kv[1])
+			carrier[key] = value
+		}
+	}
+
+	if len(carrier) == 0 {
+		log.Printf("[WARN] No valid trace context found in: %s", traceContextString)
+		return nil
+	}
+
+	// Use OpenTelemetry propagator to extract context
+	propagator := propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	)
+	extractedCtx := propagator.Extract(context.Background(), carrier)
+
+	// Verify we actually got a valid span context
+	spanCtx := trace.SpanContextFromContext(extractedCtx)
+	if spanCtx.IsValid() {
+		log.Printf("[TRACE] Successfully extracted trace context - TraceID: %s, SpanID: %s",
+			spanCtx.TraceID().String(), spanCtx.SpanID().String())
+		return extractedCtx
+	}
+
+	log.Printf("[WARN] Extracted trace context is not valid")
+	return nil
 }
 
 // determine whether to include the limit, based on the quals

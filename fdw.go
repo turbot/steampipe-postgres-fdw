@@ -172,6 +172,18 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 	tableOpts := GetFTableOptions(types.Oid(state.foreigntableid))
 
+	// Extract trace context if available
+	var traceContext string
+	if state.trace_context_string != nil {
+		traceContext = C.GoString(state.trace_context_string)
+		log.Printf("[TRACE] Extracted trace context from session: %s", traceContext)
+	}
+
+	// Add trace context to options for hub layer
+	if traceContext != "" {
+		tableOpts["trace_context"] = traceContext
+	}
+
 	// build columns
 	var columns []string
 	if state.target_list != nil {

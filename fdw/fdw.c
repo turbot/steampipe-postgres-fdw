@@ -4,6 +4,8 @@
 #include "fdw_handlers.h"
 #include "nodes/plannodes.h"
 #include "access/xact.h"
+#include "utils/guc.h"
+#include "utils/builtins.h"
 
 extern PGDLLEXPORT void _PG_init(void);
 
@@ -92,6 +94,32 @@ static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, Ran
 	return getenv("STEAMPIPE_FDW_PARALLEL_SAFE") != NULL;
 }
 
+/*
+ * Extract OpenTelemetry trace context from PostgreSQL session variables
+ * Returns a formatted string containing traceparent and tracestate, or NULL if not set
+ */
+static char *extractTraceContextFromSession(void)
+{
+    const char *traceparent = GetConfigOption("steampipe.traceparent", true, false);
+    const char *tracestate = GetConfigOption("steampipe.tracestate", true, false);
+    char *result = NULL;
+    
+    // Format the result string for Go layer consumption
+    if (traceparent != NULL) {
+        if (tracestate != NULL) {
+            result = psprintf("traceparent=%s;tracestate=%s", traceparent, tracestate);
+        } else {
+            result = psprintf("traceparent=%s", traceparent);
+        }
+        
+        elog(DEBUG1, "extracted trace context: %s", result);
+    } else {
+        elog(DEBUG2, "no trace context found in session variables");
+    }
+    
+    return result;
+}
+
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid)
 {
   FdwPlanState *planstate;
@@ -111,6 +139,16 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
   // Save plan state information
   baserel->fdw_private = planstate;
   planstate->foreigntableid = foreigntableid;
+  
+  // Extract trace context from session variables
+  char *traceContext = extractTraceContextFromSession();
+  if (traceContext != NULL) {
+      planstate->trace_context_string = pstrdup(traceContext);
+      pfree(traceContext);
+      elog(DEBUG1, "stored trace context in plan state");
+  } else {
+      planstate->trace_context_string = NULL;
+  }
 
   // Initialize the conversion info array
   {

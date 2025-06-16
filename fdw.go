@@ -9,8 +9,6 @@ package main
 #include "nodes/pg_list.h"
 #include "utils/timestamp.h"
 
-static Name deserializeDeparsedSortListCell(ListCell *lc);
-
 */
 import "C"
 

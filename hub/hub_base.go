@@ -354,7 +354,7 @@ func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestam
 		return newInMemoryIterator(connectionName, res, queryTimestamp), nil
 	case constants.ForeignTableScanMetadata, constants.LegacyCommandTableScanMetadata:
 		if metadataCount := len(h.queryTiming.scanMetadata); metadataCount > 1 {
-			return nil, fmt.Errorf(" executeCommandScan for table '%s' - %d summaries in metadata store - there should only be 1. ", metadataCount, table)
+			return nil, fmt.Errorf(" executeCommandScan for table '%s' - %d summaries in metadata store - there should only be 1. ", table, metadataCount)
 		}
 
 		res := &QueryResult{}

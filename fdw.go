@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -177,11 +178,23 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 	if state.trace_context_string != nil {
 		traceContext = C.GoString(state.trace_context_string)
 		log.Printf("[TRACE] Extracted trace context from session: %s", traceContext)
+
+		if len(traceContext) > 0 {
+			log.Printf("[DEBUG] Trace context length: %d characters", len(traceContext))
+			if strings.Contains(traceContext, "traceparent=") {
+				log.Printf("[DEBUG] Trace context contains traceparent field")
+			} else {
+				log.Printf("[WARN] Trace context missing traceparent field - may be malformed")
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] No trace context found in session variables")
 	}
 
 	// Add trace context to options for hub layer
 	if traceContext != "" {
 		tableOpts["trace_context"] = traceContext
+		log.Printf("[DEBUG] Added trace context to table options")
 	}
 
 	// build columns

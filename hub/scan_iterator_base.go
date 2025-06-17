@@ -16,6 +16,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"github.com/turbot/steampipe/v2/pkg/query/queryresult"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -199,13 +200,25 @@ func (i *scanIteratorBase) GetScanMetadata() []queryresult.ScanMetadataRow {
 }
 
 func (i *scanIteratorBase) newExecuteRequest() *proto.ExecuteRequest {
+	traceCarrier := grpc.CreateCarrierFromContext(i.traceCtx.Ctx)
+	log.Printf("[DEBUG] newExecuteRequest creating trace carrier for table %s: %v", i.table, traceCarrier)
+
+	// Validate span context from the trace context
+	spanCtx := trace.SpanContextFromContext(i.traceCtx.Ctx)
+	if spanCtx.IsValid() {
+		log.Printf("[DEBUG] newExecuteRequest has valid span context - TraceID: %s, SpanID: %s",
+			spanCtx.TraceID().String(), spanCtx.SpanID().String())
+	} else {
+		log.Printf("[WARN] newExecuteRequest has invalid span context for table %s", i.table)
+	}
+
 	req := &proto.ExecuteRequest{
 		Table:        i.table,
 		QueryContext: i.queryContext,
 		CallId:       i.callId,
 		// pass connection name - used for aggregators
 		Connection:            i.connectionName,
-		TraceContext:          grpc.CreateCarrierFromContext(i.traceCtx.Ctx),
+		TraceContext:          traceCarrier,
 		ExecuteConnectionData: make(map[string]*proto.ExecuteConnectionData),
 	}
 

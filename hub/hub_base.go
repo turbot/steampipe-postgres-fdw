@@ -379,10 +379,15 @@ func (h *hubBase) traceContextForScan(table string, columns []string, limit int6
 
 	// Check if we have trace context from session variables
 	if traceContextStr, exists := opts["trace_context"]; exists && traceContextStr != "" {
+		log.Printf("[DEBUG] traceContextForScan received trace context: %s", traceContextStr)
 		if parentCtx := h.parseTraceContext(traceContextStr); parentCtx != nil {
 			baseCtx = parentCtx
 			log.Printf("[TRACE] Using parent trace context for scan of table: %s", table)
+		} else {
+			log.Printf("[WARN] Failed to parse trace context for table: %s", table)
 		}
+	} else {
+		log.Printf("[DEBUG] No trace context found in options for table: %s", table)
 	}
 
 	// Create span with potentially propagated context
@@ -396,13 +401,23 @@ func (h *hubBase) traceContextForScan(table string, columns []string, limit int6
 	if limit != -1 {
 		span.SetAttributes(attribute.Int64("limit", limit))
 	}
+
+	spanCtx := span.SpanContext()
+	if spanCtx.IsValid() {
+		log.Printf("[DEBUG] Created span for table %s - TraceID: %s, SpanID: %s",
+			table, spanCtx.TraceID().String(), spanCtx.SpanID().String())
+	}
+
 	return &telemetry.TraceCtx{Ctx: ctx, Span: span}
 }
 
 // parseTraceContext parses trace context string from session variables
 // Format: "traceparent=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01;tracestate=rojo=00f067aa0ba902b7"
 func (h *hubBase) parseTraceContext(traceContextString string) context.Context {
+	log.Printf("[DEBUG] parseTraceContext called with: %s", traceContextString)
+
 	if traceContextString == "" {
+		log.Printf("[DEBUG] Empty trace context string")
 		return nil
 	}
 
@@ -410,13 +425,20 @@ func (h *hubBase) parseTraceContext(traceContextString string) context.Context {
 
 	// Parse the trace context string format: "traceparent=..;tracestate=.."
 	parts := strings.Split(traceContextString, ";")
+	log.Printf("[DEBUG] Split trace context into %d parts: %v", len(parts), parts)
+
 	for _, part := range parts {
 		if kv := strings.SplitN(part, "=", 2); len(kv) == 2 {
 			key := strings.TrimSpace(kv[0])
 			value := strings.TrimSpace(kv[1])
 			carrier[key] = value
+			log.Printf("[DEBUG] Added to carrier: %s = %s", key, value)
+		} else {
+			log.Printf("[DEBUG] Skipping invalid part: %s", part)
 		}
 	}
+
+	log.Printf("[DEBUG] Final carrier contents: %v", carrier)
 
 	if len(carrier) == 0 {
 		log.Printf("[WARN] No valid trace context found in: %s", traceContextString)
@@ -438,7 +460,7 @@ func (h *hubBase) parseTraceContext(traceContextString string) context.Context {
 		return extractedCtx
 	}
 
-	log.Printf("[WARN] Extracted trace context is not valid")
+	log.Printf("[WARN] Extracted trace context is not valid - carrier was: %v", carrier)
 	return nil
 }
 

@@ -383,6 +383,13 @@ func (h *hubBase) traceContextForScan(table string, columns []string, limit int6
 		if parentCtx := h.parseTraceContext(traceContextStr); parentCtx != nil {
 			baseCtx = parentCtx
 			log.Printf("[TRACE] Using parent trace context for scan of table: %s", table)
+
+			// Verify the parent context has the expected trace ID
+			parentSpanCtx := trace.SpanContextFromContext(parentCtx)
+			if parentSpanCtx.IsValid() {
+				log.Printf("[DEBUG] Parent context TraceID: %s, SpanID: %s",
+					parentSpanCtx.TraceID().String(), parentSpanCtx.SpanID().String())
+			}
 		} else {
 			log.Printf("[WARN] Failed to parse trace context for table: %s", table)
 		}

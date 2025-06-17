@@ -120,6 +120,14 @@ static char *extractTraceContextFromSession(void)
     return result;
 }
 
+/*
+ * Public wrapper for extractTraceContextFromSession - callable from Go
+ */
+char *getTraceContextFromSession(void)
+{
+    return extractTraceContextFromSession();
+}
+
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid)
 {
   FdwPlanState *planstate;

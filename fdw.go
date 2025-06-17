@@ -321,6 +321,21 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	var execState *C.FdwExecState = C.initializeExecState(unsafe.Pointer(plan.fdw_private))
 
+	// Extract trace context from session variables for scan operation
+	var traceContext string
+	if traceContextPtr := C.getTraceContextFromSession(); traceContextPtr != nil {
+		traceContext = C.GoString(traceContextPtr)
+		log.Printf("[TRACE] Extracted trace context from session for scan: %s", traceContext)
+	} else {
+		log.Printf("[DEBUG] No trace context found in session variables for scan")
+	}
+
+	// Add trace context to options for hub layer
+	if traceContext != "" {
+		opts["trace_context"] = traceContext
+		log.Printf("[DEBUG] Added trace context to scan options")
+	}
+
 	log.Printf("[INFO] goFdwBeginForeignScan, canPushdownAllSortFields %v", execState.canPushdownAllSortFields)
 	var columns []string
 	if execState.target_list != nil {

@@ -108,4 +108,4 @@ static inline char *nameStr(Name n) { return NameStr(*n); }
 char *tagTypeToString(NodeTag type);
 
 // trace context
-char *getTraceContextFromSession(void);
+char *getTraceContext(void);

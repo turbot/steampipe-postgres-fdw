@@ -418,8 +418,10 @@ func (h *hubBase) traceContextForScan(table string, columns []string, limit int6
 	return &telemetry.TraceCtx{Ctx: ctx, Span: span}
 }
 
-// parseTraceContext parses trace context string from session variables
-// Format: "traceparent=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01;tracestate=rojo=00f067aa0ba902b7"
+// parseTraceContext parses trace context string from session variables or SQLcommenter
+// Supports both formats:
+// - Session variables: "traceparent=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01;tracestate=rojo=00f067aa0ba902b7"
+// - SQLcommenter: "traceparent='00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',tracestate='rojo=00f067aa0ba902b7'"
 func (h *hubBase) parseTraceContext(traceContextString string) context.Context {
 	log.Printf("[DEBUG] parseTraceContext called with: %s", traceContextString)
 
@@ -430,14 +432,30 @@ func (h *hubBase) parseTraceContext(traceContextString string) context.Context {
 
 	carrier := propagation.MapCarrier{}
 
-	// Parse the trace context string format: "traceparent=..;tracestate=.."
-	parts := strings.Split(traceContextString, ";")
-	log.Printf("[DEBUG] Split trace context into %d parts: %v", len(parts), parts)
+	// Detect format and parse accordingly
+	var parts []string
+	if strings.Contains(traceContextString, ",") {
+		// SQLcommenter format: "traceparent='...',tracestate='...'"
+		parts = strings.Split(traceContextString, ",")
+		log.Printf("[DEBUG] Detected SQLcommenter format, split into %d parts: %v", len(parts), parts)
+	} else {
+		// Session variable format: "traceparent=..;tracestate=.."
+		parts = strings.Split(traceContextString, ";")
+		log.Printf("[DEBUG] Detected session variable format, split into %d parts: %v", len(parts), parts)
+	}
 
 	for _, part := range parts {
 		if kv := strings.SplitN(part, "=", 2); len(kv) == 2 {
 			key := strings.TrimSpace(kv[0])
 			value := strings.TrimSpace(kv[1])
+
+			// Remove quotes from SQLcommenter format
+			if (strings.HasPrefix(value, "'") && strings.HasSuffix(value, "'")) ||
+				(strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"")) {
+				value = value[1 : len(value)-1]
+				log.Printf("[DEBUG] Removed quotes from value: %s", value)
+			}
+
 			carrier[key] = value
 			log.Printf("[DEBUG] Added to carrier: %s = %s", key, value)
 		} else {

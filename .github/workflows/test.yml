@@ -77,7 +77,7 @@ jobs:
         with:
           repository: turbot/steampipe-postgres-fdw
           path: steampipe-postgres-fdw
-
+          ref: ${{ github.event.ref }}
 
       - name: Setup apt-get
         run: |-

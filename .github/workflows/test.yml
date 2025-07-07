@@ -133,7 +133,9 @@ jobs:
           bats-version: 1.2.1
 
       - name: Install Chaos plugin from registry
-        run: steampipe plugin install chaos
+        run: |
+          steampipe query "select 1 as a"
+          steampipe plugin install chaos
 
       - name: Go install jd
         run: |

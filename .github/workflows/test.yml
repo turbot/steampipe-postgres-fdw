@@ -69,6 +69,7 @@ jobs:
 
       - name: Run steampipe
         run: |
+          steampipe --version
           steampipe query "select 1 as col"
 
       - name: Checkout FDW

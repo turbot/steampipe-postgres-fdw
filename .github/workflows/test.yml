@@ -65,7 +65,7 @@ jobs:
           ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
           cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
           go get
-          go build -o /home/runner/steampipe
+          go build -o /home/runner/steampipe -ldflags "-X main.version=0.0.0-dev.0"
 
       - name: Run steampipe
         run: |

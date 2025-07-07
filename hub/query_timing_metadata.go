@@ -1,10 +1,11 @@
 package hub
 
 import (
-	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"log"
 	"sort"
 	"sync"
+
+	"github.com/turbot/steampipe/v2/pkg/query/queryresult"
 )
 
 const (

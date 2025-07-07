@@ -22,7 +22,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/turbot/go-kit/helpers"
 	typeHelpers "github.com/turbot/go-kit/types"
-	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"golang.org/x/exp/maps"
 )
 

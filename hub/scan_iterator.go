@@ -8,8 +8,8 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
-	"github.com/turbot/steampipe/pkg/query/queryresult"
-	"github.com/turbot/steampipe/pkg/steampipeconfig"
+	"github.com/turbot/steampipe/v2/pkg/query/queryresult"
+	"github.com/turbot/steampipe/v2/pkg/steampipeconfig"
 	"golang.org/x/exp/maps"
 )
 

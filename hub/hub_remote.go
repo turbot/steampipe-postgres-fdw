@@ -18,10 +18,10 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
-	"github.com/turbot/steampipe-postgres-fdw/settings"
-	"github.com/turbot/steampipe-postgres-fdw/types"
-	"github.com/turbot/steampipe/pkg/constants"
-	"github.com/turbot/steampipe/pkg/steampipeconfig"
+	"github.com/turbot/steampipe-postgres-fdw/v2/settings"
+	"github.com/turbot/steampipe-postgres-fdw/v2/types"
+	"github.com/turbot/steampipe/v2/pkg/constants"
+	"github.com/turbot/steampipe/v2/pkg/steampipeconfig"
 )
 
 const (

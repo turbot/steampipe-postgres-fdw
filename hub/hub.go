@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 )
 
 // TODO check which can be non-imported

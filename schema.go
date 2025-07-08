@@ -13,7 +13,7 @@ import (
 	"unsafe"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-postgres-fdw/sql"
+	"github.com/turbot/steampipe-postgres-fdw/v2/sql"
 )
 
 func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSchemaStmt, serverOid C.Oid) *C.List {

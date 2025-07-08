@@ -13,7 +13,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
-          go-version: 1.22
+          go-version: 1.24
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@55c2c1448f86e01eaae002a5a3a9624417608d84 # v6.5.2
@@ -30,7 +30,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
-          go-version: 1.22
+          go-version: 1.24
 
       - name: Checkout Steampipe
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -65,10 +65,11 @@ jobs:
           ls /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw
           cd /home/runner/work/steampipe-postgres-fdw/steampipe-postgres-fdw/steampipe
           go get
-          go build -o /home/runner/steampipe
+          go build -o /home/runner/steampipe -ldflags "-X main.version=0.0.0-dev.0"
 
       - name: Run steampipe
         run: |
+          steampipe --version
           steampipe query "select 1 as col"
 
       - name: Checkout FDW
@@ -76,6 +77,7 @@ jobs:
         with:
           repository: turbot/steampipe-postgres-fdw
           path: steampipe-postgres-fdw
+          ref: ${{ github.event.ref }}
 
       - name: Setup apt-get
         run: |-
@@ -131,7 +133,9 @@ jobs:
           bats-version: 1.2.1
 
       - name: Install Chaos plugin from registry
-        run: steampipe plugin install chaos
+        run: |
+          steampipe query "select 1 as a"
+          steampipe plugin install chaos
 
       - name: Go install jd
         run: |

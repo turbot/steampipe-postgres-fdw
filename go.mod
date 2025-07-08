@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/turbot/go-kit v1.3.0
 	github.com/turbot/steampipe-plugin-sdk/v5 v5.12.0
-	go.opentelemetry.io/otel v1.35.0
+	go.opentelemetry.io/otel v1.37.0
 	google.golang.org/protobuf v1.36.6
 )
 
@@ -19,7 +19,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/turbot/pipe-fittings/v2 v2.5.0
 	github.com/turbot/steampipe/v2 v2.1.0-rc.2
-	go.opentelemetry.io/otel/metric v1.35.0
+	go.opentelemetry.io/otel/metric v1.37.0
 )
 
 require (
@@ -141,7 +141,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gertd/go-pluralize v0.2.1
 	github.com/ghodss/yaml v1.0.0 // indirect
-	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
@@ -205,7 +205,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.35.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.35.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.35.0 // indirect
-	go.opentelemetry.io/otel/trace v1.35.0 // indirect
+	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394

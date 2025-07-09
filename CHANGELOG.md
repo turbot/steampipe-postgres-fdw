@@ -1,3 +1,10 @@
+## v2.1.0 [2025-07-09]
+_Whats new_
+- Bump module to v2 and update Go version to 1.24.
+
+_Bug fixes_
+- Fix build failure caused by incorrect %s format verb for metadataCount (int). ([#566](https://github.com/turbot/steampipe-postgres-fdw/pull/566))
+
 ## v2.0.0 [2025-06-11]
 _Breaking changes_
 - Increased minimum required `glibc` version to `2.34` due to upgrading the Linux build environment from Ubuntu 20.04 to Ubuntu 22.04 GitHub runners. As a result, the FDW no longer supports older Linux distributions such as Ubuntu 20.04 and Amazon Linux 2.

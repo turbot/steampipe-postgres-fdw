@@ -9,8 +9,6 @@ package main
 #include "nodes/pg_list.h"
 #include "utils/timestamp.h"
 
-static Name deserializeDeparsedSortListCell(ListCell *lc);
-
 */
 import "C"
 
@@ -28,11 +26,11 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
-	"github.com/turbot/steampipe-postgres-fdw/hub"
-	"github.com/turbot/steampipe-postgres-fdw/types"
-	"github.com/turbot/steampipe-postgres-fdw/version"
-	"github.com/turbot/steampipe/pkg/cmdconfig"
-	"github.com/turbot/steampipe/pkg/constants"
+	"github.com/turbot/steampipe-postgres-fdw/v2/hub"
+	"github.com/turbot/steampipe-postgres-fdw/v2/types"
+	"github.com/turbot/steampipe-postgres-fdw/v2/version"
+	"github.com/turbot/steampipe/v2/pkg/cmdconfig"
+	"github.com/turbot/steampipe/v2/pkg/constants"
 )
 
 var logger hclog.Logger

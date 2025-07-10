@@ -22,8 +22,8 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/turbot/steampipe-postgres-fdw/hub"
-	"github.com/turbot/steampipe-postgres-fdw/types"
+	"github.com/turbot/steampipe-postgres-fdw/v2/hub"
+	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 )
 
 type ExecState struct {

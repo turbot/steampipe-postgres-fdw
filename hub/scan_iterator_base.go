@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
@@ -11,11 +14,9 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
-	"github.com/turbot/steampipe-postgres-fdw/types"
-	"github.com/turbot/steampipe/pkg/query/queryresult"
+	"github.com/turbot/steampipe-postgres-fdw/v2/types"
+	"github.com/turbot/steampipe/v2/pkg/query/queryresult"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"log"
-	"time"
 )
 
 type scanIteratorBase struct {

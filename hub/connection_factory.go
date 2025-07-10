@@ -7,10 +7,10 @@ import (
 	"sync"
 
 	"github.com/turbot/pipe-fittings/v2/utils"
-	"github.com/turbot/steampipe/pkg/pluginmanager"
+	"github.com/turbot/steampipe/v2/pkg/pluginmanager"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe/pkg/steampipeconfig"
+	"github.com/turbot/steampipe/v2/pkg/steampipeconfig"
 )
 
 const keySeparator = `\\`

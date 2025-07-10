@@ -2,8 +2,9 @@ package hub
 
 import (
 	"context"
-	"github.com/turbot/steampipe/pkg/query/queryresult"
 	"log"
+
+	"github.com/turbot/steampipe/v2/pkg/query/queryresult"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 )

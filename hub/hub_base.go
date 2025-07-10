@@ -11,10 +11,10 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
-	"github.com/turbot/steampipe-postgres-fdw/settings"
-	"github.com/turbot/steampipe-postgres-fdw/types"
-	"github.com/turbot/steampipe/pkg/constants"
-	"github.com/turbot/steampipe/pkg/query/queryresult"
+	"github.com/turbot/steampipe-postgres-fdw/v2/settings"
+	"github.com/turbot/steampipe-postgres-fdw/v2/types"
+	"github.com/turbot/steampipe/v2/pkg/constants"
+	"github.com/turbot/steampipe/v2/pkg/query/queryresult"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -354,7 +354,7 @@ func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestam
 		return newInMemoryIterator(connectionName, res, queryTimestamp), nil
 	case constants.ForeignTableScanMetadata, constants.LegacyCommandTableScanMetadata:
 		if metadataCount := len(h.queryTiming.scanMetadata); metadataCount > 1 {
-			return nil, fmt.Errorf(" executeCommandScan for table '%s' - %d summaries in metadata store - there should only be 1. ", metadataCount, table)
+			return nil, fmt.Errorf(" executeCommandScan for table '%s' - %d summaries in metadata store - there should only be 1. ", table, metadataCount)
 		}
 
 		res := &QueryResult{}

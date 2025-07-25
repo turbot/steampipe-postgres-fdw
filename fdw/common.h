@@ -13,6 +13,7 @@
 #include "nodes/bitmapset.h"
 #include "nodes/makefuncs.h"
 #include "nodes/pg_list.h"
+#include "tcop/utility.h"
 #include "utils/builtins.h"
 #include "utils/inet.h"
 #include "utils/jsonb.h"

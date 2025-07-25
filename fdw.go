@@ -653,5 +653,39 @@ func goFdwValidate(coid C.Oid, opts *C.List) {
 	// or a required option is missing.
 }
 
+//export goFdwGetForeignTableComments
+func goFdwGetForeignTableComments(servername, schemaname, tablename *C.char) *C.List {
+	remoteSchema := C.GoString(servername)
+	localSchema := C.GoString(schemaname)
+	tableName := C.GoString(tablename)
+	log.Printf("[TRACE] goFdwGetForeignTableComments, serverName: %s, localSchema: %s, tableName: %s", remoteSchema, localSchema, tableName)
+
+	// get the plugin hub,
+	pluginHub := hub.GetHub()
+
+	var sql *C.List
+
+	// special handling for the command schema
+	if remoteSchema == constants.InternalSchema {
+		log.Printf("[INFO] getting comments for setting tables into %s", remoteSchema)
+		settingsSchema := pluginHub.GetSettingsSchema()
+		sql = SchemaToCommentsSql(localSchema, tableName, settingsSchema[tableName])
+	} else if remoteSchema == constants.LegacyCommandSchema {
+		log.Printf("[INFO] getting comments for setting tables into %s", remoteSchema)
+		settingsSchema := pluginHub.GetLegacySettingsSchema()
+		sql = SchemaToCommentsSql(localSchema, tableName, settingsSchema[tableName])
+	} else {
+		schema, err := pluginHub.GetSchema(remoteSchema, localSchema)
+		if err != nil {
+			log.Printf("[WARN] goFdwGetForeignTableComments failed: %s", err)
+			FdwError(err)
+			return nil
+		}
+		sql = SchemaToCommentsSql(localSchema, tableName, schema.Schema[tableName])
+	}
+
+	return sql
+}
+
 // required by buildmode=c-archive
 func main() {}

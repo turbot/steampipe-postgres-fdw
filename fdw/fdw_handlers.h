@@ -2,6 +2,8 @@
 // defined and available.
 #include "fmgr.h"
 
+#define STEAMPIPE_DATAWRAPPER_NAME "steampipe_postgres_fdw"
+
 static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte);
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);
 static void fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid);

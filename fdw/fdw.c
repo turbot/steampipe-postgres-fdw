@@ -16,9 +16,22 @@ static void exitHook(int code, Datum arg);
 
 void *serializePlanState(FdwPlanState *state);
 FdwExecState *initializeExecState(void *internalstate);
+
+static void
+steampipe_fdw_ProcessUtility(PlannedStmt *pstmt,
+						const char *queryString,
+						bool readOnlyTree,
+						ProcessUtilityContext context,
+						ParamListInfo params,
+						QueryEnvironment *queryEnv,
+						DestReceiver *dest,
+						QueryCompletion *qc);
+
 // Required by postgres, doing basic checks to ensure compatibility,
 // such as being compiled against the correct major version.
 PG_MODULE_MAGIC;
+
+static ProcessUtility_hook_type next_ProcessUtility_hook = NULL;
 
 // Define the handler function for signal 16
 void signal_handler(int sig) {
@@ -63,6 +76,9 @@ void _PG_init(void)
   on_proc_exit(&exitHook, PointerGetDatum(NULL));
   RegisterXactCallback(pgfdw_xact_callback, NULL);
 
+  /* Hook ProcessUtility for adding comments to foreign tables */
+  next_ProcessUtility_hook = ProcessUtility_hook;
+  ProcessUtility_hook = steampipe_fdw_ProcessUtility;
 }
 
 /*
@@ -86,6 +102,71 @@ pgfdw_xact_callback(XactEvent event, void *arg)
 void exitHook(int code, Datum arg)
 {
   goFdwShutdown();
+}
+
+static void
+steampipe_fdw_ProcessUtility(PlannedStmt *pstmt,
+						const char *queryString,
+						bool readOnlyTree,
+						ProcessUtilityContext context,
+						ParamListInfo params,
+						QueryEnvironment *queryEnv,
+						DestReceiver *dest,
+						QueryCompletion *qc) {
+  List *cmd_list = NULL;
+  if (IsA(pstmt->utilityStmt, CreateForeignTableStmt) && context == PROCESS_UTILITY_SUBCOMMAND && dest == None_Receiver) {
+    const CreateForeignTableStmt *cstmt = (const CreateForeignTableStmt *)pstmt->utilityStmt;
+    ForeignServer *server = GetForeignServerByName(cstmt->servername, true);
+    if (server != NULL) {
+      ForeignDataWrapper *wrapper = GetForeignDataWrapper(server->fdwid);
+      if (wrapper != NULL && wrapper->fdwname != NULL && strcmp(wrapper->fdwname, STEAMPIPE_DATAWRAPPER_NAME) == 0) {
+        cmd_list = goFdwGetForeignTableComments(cstmt->servername, cstmt->base.relation->schemaname, cstmt->base.relation->relname);
+      }
+    }
+  }
+
+  if (next_ProcessUtility_hook) {
+    next_ProcessUtility_hook(pstmt, queryString, readOnlyTree, context, params, queryEnv, dest, qc);
+  } else {
+    standard_ProcessUtility(pstmt, queryString, readOnlyTree, context, params, queryEnv, dest, qc);
+  }
+
+  if (cmd_list != NULL) {
+    ListCell *lc;
+    foreach(lc, cmd_list) {
+      char *cmd = (char *)lfirst(lc);
+      List *raw_parsetree_list = pg_parse_query(cmd);
+
+      ListCell *lc2;
+      foreach(lc2, raw_parsetree_list) {
+        RawStmt *rs = lfirst_node(RawStmt, lc2);
+        CommentStmt *comment_stmt = (CommentStmt *)rs->stmt;
+
+        if (!IsA(comment_stmt, CommentStmt)) {
+          elog(ERROR, "unexpected statement type %d where CommentStmt expected", (int)nodeTag(comment_stmt));
+        }
+
+#if PG_VERSION_NUM < 120000
+        // Be sure to advance the command counter between subcommands
+        // Not needed in PG 12+ because standard_ProcessUtility already does this
+        CommandCounterIncrement();
+#endif
+
+        pstmt = makeNode(PlannedStmt);
+        pstmt->commandType = CMD_UTILITY;
+        pstmt->canSetTag = false;
+        pstmt->utilityStmt = (Node *) comment_stmt;
+        pstmt->stmt_location = rs->stmt_location;
+        pstmt->stmt_len = rs->stmt_len;
+
+        /* Execute statement */
+        ProcessUtility(pstmt, cmd, false,
+                PROCESS_UTILITY_SUBCOMMAND, NULL, NULL,
+                None_Receiver, NULL);
+      }
+    }
+
+  }
 }
 
 static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte) {

@@ -71,3 +71,25 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 
 	return commands
 }
+
+func SchemaToCommentsSql(localSchema, table string, tableSchema *proto.TableSchema) *C.List {
+	if tableSchema == nil {
+		return nil
+	}
+
+	log.Printf("[TRACE] Getting comments for table %s", table)
+
+	comments, err := sql.GetCommentsForTable(table, tableSchema, localSchema)
+	if err != nil {
+		FdwError(err)
+		return nil
+	}
+
+	var commands *C.List
+	for _, c := range comments {
+		log.Printf("[TRACE] SQL %s", c)
+		commands = C.lappend(commands, unsafe.Pointer(C.CString(c)))
+	}
+
+	return commands
+}

@@ -45,6 +45,27 @@ SERVER %s OPTIONS (table %s)`,
 	return sql, nil
 }
 
+func GetCommentsForTable(table string, tableSchema *proto.TableSchema, localSchema string) ([]string, error) {
+	localSchema = db_common.PgEscapeName(localSchema)
+	table = db_common.PgEscapeName(table)
+
+	var commentStatements []string
+	if tableSchema.Description != "" {
+		tableDescription := db_common.PgEscapeString(tableSchema.Description)
+		commentStatements = append(commentStatements, fmt.Sprintf("COMMENT ON FOREIGN TABLE %s.%s IS %s", localSchema, table, tableDescription))
+	}
+
+	for _, c := range tableSchema.Columns {
+		if c.Description != "" {
+			column := db_common.PgEscapeName(c.Name)
+			columnDescription := db_common.PgEscapeString(c.Description)
+			commentStatements = append(commentStatements, fmt.Sprintf("COMMENT ON COLUMN %s.%s.%s IS %s", localSchema, table, column, columnDescription))
+		}
+	}
+
+	return commentStatements, nil
+}
+
 func sqlTypeForColumnType(columnType proto.ColumnType) (string, error) {
 	switch columnType {
 	case proto.ColumnType_BOOL:

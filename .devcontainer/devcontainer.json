@@ -1,0 +1,45 @@
+{
+  "name": "Steampipe PostgreSQL FDW Dev Container (Local Build)",
+  "dockerFile": "build/Dockerfile",
+  "build": {
+    "args": {
+      "DEVCONTAINER_VERSION": "local"
+    }
+  },
+  "forwardPorts": [5432],
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": true,
+      "upgradePackages": true,
+      "username": "vscode",
+      "userUid": "1000",
+      "userGid": "1000"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  "runArgs": [
+    "--privileged"
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "ms-vscode.cpptools",
+        "ms-vscode.makefile-tools",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-json"
+      ],
+      "settings": {
+        "go.toolsManagement.checkForUpdates": "local",
+        "go.useLanguageServer": true,
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "postCreateCommand": "echo '🎉 Steampipe PostgreSQL FDW dev container ready!' && ./.devcontainer/setup-verification.sh"
+} 

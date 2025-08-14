@@ -9,9 +9,6 @@ PLATFORM=$(shell uname)
 
 ifeq ($(shell uname), Darwin)
 	PG_LDFLAGS=-framework Foundation -framework AppKit -framework Security
-	# Override the sysroot to use the correct available SDK
-	override CPPFLAGS += -isysroot $(shell xcrun --show-sdk-path)
-	override LDFLAGS += -isysroot $(shell xcrun --show-sdk-path)
 endif
 
 EXTENSION = steampipe_postgres_fdw

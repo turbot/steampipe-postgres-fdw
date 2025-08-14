@@ -1,5 +1,8 @@
-## v2.1.1 [2025-08-14]
+## v2.1.2 [2025-08-14]
+_Bug fixes_
+- Fix darwin build: remove sysroot override for Darwin SDK path in Makefile.
 
+## v2.1.1 [2025-08-14]
 _Bug fixes_
 - **v2+ Plugin Version Support**: Fixed import path generation in templates to correctly handle v2+ plugin versions. The build process now properly appends the major version to the module path (e.g., `github.com/turbot/steampipe-plugin-aws/v2` for v2.x.x plugins) instead of using the base path which was causing build failures.
 

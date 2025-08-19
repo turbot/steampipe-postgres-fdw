@@ -8,7 +8,6 @@ import (
 	"testing"
 )
 
-
 func TestKeyColumnsToPathKeys(t *testing.T) {
 	tests := []struct {
 		name       string

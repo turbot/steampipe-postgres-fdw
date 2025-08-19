@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -172,6 +173,30 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 	tableOpts := GetFTableOptions(types.Oid(state.foreigntableid))
 
+	// Extract trace context if available
+	var traceContext string
+	if state.trace_context_string != nil {
+		traceContext = C.GoString(state.trace_context_string)
+		log.Printf("[TRACE] Extracted trace context from session: %s", traceContext)
+
+		if len(traceContext) > 0 {
+			log.Printf("[DEBUG] Trace context length: %d characters", len(traceContext))
+			if strings.Contains(traceContext, "traceparent=") {
+				log.Printf("[DEBUG] Trace context contains traceparent field")
+			} else {
+				log.Printf("[WARN] Trace context missing traceparent field - may be malformed")
+			}
+		}
+	} else {
+		log.Printf("[DEBUG] No trace context found in session variables")
+	}
+
+	// Add trace context to options for hub layer
+	if traceContext != "" {
+		tableOpts["trace_context"] = traceContext
+		log.Printf("[DEBUG] Added trace context to table options")
+	}
+
 	// build columns
 	var columns []string
 	if state.target_list != nil {
@@ -295,6 +320,21 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	// retrieve exec state
 	plan := (*C.ForeignScan)(unsafe.Pointer(node.ss.ps.plan))
 	var execState *C.FdwExecState = C.initializeExecState(unsafe.Pointer(plan.fdw_private))
+
+	// Extract trace context from session variables for scan operation
+	var traceContext string
+	if traceContextPtr := C.getTraceContextFromSession(); traceContextPtr != nil {
+		traceContext = C.GoString(traceContextPtr)
+		log.Printf("[TRACE] Extracted trace context from session for scan: %s", traceContext)
+	} else {
+		log.Printf("[DEBUG] No trace context found in session variables for scan")
+	}
+
+	// Add trace context to options for hub layer
+	if traceContext != "" {
+		opts["trace_context"] = traceContext
+		log.Printf("[DEBUG] Added trace context to scan options")
+	}
 
 	log.Printf("[INFO] goFdwBeginForeignScan, canPushdownAllSortFields %v", execState.canPushdownAllSortFields)
 	var columns []string

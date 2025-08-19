@@ -323,7 +323,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	// Extract trace context from session variables for scan operation
 	var traceContext string
-	if traceContextPtr := C.getTraceContextFromSession(); traceContextPtr != nil {
+	if traceContextPtr := C.getTraceContext(); traceContextPtr != nil {
 		traceContext = C.GoString(traceContextPtr)
 		log.Printf("[TRACE] Extracted trace context from session for scan: %s", traceContext)
 	} else {

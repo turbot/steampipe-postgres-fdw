@@ -236,9 +236,11 @@ func (i *scanIteratorBase) populateRow(row *proto.Row) (map[string]interface{}, 
 				i.setError(err)
 				return nil, err
 			}
+			log.Printf("[INFO] populateRow >> JSON value - column: %q, val: %#v, raw_bytes: %q", columnName, val, bytes)
 		} else if timestamp := column.GetTimestampValue(); timestamp != nil {
 			// convert from protobuf timestamp to a RFC 3339 time string
 			val = ptypes.TimestampString(timestamp)
+			log.Printf("[INFO] populateRow >> Timestamp value - column: %q, val: %q, raw_bytes: %q", columnName, val, bytes)
 		} else {
 			// get the first field descriptor and value (we only expect column message to contain a single field
 			column.ProtoReflect().Range(func(descriptor protoreflect.FieldDescriptor, v protoreflect.Value) bool {
@@ -250,6 +252,7 @@ func (i *scanIteratorBase) populateRow(row *proto.Row) (map[string]interface{}, 
 				}
 				return false
 			})
+			log.Printf("[INFO] populateRow >> Fallback value - column: %q, val: %#v, raw_bytes: %q", columnName, val, bytes)
 		}
 		res[columnName] = val
 	}
@@ -308,6 +311,7 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 			// update the scan metadata for this connection (this will overwrite any existing from the previous row)
 			i.scanMetadata[rowResult.Connection] = i.newScanMetadata(rowResult.Connection, rowResult.Metadata)
 
+			log.Printf("[INFO] readPluginResult rowResult: %q", rowResult.Row)
 			// so we have a row
 			i.rows <- rowResult.Row
 		}

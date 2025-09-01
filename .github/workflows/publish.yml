@@ -22,11 +22,11 @@ jobs:
       - name: Get Release assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |- 
+        run: |-
           gh release download ${{ github.event.inputs.release }} --dir . --repo ${{ github.repository }}
 
       - name: Release assets downloaded
-        run: |- 
+        run: |-
           ls -la .
 
       - name: Sanitize Version
@@ -91,6 +91,7 @@ jobs:
       - name: Push to registry
         run: |-
           REF="$CORE_REPO/$IMAGE_NAME:$VERSION"
+          LATEST_REF="$CORE_REPO/$IMAGE_NAME:latest"
           oras push $REF \
               --config config.json:application/vnd.turbot.steampipe.config.v1+json \
               --annotation-file annotations.json \
@@ -100,3 +101,11 @@ jobs:
                 steampipe_postgres_fdw.so.linux_arm64.gz:application/vnd.turbot.steampipe.fdw.linux-arm64.layer.v1+gzip \
                 steampipe_postgres_fdw.control:application/vnd.turbot.steampipe.fdw.control.layer.v1+text \
                 steampipe_postgres_fdw--1.0.sql:application/vnd.turbot.steampipe.fdw.sql.layer.v1+text
+
+          # check if the version is NOT an rc version before tagging as latest
+          if [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tagging as latest: $LATEST_REF"
+            oras tag $REF $LATEST_REF
+          else
+            echo "Skipping latest tag for rc version: $VERSION"
+          fi

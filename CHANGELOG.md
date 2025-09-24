@@ -1,3 +1,10 @@
+## v2.1.3 [2025-09-24]
+_Whats new_
+- Updated steampipe reference to add support for using functions in steampipe config.
+
+_Dependencies_
+- Upgraded dependencies to remediate vulnerabilities.
+
 ## v2.1.2 [2025-08-14]
 _Bug fixes_
 - Fix darwin build: remove sysroot override for Darwin SDK path in Makefile.

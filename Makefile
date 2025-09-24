@@ -28,8 +28,14 @@ standalone: validate_plugin validate_version prebuild.go
 	cd work && \
 	go run generate/generator.go templates . $(plugin) $(plugin_version) $(plugin_github_url) && \
 	if [ ! -z "$(plugin_version)" ]; then \
-		echo "go get $(plugin_github_url)@$(plugin_version)" && \
-		go get $(plugin_github_url)@$(plugin_version); \
+		MAJOR_VERSION=$$(echo $(plugin_version) | grep -o '^v[0-9]\+' || echo "v1") && \
+		if [ "$$MAJOR_VERSION" = "v1" ] || [ "$$MAJOR_VERSION" = "v0" ]; then \
+			echo "go get $(plugin_github_url)@$(plugin_version)" && \
+			go get $(plugin_github_url)@$(plugin_version); \
+		else \
+			echo "go get $(plugin_github_url)/$$MAJOR_VERSION@$(plugin_version)" && \
+			go get $(plugin_github_url)/$$MAJOR_VERSION@$(plugin_version); \
+		fi; \
 	fi && \
 	go mod tidy && \
 	$(MAKE) -C ./fdw clean && \
@@ -61,8 +67,14 @@ render: validate_plugin validate_version prebuild.go
 	cd work && \
 	go run generate/generator.go templates . $(plugin) $(plugin_version) $(plugin_github_url) && \
 	if [ ! -z "$(plugin_version)" ]; then \
-		echo "go get $(plugin_github_url)@$(plugin_version)" && \
-		go get $(plugin_github_url)@$(plugin_version); \
+		MAJOR_VERSION=$$(echo $(plugin_version) | grep -o '^v[0-9]\+' || echo "v1") && \
+		if [ "$$MAJOR_VERSION" = "v1" ] || [ "$$MAJOR_VERSION" = "v0" ]; then \
+			echo "go get $(plugin_github_url)@$(plugin_version)" && \
+			go get $(plugin_github_url)@$(plugin_version); \
+		else \
+			echo "go get $(plugin_github_url)/$$MAJOR_VERSION@$(plugin_version)" && \
+			go get $(plugin_github_url)/$$MAJOR_VERSION@$(plugin_version); \
+		fi; \
 	fi && \
 	go mod tidy
 

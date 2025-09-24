@@ -1,7 +1,7 @@
 package hub
 
 import (
-	{{.Plugin}} "{{.PluginGithubUrl}}/{{.Plugin}}"
+	{{.Plugin}} "{{.PluginGithubUrl}}{{if .PluginVersion}}{{if not (or (eq (slice .PluginVersion 0 2) "v1") (eq (slice .PluginVersion 0 2) "v0"))}}/{{slice .PluginVersion 0 2}}{{end}}{{end}}/{{.Plugin}}"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 )
 

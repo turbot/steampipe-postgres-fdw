@@ -1,3 +1,7 @@
+## v2.1.4 [2025-11-20]
+_Dependencies_
+- Upgraded dependencies to remediate vulnerabilities.
+
 ## v2.1.3 [2025-09-24]
 _Whats new_
 - Updated steampipe reference to add support for using functions in steampipe config.

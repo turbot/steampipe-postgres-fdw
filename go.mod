@@ -17,8 +17,8 @@ require (
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/turbot/pipe-fittings/v2 v2.7.0
-	github.com/turbot/steampipe/v2 v2.2.0-rc.0
+	github.com/turbot/pipe-fittings/v2 v2.7.2
+	github.com/turbot/steampipe/v2 v2.3.4
 	go.opentelemetry.io/otel/metric v1.35.0
 )
 
@@ -82,10 +82,10 @@ require (
 	github.com/hashicorp/terraform-registry-address v0.2.4 // indirect
 	github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jackc/pgx/v5 v5.7.3 // indirect
+	github.com/jackc/pgx/v5 v5.7.6 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
-	github.com/jedib0t/go-pretty/v6 v6.6.7 // indirect
+	github.com/jedib0t/go-pretty/v6 v6.6.9 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/karrick/gows v0.3.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
@@ -98,7 +98,7 @@ require (
 	github.com/sagikazarmark/locafero v0.8.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/spf13/cobra v1.9.1 // indirect
+	github.com/spf13/cobra v1.10.1 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
 	github.com/thediveo/enumflag/v2 v2.0.7 // indirect
 	github.com/turbot/pipes-sdk-go v0.12.1 // indirect
@@ -151,7 +151,7 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-plugin v1.6.3 // indirect
+	github.com/hashicorp/go-plugin v1.7.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/hcl/v2 v2.24.0 // indirect
 	github.com/hashicorp/terraform-svchost v0.1.1 // indirect
@@ -188,7 +188,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/spf13/viper v1.20.1 // indirect
 	github.com/stevenle/topsort v0.2.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
@@ -202,9 +202,9 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.35.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.35.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.35.0
 	go.opentelemetry.io/otel/sdk/metric v1.35.0 // indirect
-	go.opentelemetry.io/otel/trace v1.35.0 // indirect
+	go.opentelemetry.io/otel/trace v1.35.0
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394

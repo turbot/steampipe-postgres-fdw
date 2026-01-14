@@ -6,6 +6,7 @@ package main
 #include "fdw_helpers.h"
 */
 import "C"
+import "unsafe"
 
 // Explainable is an optional interface for Iterator that can explain it's execution plan.
 type Explainable interface {
@@ -20,5 +21,9 @@ type Explainer struct {
 
 // Property adds a key-value property to results of EXPLAIN query.
 func (e Explainer) Property(k, v string) {
-	C.ExplainPropertyText(C.CString(k), C.CString(v), e.ES)
+	ck := C.CString(k)
+	cv := C.CString(v)
+	defer C.free(unsafe.Pointer(ck))
+	defer C.free(unsafe.Pointer(cv))
+	C.ExplainPropertyText(ck, cv, e.ES)
 }

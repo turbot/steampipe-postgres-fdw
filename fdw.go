@@ -268,9 +268,11 @@ func goFdwExplainForeignScan(node *C.ForeignScanState, es *C.ExplainState) {
 
 //export goFdwBeginForeignScan
 func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
+	// Outer recover: catches panics during early initialization (before inner defer is registered)
+	// This provides defense-in-depth - if the inner defer's recovery fails, this catches it
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[WARN] goFdwExplainForeignScan failed with panic: %v", r)
+			log.Printf("[WARN] goFdwBeginForeignScan failed with panic during early init: %v", r)
 			FdwError(fmt.Errorf("%v", r))
 		}
 	}()
@@ -285,6 +287,7 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 
 	log.Printf("[INFO] goFdwBeginForeignScan, connection '%s', table '%s', explain: %v \n", opts["connection"], opts["table"], explain)
 
+	// Inner recover: catches panics during main scan processing
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] goFdwBeginForeignScan failed with panic: %v", r)

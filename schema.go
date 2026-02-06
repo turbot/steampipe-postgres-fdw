@@ -66,7 +66,13 @@ func SchemaToSql(schema map[string]*proto.TableSchema, stmt *C.ImportForeignSche
 		}
 
 		log.Printf("[TRACE] SQL %s", sql)
-		commands = C.lappend(commands, unsafe.Pointer(C.CString(sql)))
+		// Use pstrdup to allocate in PostgreSQL memory context.
+		// This ensures the string is freed when the memory context is destroyed,
+		// avoiding a memory leak from C.CString which allocates on the C heap.
+		cSql := C.CString(sql)
+		pSql := C.pstrdup(cSql)
+		C.free(unsafe.Pointer(cSql))
+		commands = C.lappend(commands, unsafe.Pointer(pSql))
 	}
 
 	return commands

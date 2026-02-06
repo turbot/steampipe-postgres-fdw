@@ -154,7 +154,11 @@ func ValToDatum(val interface{}, cinfo *C.ConversionInfo, buffer C.StringInfo) (
 		}
 	}()
 	// init an empty return result
-	datum := C.fdw_cStringGetDatum(C.CString(""))
+	// Allocate CString, use it, then immediately free to avoid memory leak
+	// Using explicit C.free() instead of defer because this is a hot path
+	emptyStr := C.CString("")
+	datum := C.fdw_cStringGetDatum(emptyStr)
+	C.free(unsafe.Pointer(emptyStr))
 
 	// write value into C buffer
 	if err := valToBuffer(val, cinfo.atttypoid, buffer); err != nil {
@@ -197,7 +201,12 @@ func valToBuffer(val interface{}, oid C.Oid, buffer C.StringInfo) (err error) {
 	}
 
 	C.resetStringInfo(buffer)
-	C.fdw_appendBinaryStringInfo(buffer, C.CString(valueString), C.int(len(valueString)))
+	// Allocate CString, use it, then immediately free to avoid memory leak
+	// Using explicit C.free() instead of defer because this is a hot path
+	// called for every string column in every row
+	cValueString := C.CString(valueString)
+	C.fdw_appendBinaryStringInfo(buffer, cValueString, C.int(len(valueString)))
+	C.free(unsafe.Pointer(cValueString))
 	return
 }
 

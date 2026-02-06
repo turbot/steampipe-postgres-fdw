@@ -1,3 +1,7 @@
+## v2.1.5 [2026-02-06]
+_Bug fixes_
+- Fix memory leaks caused by unfreed `C.CString()` allocations across multiple functions. ([#618](https://github.com/turbot/steampipe-postgres-fdw/pull/618), [#620](https://github.com/turbot/steampipe-postgres-fdw/pull/620), [#622](https://github.com/turbot/steampipe-postgres-fdw/pull/622), [#624](https://github.com/turbot/steampipe-postgres-fdw/pull/624), [#631](https://github.com/turbot/steampipe-postgres-fdw/pull/631))
+
 ## v2.1.4 [2025-11-20]
 _Dependencies_
 - Upgraded dependencies to remediate vulnerabilities.

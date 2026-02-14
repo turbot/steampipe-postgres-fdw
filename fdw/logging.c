@@ -57,12 +57,17 @@ char* tagTypeToString(NodeTag type)
     "T_JoinExpr",
     "T_FromExpr",
     "T_OnConflictExpr",
-    "T_IntoClause"
+    "T_IntoClause",
+    "T_RestrictInfo"  /* Add RestrictInfo for PostgreSQL v16+ compatibility */
 };
     int idx = (int)type - (int)T_Alias;
     if (idx <  sizeof(tagNames) / sizeof(tagNames[0])){
         return tagNames[idx];
     }
-    return "";
+
+    /* DEBUG: Log unknown node types for PostgreSQL v16+ compatibility debugging */
+    static char unknown_type_buf[64];
+    snprintf(unknown_type_buf, sizeof(unknown_type_buf), "T_Unknown_%d", (int)type);
+    return unknown_type_buf;
 
 }

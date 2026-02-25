@@ -1,8 +1,6 @@
 module github.com/turbot/steampipe-postgres-fdw/v2
 
-go 1.24.0
-
-toolchain go1.24.1
+go 1.26.0
 
 require (
 	github.com/dgraph-io/ristretto v0.2.0 // indirect
@@ -10,7 +8,7 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/turbot/go-kit v1.3.0
-	github.com/turbot/steampipe-plugin-sdk/v5 v5.13.0
+	github.com/turbot/steampipe-plugin-sdk/v5 v5.14.0
 	go.opentelemetry.io/otel v1.35.0
 	google.golang.org/protobuf v1.36.6
 )
@@ -103,7 +101,7 @@ require (
 	github.com/thediveo/enumflag/v2 v2.0.7 // indirect
 	github.com/turbot/pipes-sdk-go v0.12.1 // indirect
 	github.com/turbot/terraform-components v0.0.0-20250114051614-04b806a9cbed // indirect
-	github.com/ulikunitz/xz v0.5.14 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.35.0 // indirect

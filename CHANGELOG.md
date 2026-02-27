@@ -1,3 +1,15 @@
+## v2.2.0 [2026-02-27]
+_Whats new_
+- Add support for propagation of OpenTelemetry context from clients. ([#568](https://github.com/turbot/steampipe-postgres-fdw/pull/568))
+- Add support for propagation of OpenTelemetry context from clients with SQLcommenter. ([#569](https://github.com/turbot/steampipe-postgres-fdw/pull/569))
+- Update Go version to 1.26. ([#637](https://github.com/turbot/steampipe-postgres-fdw/pull/637))
+
+_Bug fixes_
+- Fix OpenTelemetry metric names to only contain `[A-Za-z0-9_.-]`. ([#595](https://github.com/turbot/steampipe-postgres-fdw/pull/595))
+
+_Dependencies_
+- Bump `github.com/go-git/go-git/v5` from 5.16.2 to 5.16.5.
+
 ## v2.1.5 [2026-02-06]
 _Bug fixes_
 - Fix memory leaks caused by unfreed `C.CString()` allocations across multiple functions. ([#618](https://github.com/turbot/steampipe-postgres-fdw/pull/618), [#620](https://github.com/turbot/steampipe-postgres-fdw/pull/620), [#622](https://github.com/turbot/steampipe-postgres-fdw/pull/622), [#624](https://github.com/turbot/steampipe-postgres-fdw/pull/624), [#631](https://github.com/turbot/steampipe-postgres-fdw/pull/631))

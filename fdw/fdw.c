@@ -4,6 +4,9 @@
 #include "fdw_handlers.h"
 #include "nodes/plannodes.h"
 #include "access/xact.h"
+#include "utils/guc.h"
+#include "utils/builtins.h"
+#include "tcop/tcopprot.h"
 
 extern PGDLLEXPORT void _PG_init(void);
 
@@ -13,6 +16,11 @@ static char *convertUUID(char *uuid);
 
 static void pgfdw_xact_callback(XactEvent event, void *arg);
 static void exitHook(int code, Datum arg);
+
+/* Trace context extraction functions */
+static char *extractTraceContextFromSession(void);
+static char *extractTraceContextFromQueryComments(void);
+static char *extractTraceContext(void);
 
 void *serializePlanState(FdwPlanState *state);
 FdwExecState *initializeExecState(void *internalstate);
@@ -92,6 +100,165 @@ static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, Ran
 	return getenv("STEAMPIPE_FDW_PARALLEL_SAFE") != NULL;
 }
 
+/*
+ * Extract OpenTelemetry trace context from PostgreSQL session variables
+ * Returns a formatted string containing traceparent and tracestate, or NULL if not set
+ */
+static char *extractTraceContextFromSession(void)
+{
+    const char *traceparent = GetConfigOption("steampipe.traceparent", true, false);
+    const char *tracestate = GetConfigOption("steampipe.tracestate", true, false);
+    char *result = NULL;
+
+    // Format the result string for Go layer consumption
+    if (traceparent != NULL) {
+        if (tracestate != NULL) {
+            result = psprintf("traceparent=%s;tracestate=%s", traceparent, tracestate);
+        } else {
+            result = psprintf("traceparent=%s", traceparent);
+        }
+
+        elog(DEBUG1, "extracted trace context: %s", result);
+    } else {
+        elog(DEBUG2, "no trace context found in session variables");
+    }
+
+    return result;
+}
+
+/*
+ * Extract OpenTelemetry trace context from SQL query comments (SQLcommenter format)
+ * Parses comments like: /*traceparent='00-...',tracestate='rojo=...'*\/
+ * Returns a formatted string containing traceparent and tracestate, or NULL if not found
+ */
+static char *extractTraceContextFromQueryComments(void)
+{
+    const char *query_string = debug_query_string;
+    char *result = NULL;
+    char *traceparent = NULL;
+    char *tracestate = NULL;
+
+    if (query_string == NULL) {
+        elog(DEBUG2, "no query string available for SQLcommenter parsing");
+        return NULL;
+    }
+
+    elog(DEBUG2, "parsing SQLcommenter from query: %.100s...", query_string);
+
+    // Look for SQL comments in the format /*...*/
+    const char *comment_start = strstr(query_string, "/*");
+    while (comment_start != NULL) {
+        const char *comment_end = strstr(comment_start, "*/");
+        if (comment_end == NULL) {
+            break; // Malformed comment, skip
+        }
+
+        // Extract the comment content
+        size_t comment_len = comment_end - comment_start - 2; // Exclude /* and */
+        char *comment_content = palloc(comment_len + 1);
+        strncpy(comment_content, comment_start + 2, comment_len);
+        comment_content[comment_len] = '\0';
+
+        elog(DEBUG2, "found SQL comment: %s", comment_content);
+
+        // Parse key-value pairs in the comment
+        char *token = strtok(comment_content, ",");
+        while (token != NULL) {
+            // Trim whitespace
+            while (*token == ' ' || *token == '\t') token++;
+
+            // Look for traceparent or tracestate
+            if (strncmp(token, "traceparent=", 12) == 0) {
+                char *value = token + 12;
+                // Remove quotes if present
+                if (*value == '\'' || *value == '"') {
+                    char quote_char = *value;
+                    value++;
+                    char *end_quote = strrchr(value, quote_char);
+                    if (end_quote) *end_quote = '\0';
+                }
+                if (traceparent) pfree(traceparent);
+                traceparent = pstrdup(value);
+                elog(DEBUG2, "extracted traceparent from SQLcommenter: %s", traceparent);
+            } else if (strncmp(token, "tracestate=", 11) == 0) {
+                char *value = token + 11;
+                // Remove quotes if present
+                if (*value == '\'' || *value == '"') {
+                    char quote_char = *value;
+                    value++;
+                    char *end_quote = strrchr(value, quote_char);
+                    if (end_quote) *end_quote = '\0';
+                }
+                if (tracestate) pfree(tracestate);
+                tracestate = pstrdup(value);
+                elog(DEBUG2, "extracted tracestate from SQLcommenter: %s", tracestate);
+            }
+
+            token = strtok(NULL, ",");
+        }
+
+        pfree(comment_content);
+
+        // Look for next comment
+        comment_start = strstr(comment_end + 2, "/*");
+    }
+
+    // Format the result string for Go layer consumption
+    if (traceparent != NULL) {
+        if (tracestate != NULL) {
+            result = psprintf("traceparent=%s;tracestate=%s", traceparent, tracestate);
+        } else {
+            result = psprintf("traceparent=%s", traceparent);
+        }
+
+        elog(DEBUG1, "extracted trace context from SQLcommenter: %s", result);
+    } else {
+        elog(DEBUG2, "no trace context found in SQL comments");
+    }
+
+    // Clean up
+    if (traceparent) pfree(traceparent);
+    if (tracestate) pfree(tracestate);
+
+    return result;
+}
+
+/*
+ * Extract trace context with fallback strategy:
+ * 1. Try PostgreSQL session variables first
+ * 2. Fall back to SQLcommenter in query comments
+ * 3. Return NULL if neither found
+ */
+static char *extractTraceContext(void)
+{
+    char *result = NULL;
+
+    // First try session variables (primary method)
+    result = extractTraceContextFromSession();
+    if (result != NULL) {
+        elog(DEBUG1, "using trace context from session variables");
+        return result;
+    }
+
+    // Fall back to SQLcommenter (secondary method)
+    result = extractTraceContextFromQueryComments();
+    if (result != NULL) {
+        elog(DEBUG1, "using trace context from SQLcommenter");
+        return result;
+    }
+
+    elog(DEBUG2, "no trace context found in session variables or SQLcommenter");
+    return NULL;
+}
+
+/*
+ * Public wrapper for extractTraceContext - callable from Go
+ */
+char *getTraceContext(void)
+{
+    return extractTraceContext();
+}
+
 static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid)
 {
   FdwPlanState *planstate;
@@ -111,6 +278,16 @@ static void fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid for
   // Save plan state information
   baserel->fdw_private = planstate;
   planstate->foreigntableid = foreigntableid;
+
+  // Extract trace context with fallback strategy (session variables -> SQLcommenter)
+  char *traceContext = extractTraceContext();
+  if (traceContext != NULL) {
+      planstate->trace_context_string = pstrdup(traceContext);
+      pfree(traceContext);
+      elog(DEBUG1, "stored trace context in plan state");
+  } else {
+      planstate->trace_context_string = NULL;
+  }
 
   // Initialize the conversion info array
   {

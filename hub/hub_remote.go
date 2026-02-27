@@ -102,7 +102,7 @@ func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledR
 	}
 
 	// create a span for this scan
-	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName)
+	scanTraceCtx := h.traceContextForScan(table, columns, limit, qualMap, connectionName, opts)
 	iterator, err := h.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, sortOrder, queryTimestamp, scanTraceCtx)
 
 	if err != nil {

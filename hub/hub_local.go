@@ -128,7 +128,7 @@ func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRe
 	}
 
 	// create a span for this scan
-	scanTraceCtx := l.traceContextForScan(table, columns, limit, qualMap, connectionName)
+	scanTraceCtx := l.traceContextForScan(table, columns, limit, qualMap, connectionName, opts)
 	iterator, err := l.startScanForConnection(connectionName, table, qualMap, unhandledRestrictions, columns, limit, sortOrder, queryTimestamp, scanTraceCtx)
 
 	if err != nil {

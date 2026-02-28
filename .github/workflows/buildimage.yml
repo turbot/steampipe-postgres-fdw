@@ -113,21 +113,21 @@ jobs:
           mv build-Darwin/steampipe_postgres_fdw.so.gz build-Darwin/steampipe_postgres_fdw.so.darwin_amd64.gz
 
       - name: Save MacOS Build Artifact - AMD64
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: steampipe_postgres_fdw.so.darwin_amd64
           path: build-Darwin/steampipe_postgres_fdw.so.darwin_amd64.gz
           if-no-files-found: error
 
       - name: Save steampipe_postgres_fdw.control    # only need this once for ALL platforms
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: steampipe_postgres_fdw.control
           path: ./fdw/steampipe_postgres_fdw.control
           if-no-files-found: error
 
       - name: Save steampipe_postgres_fdw--1.0.sql   # only need this once for ALL platforms
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: steampipe_postgres_fdw--1.0.sql
           path: ./fdw/steampipe_postgres_fdw--1.0.sql
@@ -232,7 +232,7 @@ jobs:
           mv build-Darwin/steampipe_postgres_fdw.so.gz build-Darwin/steampipe_postgres_fdw.so.darwin_arm64.gz
 
       - name: Save MacOS Build Artifact - AMD64
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: steampipe_postgres_fdw.so.darwin_arm64
           path: build-Darwin/steampipe_postgres_fdw.so.darwin_arm64.gz
@@ -317,7 +317,7 @@ jobs:
           mv build-Linux/steampipe_postgres_fdw.so.gz build-Linux/steampipe_postgres_fdw.so.linux_amd64.gz
 
       - name: Save Linux Build Artifact - AMD64
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: steampipe_postgres_fdw.so.linux_amd64
           path: build-Linux/steampipe_postgres_fdw.so.linux_amd64.gz
@@ -402,7 +402,7 @@ jobs:
           mv build-Linux/steampipe_postgres_fdw.so.gz build-Linux/steampipe_postgres_fdw.so.linux_arm64.gz
 
       - name: Save Linux Build Artifact - AMD64
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: steampipe_postgres_fdw.so.linux_arm64
           path: build-Linux/steampipe_postgres_fdw.so.linux_arm64.gz

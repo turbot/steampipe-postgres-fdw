@@ -162,15 +162,6 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 		FdwError(sperr.WrapWithMessage(err, "failed to process options"))
 	}
 
-	// reload connection config
-	// TODO remove need for fdw to load connection config
-	_, err = pluginHub.LoadConnectionConfig()
-	if err != nil {
-		log.Printf("[ERROR] LoadConnectionConfig failed %v ", err)
-		FdwError(err)
-		return
-	}
-
 	tableOpts := GetFTableOptions(types.Oid(state.foreigntableid))
 
 	// Extract trace context if available

@@ -3,7 +3,6 @@ package hub
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"path"
@@ -56,6 +55,7 @@ func newRemoteHub() (*RemoteHub, error) {
 	}
 	app_specific.InstallDir = steampipeDir
 
+	// Load config metadata at startup for backward-compatible aggregator behavior.
 	log.Printf("[INFO] newRemoteHub RemoteHub.LoadConnectionConfig ")
 	if _, err := hub.LoadConnectionConfig(); err != nil {
 		return nil, err
@@ -175,19 +175,17 @@ func (h *RemoteHub) startScanForConnection(connectionName string, table string, 
 	// ok so this is a multi connection plugin, build list of connections,
 	// if this connection is NOT an aggregator, only execute for the named connection
 
-	// get connection config
-	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
-	if !ok {
-		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
-	}
-
 	var connectionNames = []string{connectionName}
-	if connectionConfig.Type == modconfig.ConnectionTypeAggregator {
-		connectionNames = connectionConfig.GetResolveConnectionNames()
-		// if there are no connections, do not proceed
-		if len(connectionNames) == 0 {
-			return nil, errors.New(connectionConfig.GetEmptyAggregatorError())
+	if connectionConfig, ok := h.loadConnectionConfigWithFallback(connectionName, true, true); ok {
+		if connectionConfig.Type == modconfig.ConnectionTypeAggregator {
+			connectionNames = connectionConfig.GetResolveConnectionNames()
+			// if there are no connections, do not proceed
+			if len(connectionNames) == 0 {
+				return nil, errors.New(connectionConfig.GetEmptyAggregatorError())
+			}
 		}
+	} else {
+		log.Printf("[TRACE] no GlobalConfig entry for connection '%s' - using single-connection execution path", connectionName)
 	}
 
 	// for each connection, determine whether to pushdown the limit
@@ -249,13 +247,13 @@ func (h *RemoteHub) buildConnectionLimitMap(table string, qualMap map[string]*pr
 func (h *RemoteHub) getConnectionPlugin(connectionName string) (*steampipeconfig.ConnectionPlugin, error) {
 	log.Printf("[TRACE] hub.getConnectionPlugin for connection '%s`", connectionName)
 
-	// get the plugin FQN
-	connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
-	if !ok {
-		log.Printf("[WARN] no connection config loaded for connection '%s'", connectionName)
-		return nil, fmt.Errorf("no connection config loaded for connection '%s'", connectionName)
+	pluginFQN := ""
+	if connectionConfig, ok := h.loadConnectionConfigWithFallback(connectionName, true, false); ok {
+		pluginFQN = connectionConfig.Plugin
 	}
-	pluginFQN := connectionConfig.Plugin
+	if pluginFQN == "" {
+		log.Printf("[TRACE] no plugin FQN in GlobalConfig for connection '%s' - resolving via plugin manager", connectionName)
+	}
 
 	// ask connection map to get or create this connection
 	c, err := h.connections.getOrCreate(pluginFQN, connectionName)
@@ -265,6 +263,35 @@ func (h *RemoteHub) getConnectionPlugin(connectionName string) (*steampipeconfig
 	}
 
 	return c, nil
+}
+
+func (h *RemoteHub) loadConnectionConfigWithFallback(connectionName string, refreshOnMiss bool, refreshIfAggregator bool) (*modconfig.SteampipeConnection, bool) {
+	getCurrent := func() (*modconfig.SteampipeConnection, bool) {
+		if steampipeconfig.GlobalConfig == nil || steampipeconfig.GlobalConfig.Connections == nil {
+			return nil, false
+		}
+		connectionConfig, ok := steampipeconfig.GlobalConfig.Connections[connectionName]
+		return connectionConfig, ok
+	}
+
+	connectionConfig, ok := getCurrent()
+	if !ok && refreshOnMiss {
+		log.Printf("[TRACE] loadConnectionConfigWithFallback: missing '%s' in GlobalConfig - reloading config", connectionName)
+		if _, err := h.LoadConnectionConfig(); err != nil {
+			log.Printf("[WARN] loadConnectionConfigWithFallback reload failed for '%s': %s", connectionName, err)
+		}
+		connectionConfig, ok = getCurrent()
+	}
+
+	if ok && refreshIfAggregator && connectionConfig.Type == modconfig.ConnectionTypeAggregator {
+		log.Printf("[TRACE] loadConnectionConfigWithFallback: refreshing aggregator metadata for '%s'", connectionName)
+		if _, err := h.LoadConnectionConfig(); err != nil {
+			log.Printf("[WARN] loadConnectionConfigWithFallback aggregator reload failed for '%s': %s", connectionName, err)
+		}
+		connectionConfig, ok = getCurrent()
+	}
+
+	return connectionConfig, ok
 }
 
 func (h *RemoteHub) clearConnectionCache(connection string) error {

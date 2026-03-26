@@ -6,6 +6,10 @@ on:
         description: "The published release to package as an image(must be prefixed with 'v')"
         required: true
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   PROJECT_ID: steampipe
   IMAGE_NAME: fdw

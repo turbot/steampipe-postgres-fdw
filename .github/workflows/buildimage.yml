@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 env:
   PROJECT_ID: steampipe
   IMAGE_NAME: fdw

@@ -1,3 +1,7 @@
+## v2.2.1 [2026-03-30]
+_Dependencies_
+- Update Go version to `1.26.1` to address vulnerability in `1.26`.
+
 ## v2.2.0 [2026-02-27]
 _Whats new_
 - Compiled with Go 1.26.

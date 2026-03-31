@@ -1,3 +1,9 @@
+## v2.2.2 [2026-03-31]
+_Dependencies_
+- Upgrade `google.golang.org/grpc` to `v1.79.3` to address `CVE-2026-33186`.
+- Upgrade `go.opentelemetry.io/otel/sdk` to `v1.40.0` to address `CVE-2026-24051`.
+- Upgrade `github.com/go-git/go-git/v5` to `v5.17.1` to address `CVE-2026-34165` and `CVE-2026-33762`.
+
 ## v2.2.1 [2026-03-30]
 _Dependencies_
 - Update Go version to `1.26.1` to address vulnerability in `1.26`.

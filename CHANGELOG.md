@@ -1,3 +1,9 @@
+## v2.2.3 [2026-05-19]
+_Dependencies_
+- Bump `github.com/jackc/pgx/v5` to `v5.9.2` to remediate `CVE-2026-41889` (`GHSA-j88v-2chj-qfwx`).
+- Upgrade `github.com/go-jose/go-jose/v4` to `v4.1.4` to address security vulnerabilities.
+- Upgrade `go.opentelemetry.io/otel/sdk` to `v1.43.0` to address security vulnerabilities.
+
 ## v2.2.2 [2026-03-31]
 _Dependencies_
 - Upgrade `google.golang.org/grpc` to `v1.79.3` to address `CVE-2026-33186`.

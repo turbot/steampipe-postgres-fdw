@@ -4,10 +4,10 @@ import (
 	"context"
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/anywhere"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v6/anywhere"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/row_stream"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
 )
 
 type scanIteratorLocal struct {

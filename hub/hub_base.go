@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/v2/settings"
 	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"github.com/turbot/steampipe/v2/pkg/constants"

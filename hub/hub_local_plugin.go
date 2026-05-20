@@ -1,7 +1,7 @@
 package hub
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
 )
 
 // this is provided to ensure GRPC FDW version builds - it will be replaced by template for standalone version

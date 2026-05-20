@@ -1,7 +1,7 @@
 package hub
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
 	"sync"
 )
 

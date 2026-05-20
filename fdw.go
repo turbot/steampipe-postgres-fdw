@@ -24,9 +24,9 @@ import (
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
 	"github.com/turbot/steampipe-postgres-fdw/v2/hub"
 	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"github.com/turbot/steampipe-postgres-fdw/v2/version"

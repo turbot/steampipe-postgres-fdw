@@ -183,7 +183,33 @@ func (i *scanIteratorBase) Start(executor pluginExecutor) error {
 
 	// read the results - this will loop until it hits an error or the stream is closed
 	go i.readThread(ctx)
+	// bridge Postgres cancellation (statement_timeout, pg_cancel_backend, etc.) into
+	// the iterator's context — without this, a hung plugin call leaves the cgo
+	// IterateForeignScan call blocked and Postgres has no way to recover the
+	// backend. See issue #671.
+	go i.watchForCancellation(ctx)
 	return nil
+}
+
+// watchForCancellation polls Postgres for a pending query cancel or backend
+// die request and cancels the iterator's context when one is observed. Exits
+// naturally when the iterator's context is done (i.e. when the scan ends
+// normally and Close() has been called).
+func (i *scanIteratorBase) watchForCancellation(ctx context.Context) {
+	ticker := time.NewTicker(queryCancelPollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if isQueryCancelPending() {
+				log.Printf("[INFO] Postgres query cancel pending; cancelling iterator (%p)", i)
+				i.cancel()
+				return
+			}
+		}
+	}
 }
 
 // GetPluginName implements Iterator (this should be implemented by the concrete iterator)
@@ -288,8 +314,12 @@ func (i *scanIteratorBase) readThread(ctx context.Context) {
 
 func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 	continueReading := true
-	var rcvChan = make(chan *proto.ExecuteResponse)
-	var errChan = make(chan error)
+	// size-1 buffered so the inner Recv() goroutine can always complete its
+	// send and exit, even when the outer select below returns via ctx.Done()
+	// before Recv() unblocks. Without the buffer the inner goroutine leaks on
+	// every cancelled scan.
+	var rcvChan = make(chan *proto.ExecuteResponse, 1)
+	var errChan = make(chan error, 1)
 
 	// put the stream receive code into a goroutine to ensure cancellation is possible in case of a plugin hang
 	go func() {

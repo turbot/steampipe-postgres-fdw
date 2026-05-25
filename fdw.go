@@ -69,6 +69,13 @@ func init() {
 	if err := hub.CreateHub(); err != nil {
 		panic(err)
 	}
+	// install the cgo-backed bridge that lets the hub detect Postgres
+	// cancellation while a cgo call is in flight. Without this, a hung plugin
+	// gRPC stream leaves the backend stuck active and statement_timeout has no
+	// effect — see issue #671.
+	hub.SetQueryCancelChecker(func() bool {
+		return C.fdw_query_cancel_pending() != 0
+	})
 	log.Printf("[INFO] .\n******************************************************\n\n\t\tsteampipe postgres fdw init\n\n******************************************************\n")
 	log.Printf("[INFO] Version:   v%s\n", version.FdwVersion.String())
 	log.Printf("[INFO] Log level: %s\n", level)

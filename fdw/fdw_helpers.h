@@ -20,8 +20,18 @@
 #include "utils/syscache.h"
 #include "utils/lsyscache.h"
 #include "netinet/in.h"
+#include "miscadmin.h"
 
 extern char **environ;
+
+// Returns non-zero when the backend has a pending query-cancel or backend-die
+// request. The underlying flags are volatile sig_atomic_t (designed to be safe
+// to read from a signal handler), so reading them from a Go-scheduled
+// goroutine is safe. Used as a polling bridge from Postgres cancellation to
+// the iterator's Go context — see issue #671.
+static inline int fdw_query_cancel_pending(void) {
+  return (QueryCancelPending || ProcDiePending) ? 1 : 0;
+}
 
 // Macro expansions
 static inline FormData_pg_attribute *fdw_tupleDescAttr(TupleDesc tupdesc, int i) { return TupleDescAttr(tupdesc, i); }

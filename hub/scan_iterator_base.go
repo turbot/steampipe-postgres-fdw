@@ -195,7 +195,15 @@ func (i *scanIteratorBase) Start(executor pluginExecutor) error {
 // die request and cancels the iterator's context when one is observed. Exits
 // naturally when the iterator's context is done (i.e. when the scan ends
 // normally and Close() has been called).
+//
+// Returns immediately if no cancellation checker has been installed (e.g.
+// hub used outside the FDW cgo init, or in unit tests). In that case there
+// is nothing useful for the watcher to do — keeping it running would just
+// add idle goroutines that can never trigger.
 func (i *scanIteratorBase) watchForCancellation(ctx context.Context) {
+	if !queryCancelCheckerConfigured() {
+		return
+	}
 	ticker := time.NewTicker(queryCancelPollInterval)
 	defer ticker.Stop()
 	for {

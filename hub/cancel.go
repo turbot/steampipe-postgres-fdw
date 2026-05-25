@@ -34,3 +34,10 @@ func isQueryCancelPending() bool {
 	}
 	return queryCancelChecker()
 }
+
+// queryCancelCheckerConfigured reports whether a cancellation checker has
+// been registered. Callers can use this to skip starting the per-scan
+// watcher goroutine entirely when the bridge isn't wired up.
+func queryCancelCheckerConfigured() bool {
+	return queryCancelChecker != nil
+}

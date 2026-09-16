@@ -14,7 +14,7 @@ require (
 )
 
 require (
-	github.com/Masterminds/semver/v3 v3.4.0
+	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/turbot/pipe-fittings/v2 v2.9.1
 	github.com/turbot/steampipe/v2 v2.4.1-0.20260521095858-4ffd80000e98
 	go.opentelemetry.io/otel/metric v1.44.0

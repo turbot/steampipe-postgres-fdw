@@ -1,3 +1,26 @@
+## v2.2.7 [2026-09-16]
+_Dependencies_
+- Bump `golang.org/x/crypto` from v0.52.0 to v0.55.0 to remediate CVE-2026-56854.
+- Bump `google.golang.org/grpc` from v1.79.3 to v1.83.2 to remediate CVE-2026-84445.
+- Bump `github.com/containerd/containerd` from v1.7.33 to v1.7.35 to remediate CVE-2026-53495.
+- Bump `github.com/go-git/go-git/v5` from v5.19.1 to v5.19.2 to remediate CVE-2026-71556 and CVE-2026-71557.
+- Bump `golang.org/x/net` from v0.54.0 to v0.58.0 to remediate CVE-2026-25680.
+- Bump `github.com/aws/aws-sdk-go-v2/service/s3` from v1.97.1 to v1.97.3 to remediate GHSA-xmrv-pmrh-hhx2.
+
+## v2.2.6 [2026-09-09]
+_Dependencies_
+- Compiled with Go 1.26.7 to remediate CVE-2026-39821.
+
+## v2.2.5 [2026-08-10]
+_Dependencies_
+- Compiled with Go 1.26.5 to remediate CVE-2026-27143 and other Go standard-library CVEs.
+- Bump `golang.org/x/crypto` from v0.46.0 to v0.52.0 to remediate CVE-2026-39830 through CVE-2026-39834, CVE-2026-42508 and CVE-2026-46595.
+- Bump `github.com/containerd/containerd` from v1.7.29 to v1.7.33 to remediate CVE-2026-46680 and CVE-2026-53488.
+- Bump `github.com/go-git/go-git/v5` from v5.17.1 to v5.19.1 to remediate CVE-2026-45022 and CVE-2026-41506.
+- Bump `github.com/go-git/go-billy/v5` from v5.8.0 to v5.9.0 to remediate CVE-2026-44973.
+- Bump `oras.land/oras-go/v2` from v2.5.0 to v2.6.2 to remediate CVE-2026-50151.
+- Bump `github.com/hashicorp/go-getter` from v1.7.9 to v1.8.6 to remediate CVE-2026-4660.
+
 ## v2.2.4 [2026-05-25]
 _Bug fixes_
 - Fix `statement_timeout`, `pg_cancel_backend`, and `pg_terminate_backend` having no effect when a plugin's gRPC stream stalls — a hung scan held `AccessShareLock` indefinitely, blocking partition swaps and other DDL until restart. ([#671](https://github.com/turbot/steampipe-postgres-fdw/issues/671), [#672](https://github.com/turbot/steampipe-postgres-fdw/pull/672))

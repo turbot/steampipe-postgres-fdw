@@ -58,6 +58,7 @@ func newRemoteHub() (*RemoteHub, error) {
 
 	log.Printf("[INFO] newRemoteHub RemoteHub.LoadConnectionConfig ")
 	if _, err := hub.LoadConnectionConfig(); err != nil {
+		// returning the error would panic init() and kill the backend; each statement reloads the config and fails with the real error instead
 		log.Printf("[ERROR] newRemoteHub RemoteHub.LoadConnectionConfig failed, continuing: %v", err)
 	}
 

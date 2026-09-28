@@ -81,3 +81,26 @@ func TestLoadConnectionConfig_ReloadFails_KeepsLastGoodConfig(t *testing.T) {
 		t.Fatal("a failed reload discarded the last successfully loaded config")
 	}
 }
+
+func TestLoadConnectionConfig_DuplicateAndInvalidConnectionNames_LoadWithoutError(t *testing.T) {
+	resetGlobalConfig(t)
+	steampipeconfig.GlobalConfig = nil
+
+	writeInstallDir(t, map[string]string{
+		"a.spc": `connection "chaos" { plugin = "chaos" }`,
+		"b.spc": `connection "chaos" { plugin = "chaos" }`,
+		"c.spc": `connection "1bad" { plugin = "chaos" }`,
+	})
+
+	h := &RemoteHub{}
+	if _, err := h.LoadConnectionConfig(); err != nil {
+		t.Fatalf("expected duplicate and invalid connection names to be skipped without an error, got: %v", err)
+	}
+
+	if _, ok := steampipeconfig.GlobalConfig.Connections["chaos"]; !ok {
+		t.Fatal("expected connection 'chaos' to be loaded")
+	}
+	if _, ok := steampipeconfig.GlobalConfig.Connections["1bad"]; ok {
+		t.Fatal("expected invalid connection '1bad' to be skipped")
+	}
+}

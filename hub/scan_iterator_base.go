@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -40,6 +41,9 @@ type scanIteratorBase struct {
 
 	startTime time.Time
 	callId    string
+	// set by Close before it cancels the context, so readPluginResult can tell a cancellation the
+	// iterator asked for (scan finished, or Postgres ended it early, e.g. LIMIT) from one it did not
+	closing int32
 }
 
 func newBaseScanIterator(hub Hub, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, traceCtx *telemetry.TraceCtx) scanIteratorBase {
@@ -119,6 +123,7 @@ func (i *scanIteratorBase) closeSpan() {
 }
 
 func (i *scanIteratorBase) Close() {
+	atomic.StoreInt32(&i.closing, 1)
 	// call the context cancellation function
 	i.cancel()
 
@@ -349,6 +354,7 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 	// check for cancellation first - this takes precedence over reading the grpc stream
 	case <-ctx.Done():
 		log.Printf("[TRACE] readPluginResult context is cancelled (%p)", i)
+		i.recordCancellation(ctx)
 		continueReading = false
 	case rowResult := <-rcvChan:
 		if rowResult == nil {
@@ -365,6 +371,9 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 	case err := <-errChan:
 		if err.Error() == "EOF" {
 			log.Printf("[TRACE] readPluginResult EOF error received - stop reading (%p) (%s)", i, i.callId)
+		} else if ctx.Err() != nil {
+			// the stream ended because the context was cancelled, as in the ctx.Done case above
+			i.recordCancellation(ctx)
 		} else {
 			log.Printf("[WARN] stream receive error %v (%p)\n", err, i)
 			i.setError(err)
@@ -373,6 +382,18 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 		continueReading = false
 	}
 	return continueReading
+}
+
+// recordCancellation fails the scan when its context was cancelled by anything but Close: a
+// statement_timeout or query cancel seen by watchForCancellation stops the scan before the plugin
+// finished, and without an error Next would report the rows read so far as the complete result.
+// Close (end of scan, or Postgres ending it early, e.g. for a LIMIT) is not a failure.
+func (i *scanIteratorBase) recordCancellation(ctx context.Context) {
+	if atomic.LoadInt32(&i.closing) == 1 {
+		return
+	}
+	log.Printf("[WARN] scan of %s cancelled before it completed (%p)", i.table, i)
+	i.setError(fmt.Errorf("scan of %s cancelled before it completed: %w", i.table, ctx.Err()))
 }
 
 func (i *scanIteratorBase) newScanMetadata(connection string, m *proto.QueryMetadata) queryresult.ScanMetadataRow {

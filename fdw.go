@@ -445,6 +445,8 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	row, err := s.Iter.Next()
 	if err != nil {
 		log.Printf("[INFO] goFdwIterateForeignScan Next returned error: %s (%p)", err.Error(), s.Iter)
+		// a scan ended by a Postgres cancel fails with Postgres' error, not a generic FDW one
+		C.fdw_checkForInterrupts()
 		FdwError(err)
 		return slot
 	}

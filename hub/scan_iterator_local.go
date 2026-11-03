@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/v6/anywhere"
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v6/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
@@ -30,12 +29,15 @@ func (i *scanIteratorLocal) GetPluginName() string {
 // execute implements executor
 func (i *scanIteratorLocal) execute(req *proto.ExecuteRequest) (row_stream.Receiver, context.Context, context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	// create a local stream
-	stream := anywhere.NewLocalPluginStream(ctx)
+	// create a local stream that keeps the error the plugin's Execute returns
+	stream := newLocalStream(ctx)
 
 	plugin := i.hub.(*HubLocal).plugin
 	log.Printf("[INFO] StartScan for table: %s, cache enabled: %v, iterator %p, %d quals (%s)", i.table, req.CacheEnabled, i, len(i.queryContext.Quals), i.callId)
-	plugin.CallExecuteAsync(req, stream)
+	go func() {
+		// Execute recovers a plugin panic into its error
+		stream.finish(plugin.Execute(req, stream))
+	}()
 
 	return stream, ctx, cancel, nil
 }

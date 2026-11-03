@@ -1,0 +1,25 @@
+{
+  "warm": "go mod download",
+  "warmProbe": "go.sum",
+  "platforms": ["darwin", "linux"],
+  "tools": ["go", "make", "gettext"],
+  "secrets": {
+    "PG14_BIN": {
+      "kind": "setting",
+      "default": "/opt/homebrew/opt/postgresql@14/bin",
+      "help": "the folder holding PostgreSQL 14's pg_config: brew install postgresql@14 on macOS, postgresql-server-dev-14 on Linux"
+    }
+  },
+  "chores": {
+    "security-audit": {
+      "when": "mon week 3",
+      "areas": [
+        "turning Postgres quals into plugin requests (quals.go, helpers.go)",
+        "converting plugin rows into Postgres values (conversion_infos.go, helpers.go)",
+        "the C extension's planning and scan callbacks (fdw/)",
+        "plugin connections and the hub's scan iterators (hub/)",
+        "SQL generated for foreign tables and schemas (schema.go, sql/)"
+      ]
+    }
+  }
+}

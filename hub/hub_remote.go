@@ -58,7 +58,8 @@ func newRemoteHub() (*RemoteHub, error) {
 
 	log.Printf("[INFO] newRemoteHub RemoteHub.LoadConnectionConfig ")
 	if _, err := hub.LoadConnectionConfig(); err != nil {
-		return nil, err
+		// returning the error would panic init() and kill the backend; each statement reloads the config and fails with the real error instead
+		log.Printf("[ERROR] newRemoteHub RemoteHub.LoadConnectionConfig failed, continuing: %v", err)
 	}
 
 	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, hub.getServerCacheEnabled())
@@ -120,8 +121,18 @@ func (h *RemoteHub) LoadConnectionConfig() (bool, error) {
 	// load connection conFig
 	connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig(context.Background())
 	if errorsAndWarnings.GetError() != nil {
-		log.Printf("[WARN] LoadConnectionConfig failed %v ", errorsAndWarnings)
+		// GlobalConfig must stay non-nil: hub methods dereference it directly with no nil check.
+		if steampipeconfig.GlobalConfig == nil {
+			log.Printf("[ERROR] LoadConnectionConfig failed, no connections loaded: %v", errorsAndWarnings.GetError())
+			steampipeconfig.GlobalConfig = steampipeconfig.NewSteampipeConfig("")
+		} else {
+			log.Printf("[ERROR] LoadConnectionConfig failed, keeping the last good connection config: %v", errorsAndWarnings.GetError())
+		}
 		return false, errorsAndWarnings.GetError()
+	}
+	// the loader skips a duplicate or invalid connection with only a warning, so log it or the dropped connection leaves no trace
+	for _, w := range errorsAndWarnings.Warnings {
+		log.Printf("[WARN] LoadConnectionConfig: %s", w)
 	}
 
 	configChanged := steampipeconfig.GlobalConfig == connectionConfig

@@ -1,6 +1,6 @@
 module github.com/turbot/steampipe-postgres-fdw/v2
 
-go 1.26.7
+go 1.26.10
 
 require (
 	github.com/dgraph-io/ristretto v0.2.0 // indirect
@@ -16,7 +16,7 @@ require (
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/turbot/pipe-fittings/v2 v2.9.3
-	github.com/turbot/steampipe/v2 v2.4.1-0.20260521095858-4ffd80000e98
+	github.com/turbot/steampipe/v2 v2.4.8-0.20260928175046-3b44f6f2bcd6
 	go.opentelemetry.io/otel/metric v1.44.0
 )
 
@@ -67,7 +67,7 @@ require (
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.0 // indirect
 	github.com/go-git/go-git/v5 v5.19.2 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.25.0 // indirect
@@ -88,7 +88,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.6.9 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/karrick/gows v0.3.0 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
@@ -208,7 +208,7 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	google.golang.org/genproto v0.0.0-20260128011058-8636f8732409 // indirect
-	google.golang.org/grpc v1.83.2 // indirect
+	google.golang.org/grpc v1.83.2
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

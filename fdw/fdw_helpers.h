@@ -33,6 +33,10 @@ static inline int fdw_query_cancel_pending(void) {
   return (QueryCancelPending || ProcDiePending) ? 1 : 0;
 }
 
+// Raises Postgres' own error for a pending cancel (57014 statement timeout / user request), so a
+// scan the FDW ended because of it fails with the SQLSTATE a client expects.
+static inline void fdw_checkForInterrupts(void) { CHECK_FOR_INTERRUPTS(); }
+
 // Macro expansions
 static inline FormData_pg_attribute *fdw_tupleDescAttr(TupleDesc tupdesc, int i) { return TupleDescAttr(tupdesc, i); }
 static inline TupleDescData *fdw_relationGetDescr(Relation relation) { return RelationGetDescr(relation); }

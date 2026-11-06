@@ -13,6 +13,7 @@
 #include "catalog/pg_operator.h"
 #include "mb/pg_wchar.h"
 #include "nodes/makefuncs.h"
+#include "nodes/nodeFuncs.h"
 #include "utils/lsyscache.h"
 #include "miscadmin.h"
 #include "parser/parsetree.h"
@@ -40,6 +41,8 @@ List *clausesInvolvingAttr(Index relid, AttrNumber attnum,
                            EquivalenceClass *eq_class);
 
 Expr *fdw_get_em_expr(EquivalenceClass *ec, RelOptInfo *rel);
+
+static bool containsExecParamWalker(Node *node, void *context);
 
 /*
  * The list of needed columns (represented by their respective vars)
@@ -195,6 +198,28 @@ void swapOperandsAsNeeded(Node **left, Node **right, Oid *opoid,
       }
     }
   }
+}
+
+/*
+ * Does the expression reference a PARAM_EXEC Param, that is a value the
+ * executor only sets at run time: a nested loop's outer reference, the
+ * argument of a correlated SubPlan or the output of an InitPlan? None of
+ * them holds a value yet while the plan is being initialized.
+ */
+bool
+containsExecParam(Node *node)
+{
+  return containsExecParamWalker(node, NULL);
+}
+
+static bool
+containsExecParamWalker(Node *node, void *context)
+{
+  if (node == NULL)
+    return false;
+  if (IsA(node, Param) && ((Param *)node)->paramkind == PARAM_EXEC)
+    return true;
+  return expression_tree_walker(node, containsExecParamWalker, context);
 }
 
 /*

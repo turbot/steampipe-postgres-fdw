@@ -27,6 +27,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
+	"github.com/turbot/steampipe-postgres-fdw/v2/gcenv"
 	"github.com/turbot/steampipe-postgres-fdw/v2/hub"
 	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"github.com/turbot/steampipe-postgres-fdw/v2/version"
@@ -65,6 +66,8 @@ func init() {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
+	// the Go runtime started before SetEnvVars, so it did not see GOGC or GOMEMLIMIT
+	gcenv.Apply()
 	// create hub
 	if err := hub.CreateHub(); err != nil {
 		panic(err)

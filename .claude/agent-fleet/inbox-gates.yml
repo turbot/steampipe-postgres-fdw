@@ -35,11 +35,11 @@ never_run:
 checks:
   # make clean first: a failed build leaves a prebuild.go pointing at the previous Postgres.
   build: {run: 'make clean && PATH="$PG14_BIN:$PATH" make', needs: [pg14], cost: 1}
-  unit: {run: "go test -count=1 ./hub/... ./types/...", cost: 1}
+  unit: {run: "go test -count=1 ./hub/... ./types/... ./gcenv/...", cost: 1}
 
 kinds:
   code:
-    paths: ["*.go", "**/*.go", "go.mod", "go.sum", "fdw/**", "prebuild.tmpl", "hub/**", "types/**", "settings/**", "sql/**", "templates/**", "generate/**", "version/**", "standalone_setup/**", "Makefile", ".golangci.yml"]
+    paths: ["*.go", "**/*.go", "go.mod", "go.sum", "fdw/**", "prebuild.tmpl", "hub/**", "types/**", "gcenv/**", "settings/**", "sql/**", "templates/**", "generate/**", "version/**", "standalone_setup/**", "Makefile", ".golangci.yml"]
     checks: [build, unit]
     show: [test]
   workflows:

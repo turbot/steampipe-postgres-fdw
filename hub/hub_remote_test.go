@@ -11,7 +11,7 @@ import (
 )
 
 // malformed JSON connection config: the loader skips the file with a warning, and
-// fails the load only when it is the sole config file, so no connection loads.
+// fails the load only when no connection loads.
 const malformedConnectionConfigJSON = `{"connection": {"chaos": {"plugin": "chaos"`
 
 // writeInstallDir sets app_specific.InstallDir to a fresh temp dir containing a

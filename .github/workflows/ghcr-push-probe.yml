@@ -49,7 +49,7 @@ jobs:
             exit 1
           fi
 
-          location=$(grep -i '^location:' post_headers.txt | head -1 | cut -d' ' -f2- | tr -d '\r')
+          location=$(grep -i '^location:' post_headers.txt | head -1 | cut -d' ' -f2- | tr -d '\r' || true)
           if [ -z "$location" ]; then
             echo "::error::202 had no Location header, so the upload cannot be cancelled"
             exit 1

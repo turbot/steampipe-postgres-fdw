@@ -1,42 +1,51 @@
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
-    # default rules
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - typecheck
-    - unused
-    # other rules
     - asasalint
     - asciicheck
     - bidichk
     - durationcheck
-    - exportloopref
+    - errcheck
     - forbidigo
-    - gocritic
     - gocheckcompilerdirectives
+    - gocritic
     - gosec
+    - govet
+    - ineffassign
     - makezero
     - nilerr
     - nolintlint
     - reassign
     - sqlclosecheck
+    - staticcheck
     - unconvert
-
-linters-settings:
-  nolintlint:
-    require-explanation: true
-    require-specific: true
-
-  gocritic:
-    disabled-checks:
-      - ifElseChain       # style
-      - singleCaseSwitch  # style & it's actually not a bad idea to use single case switch in some cases
-      - assignOp          # style
-      - commentFormatting # style
-
-run:
-  timeout: 5m
+    - unused
+  settings:
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+        - singleCaseSwitch
+        - assignOp
+        - commentFormatting
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

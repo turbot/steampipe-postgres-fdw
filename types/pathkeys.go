@@ -68,11 +68,12 @@ func keyColumnsToColumnPath(keyColumns []*proto.KeyColumn) ([][]string, Cost) {
 	// collect required and optional and any of keys
 	var requiredKeys, optionalKeys, anyOfKeys []string
 	for _, c := range keyColumns {
-		if c.Require == plugin.Required {
+		switch c.Require {
+		case plugin.Required:
 			requiredKeys = append(requiredKeys, c.Name)
-		} else if c.Require == plugin.Optional {
+		case plugin.Optional:
 			optionalKeys = append(optionalKeys, c.Name)
-		} else if c.Require == plugin.AnyOf {
+		case plugin.AnyOf:
 			anyOfKeys = append(anyOfKeys, c.Name)
 		}
 	}
@@ -152,7 +153,7 @@ func columnPathsToPathKeys(columnPaths [][]string, allColumns []string, baseCost
 	return res
 }
 
-func LegacyKeyColumnsToPathKeys(requiredColumns, optionalColumns *proto.KeyColumnsSet, allColumns []string) []PathKey {
+func LegacyKeyColumnsToPathKeys(requiredColumns, optionalColumns *proto.KeyColumnsSet, allColumns []string) []PathKey { //nolint:staticcheck // plugins built with an older SDK still send the deprecated key columns
 	requiredColumnSets := LegacyKeyColumnsToColumnPaths(requiredColumns)
 	optionalColumnSets := LegacyKeyColumnsToColumnPaths(optionalColumns)
 
@@ -170,7 +171,7 @@ func LegacyKeyColumnsToPathKeys(requiredColumns, optionalColumns *proto.KeyColum
 }
 
 // LegacyKeyColumnsToColumnPaths returns a list of all the column sets to use in path keys
-func LegacyKeyColumnsToColumnPaths(k *proto.KeyColumnsSet) [][]string {
+func LegacyKeyColumnsToColumnPaths(k *proto.KeyColumnsSet) [][]string { //nolint:staticcheck // plugins built with an older SDK still send the deprecated key columns
 	var res [][]string
 	if k == nil {
 		return res

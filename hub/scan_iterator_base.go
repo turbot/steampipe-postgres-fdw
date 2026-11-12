@@ -8,14 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v6/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
-	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"github.com/turbot/steampipe/v2/pkg/query/queryresult"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -27,7 +25,6 @@ type scanIteratorBase struct {
 	rows               chan *proto.Row
 	scanMetadata       map[string]queryresult.ScanMetadataRow
 	pluginRowStream    row_stream.Receiver
-	rel                *types.Relation
 	hub                Hub
 	table              string
 	connectionName     string
@@ -290,7 +287,11 @@ func (i *scanIteratorBase) populateRow(row *proto.Row) (map[string]interface{}, 
 			}
 		} else if timestamp := column.GetTimestampValue(); timestamp != nil {
 			// convert from protobuf timestamp to a RFC 3339 time string
-			val = ptypes.TimestampString(timestamp)
+			if err := timestamp.CheckValid(); err != nil {
+				val = fmt.Sprintf("(%v)", err)
+			} else {
+				val = timestamp.AsTime().Format(time.RFC3339Nano)
+			}
 		} else {
 			// get the first field descriptor and value (we only expect column message to contain a single field
 			column.ProtoReflect().Range(func(descriptor protoreflect.FieldDescriptor, v protoreflect.Value) bool {

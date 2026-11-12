@@ -125,9 +125,9 @@ func (h *hubBase) getPathKeys(connectionSchema *proto.Schema, opts types.Options
 	// build path keys based on the table key columns
 	// NOTE: the schema data has changed in SDK version 1.3 - we must handle plugins using legacy sdk explicitly
 	// check for legacy sdk versions
-	if tableSchema.ListCallKeyColumns != nil {
+	if tableSchema.ListCallKeyColumns != nil { //nolint:staticcheck // plugins built with an older SDK still send the deprecated key columns
 		log.Printf("[TRACE] schema response include ListCallKeyColumns, it is using legacy protobuff interface ")
-		pathKeys = types.LegacyKeyColumnsToPathKeys(tableSchema.ListCallKeyColumns, tableSchema.ListCallOptionalKeyColumns, allColumns)
+		pathKeys = types.LegacyKeyColumnsToPathKeys(tableSchema.ListCallKeyColumns, tableSchema.ListCallOptionalKeyColumns, allColumns) //nolint:staticcheck // plugins built with an older SDK still send the deprecated key columns
 	} else if tableSchema.ListCallKeyColumnList != nil {
 		log.Printf("[TRACE] schema response include ListCallKeyColumnList, it is using the updated protobuff interface ")
 		// generate path keys if there are required list key columns
@@ -377,7 +377,7 @@ func (h *hubBase) executeCommandScan(connectionName, table string, queryTimestam
 }
 
 func (h *hubBase) traceContextForScan(table string, columns []string, limit int64, qualMap map[string]*proto.Quals, connectionName string, opts types.Options) *telemetry.TraceCtx {
-	var baseCtx context.Context = context.Background()
+	var baseCtx = context.Background()
 
 	// Check if we have trace context from session variables
 	if traceContextStr, exists := opts["trace_context"]; exists && traceContextStr != "" {

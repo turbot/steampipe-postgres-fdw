@@ -222,8 +222,6 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 	*rows = C.double(result.Rows)
 	*width = C.int(result.Width)
-
-	return
 }
 
 //export goFdwGetPathKeys

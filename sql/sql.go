@@ -61,7 +61,7 @@ func sqlTypeForColumnType(columnType proto.ColumnType) (string, error) {
 		return "cidr", nil
 	case proto.ColumnType_JSON:
 		return "jsonb", nil
-	case proto.ColumnType_DATETIME, proto.ColumnType_TIMESTAMP:
+	case proto.ColumnType_DATETIME, proto.ColumnType_TIMESTAMP: //nolint:staticcheck // plugins built with an older SDK still report DATETIME
 		return "timestamptz", nil
 	case proto.ColumnType_LTREE:
 		return "ltree", nil

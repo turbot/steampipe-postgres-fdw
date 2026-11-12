@@ -78,16 +78,13 @@ jobs:
       - name: Checkout FDW
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          repository: turbot/steampipe-postgres-fdw
           path: steampipe-postgres-fdw
-          ref: ${{ github.event.ref }}
 
       - name: Setup apt-get
         run: |-
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo env ACCEPT_EULA=Y apt-get update
-          sudo env ACCEPT_EULA=Y apt-get upgrade
 
       - name: Install PostgreSQL14 Dev
         run: |-

@@ -1,3 +1,24 @@
+## v2.3.0 [2026-11-12]
+_Whats new_
+- Apply `GOGC` and `GOMEMLIMIT` from the Postgres environment to the FDW's Go runtime. ([#731](https://github.com/turbot/steampipe-postgres-fdw/pull/731))
+- Mark the standalone FDW as parallel-safe. ([#681](https://github.com/turbot/steampipe-postgres-fdw/pull/681))
+- Built against `steampipe-plugin-sdk` v6.2.1. ([#669](https://github.com/turbot/steampipe-postgres-fdw/pull/669), [#735](https://github.com/turbot/steampipe-postgres-fdw/pull/735))
+
+_Bug fixes_
+- Fix a backend crash, and silently wrong results, when a qual's value depends on a run-time parameter (a LATERAL reference or a subquery). ([#725](https://github.com/turbot/steampipe-postgres-fdw/pull/725), [#744](https://github.com/turbot/steampipe-postgres-fdw/pull/744))
+- Fail a scan that is cut off by a Postgres cancel, `statement_timeout` or a plugin error instead of returning the rows read so far as a complete result. ([#715](https://github.com/turbot/steampipe-postgres-fdw/pull/715))
+- Only poll for a Postgres query cancel while a scan is waiting for a row, instead of running a poller for every scan. ([#743](https://github.com/turbot/steampipe-postgres-fdw/pull/743))
+- Fix the legacy `cache_off` command so it disables the cache. ([#739](https://github.com/turbot/steampipe-postgres-fdw/pull/739))
+- Don't crash the Postgres backend when the connection config fails to load. ([#713](https://github.com/turbot/steampipe-postgres-fdw/pull/713))
+- Skip connections with duplicate or invalid names, with a warning, instead of failing the whole config load. ([#714](https://github.com/turbot/steampipe-postgres-fdw/pull/714))
+- Skip a malformed config file, with a warning, instead of failing every connection. ([#742](https://github.com/turbot/steampipe-postgres-fdw/pull/742))
+
+_Dependencies_
+- Bump `github.com/turbot/pipe-fittings/v2` from v2.7.0 to v2.9.5. ([#696](https://github.com/turbot/steampipe-postgres-fdw/pull/696))
+- Bump `go.opentelemetry.io/otel/sdk` from v1.44.0 to v1.47.0. ([#724](https://github.com/turbot/steampipe-postgres-fdw/pull/724))
+- Bump `golang.org/x/crypto` to v0.57.0, `golang.org/x/net` to v0.59.0 and `github.com/klauspost/compress` to v1.20.3.
+- Bump `github.com/Masterminds/semver/v3` from v3.4.0 to v3.5.0. ([#690](https://github.com/turbot/steampipe-postgres-fdw/pull/690))
+
 ## v2.2.9 [2026-10-29]
 _Dependencies_
 - Bump `github.com/klauspost/compress` from v1.18.5 to v1.18.7 to remediate CVE-2026-63209.

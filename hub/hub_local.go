@@ -19,13 +19,14 @@ import (
 )
 
 type HubLocal struct {
-	hubBase
+	*hubBase
 	plugin      *grpc.PluginServer
 	pluginName  string
 	pluginAlias string
 	connections map[string]*proto.ConnectionConfig
 }
 
+//nolint:unused,staticcheck // called by the hub_create template of the standalone build; the stub getPluginFunc panics, which makes staticcheck see the rest as dead
 func newLocalHub() (*HubLocal, error) {
 	imageRef := ociinstaller.NewImageRef(pluginAlias).DisplayImageRef()
 
@@ -119,6 +120,9 @@ func (l *HubLocal) GetSchema(_, connectionName string) (*proto.Schema, error) {
 func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
+	if err != nil {
+		return nil, err
+	}
 	connectionName := opts["connection"]
 	table := opts["table"]
 	log.Printf("[TRACE] RemoteHub GetIterator() table '%s'", table)
@@ -240,6 +244,7 @@ func (l *HubLocal) buildConnectionLimitMap(connection, table string, qualMap map
 	return connectionLimitMap, nil
 }
 
+//nolint:unused // reached through newLocalHub in the standalone build
 func (l *HubLocal) clearConnectionCache(connection string) error {
 
 	_, err := l.plugin.SetConnectionCacheOptions(&proto.SetConnectionCacheOptionsRequest{ClearCacheForConnection: connection})
@@ -262,7 +267,10 @@ func (l *HubLocal) cacheEnabled(s string) bool {
 
 	if envStr, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
 		// set this so that we don't keep looking up the env var
-		l.cacheSettings.SetEnabled(envStr)
+		if err := l.cacheSettings.SetEnabled(envStr); err != nil {
+			log.Printf("[WARN] ignoring invalid %s value '%s': %s", constants.EnvCacheEnabled, envStr, err)
+			return true
+		}
 		return l.cacheEnabled(s)
 	}
 	return true
@@ -276,13 +284,18 @@ func (l *HubLocal) cacheTTL(s string) time.Duration {
 	}
 	if envStr, ok := os.LookupEnv(constants.EnvCacheMaxTTL); ok {
 		// set this so that we don't keep looking up the env var
-		l.cacheSettings.SetTtl(envStr)
+		if err := l.cacheSettings.SetTtl(envStr); err != nil {
+			log.Printf("[WARN] ignoring invalid %s value '%s': %s", constants.EnvCacheMaxTTL, envStr, err)
+			return 10 * time.Hour
+		}
 		return l.cacheTTL(s)
 	}
 	return 10 * time.Hour
 }
 
 // resolve the server cache enabled property
+//
+//nolint:unused // reached through newLocalHub in the standalone build
 func (l *HubLocal) getServerCacheEnabled() bool {
 	var res = true
 	if val, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {

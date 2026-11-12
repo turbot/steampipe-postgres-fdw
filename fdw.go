@@ -222,8 +222,6 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 	*rows = C.double(result.Rows)
 	*width = C.int(result.Width)
-
-	return
 }
 
 //export goFdwGetPathKeys
@@ -513,7 +511,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		}
 	}
 
-	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
+	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss) //nolint:gocritic // false positive from the code cgo generates for this C call
 	logging.LogTime("[fdw] IterateForeignScan end")
 
 	return slot

@@ -403,7 +403,7 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		// ExecEvalExpr to crash - so skip evaluation in that case
 		if opExprQual.opfuncid == 3214 {
 			log.Printf("[TRACE] skipping OpExpr evaluation as opfuncid 3214 (jsonb_array_elements) is not supported)")
-			return nil, fmt.Errorf("QualDefsToQuals: unsupported qual value (type %s, opfuncid %d), skipping\n", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))), opExprQual.opfuncid)
+			return nil, fmt.Errorf("QualDefsToQuals: unsupported qual value (type %s, opfuncid %d), skipping", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))), opExprQual.opfuncid)
 		}
 		typeOid = opExprQual.opresulttype
 		exprState := C.ExecInitExpr(valueExpression, (*C.PlanState)(unsafe.Pointer(node)))
@@ -411,7 +411,7 @@ func getQualValue(right unsafe.Pointer, node *C.ForeignScanState, ci *C.Conversi
 		value = C.ExecEvalExpr(exprState, econtext, &isNull)
 		log.Printf("[TRACE] getQualValue T_OpExpr qual, value %v, isNull %v", value, isNull)
 	default:
-		return nil, fmt.Errorf("QualDefsToQuals: unsupported qual value (type %s), skipping\n", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))))
+		return nil, fmt.Errorf("QualDefsToQuals: unsupported qual value (type %s), skipping", C.GoString(C.tagTypeToString(C.fdw_nodeTag(valueExpression))))
 	}
 
 	var qualValue *proto.QualValue
@@ -525,7 +525,7 @@ func convertUnknown(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*pro
 	if !C.fdw_heapTupleIsValid(tuple) {
 		return nil, fmt.Errorf("lookup failed for type %v", typeOid)
 	}
-	typeStruct := (C.Form_pg_type)(unsafe.Pointer(C.fdw_getStruct(tuple)))
+	typeStruct := (C.Form_pg_type)(C.fdw_getStruct(tuple))
 	C.ReleaseSysCache(tuple)
 
 	if (typeStruct.typelem != 0) && (typeStruct.typlen == -1) {
@@ -533,7 +533,7 @@ func convertUnknown(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*pro
 		return datumArrayToQualValue(datum, typeOid, cinfo)
 	}
 
-	return nil, fmt.Errorf("Unknown qual type %v", typeOid)
+	return nil, fmt.Errorf("unknown qual type %v", typeOid)
 }
 
 func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo) (*proto.QualValue, error) {
@@ -564,7 +564,7 @@ func datumArrayToQualValue(datum C.Datum, typeOid C.Oid, cinfo *C.ConversionInfo
 		if !C.fdw_heapTupleIsValid(tuple) {
 			return nil, fmt.Errorf("lookup failed for type %v", typeOid)
 		}
-		typeStruct := (C.Form_pg_type)(unsafe.Pointer(C.fdw_getStruct(tuple)))
+		typeStruct := (C.Form_pg_type)(C.fdw_getStruct(tuple))
 		C.ReleaseSysCache(tuple)
 		if qualValue, err := datumToQualValue(elem, typeStruct.typelem, cinfo); err != nil {
 			return nil, err

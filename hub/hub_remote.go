@@ -30,7 +30,7 @@ const (
 
 // RemoteHub is a structure representing plugin hub
 type RemoteHub struct {
-	hubBase
+	*hubBase
 	connections *connectionFactory
 }
 
@@ -94,6 +94,9 @@ func (h *RemoteHub) GetSchema(remoteSchema string, localSchema string) (*proto.S
 func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
+	if err != nil {
+		return nil, err
+	}
 	connectionName := opts["connection"]
 	table := opts["table"]
 	log.Printf("[TRACE] RemoteHub GetIterator() table '%s'", table)

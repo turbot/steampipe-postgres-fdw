@@ -29,16 +29,16 @@ func Apply() {
 	if v := os.Getenv("GOGC"); v != "" {
 		percent := parseGOGC(v)
 		debug.SetGCPercent(percent)
-		log.Printf("[INFO] GOGC=%s: GC percent set to %d", v, percent)
+		log.Printf("[INFO] GOGC=%s: GC percent set to %d", v, percent) //nolint:gosec // logs the process's own environment variable, not external input
 	}
 	if v := os.Getenv("GOMEMLIMIT"); v != "" {
 		limit, ok := parseGOMEMLIMIT(v)
 		if !ok {
-			log.Printf("[WARN] GOMEMLIMIT=%s is not valid: memory limit not changed. See `go doc runtime/debug.SetMemoryLimit`", v)
+			log.Printf("[WARN] GOMEMLIMIT=%s is not valid: memory limit not changed. See `go doc runtime/debug.SetMemoryLimit`", v) //nolint:gosec // logs the process's own environment variable, not external input
 			return
 		}
 		debug.SetMemoryLimit(limit)
-		log.Printf("[INFO] GOMEMLIMIT=%s: memory limit set to %d bytes", v, limit)
+		log.Printf("[INFO] GOMEMLIMIT=%s: memory limit set to %d bytes", v, limit) //nolint:gosec // logs the process's own environment variable, not external input
 	}
 }
 

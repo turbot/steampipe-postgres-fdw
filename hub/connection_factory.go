@@ -29,14 +29,6 @@ func newConnectionFactory(hub *RemoteHub) *connectionFactory {
 	}
 }
 
-// extract the plugin FQN and connection name from a map key
-func (f *connectionFactory) parsePluginKey(key string) (pluginFQN, connectionName string) {
-	split := strings.Split(key, keySeparator)
-	pluginFQN = split[0]
-	connectionName = split[1]
-	return
-}
-
 // if a connection plugin for the plugin and connection, return it. If it does not, create it, store in map and return it
 // NOTE: there is special case logic got aggregate connections
 func (f *connectionFactory) get(pluginFQN, connectionName string) (*steampipeconfig.ConnectionPlugin, error) {

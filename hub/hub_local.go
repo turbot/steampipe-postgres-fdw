@@ -26,6 +26,7 @@ type HubLocal struct {
 	connections map[string]*proto.ConnectionConfig
 }
 
+//nolint:unused,staticcheck // called by the hub_create template of the standalone build; the stub getPluginFunc panics, which makes staticcheck see the rest as dead
 func newLocalHub() (*HubLocal, error) {
 	imageRef := ociinstaller.NewImageRef(pluginAlias).DisplayImageRef()
 
@@ -243,6 +244,7 @@ func (l *HubLocal) buildConnectionLimitMap(connection, table string, qualMap map
 	return connectionLimitMap, nil
 }
 
+//nolint:unused // reached through newLocalHub in the standalone build
 func (l *HubLocal) clearConnectionCache(connection string) error {
 
 	_, err := l.plugin.SetConnectionCacheOptions(&proto.SetConnectionCacheOptionsRequest{ClearCacheForConnection: connection})
@@ -292,6 +294,8 @@ func (l *HubLocal) cacheTTL(s string) time.Duration {
 }
 
 // resolve the server cache enabled property
+//
+//nolint:unused // reached through newLocalHub in the standalone build
 func (l *HubLocal) getServerCacheEnabled() bool {
 	var res = true
 	if val, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {

@@ -22,7 +22,7 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv(helperEnv) != "1" {
 		t.Skip("runs only as a child of runtimeSetting")
 	}
-	fmt.Printf("%d %d\n", debug.SetGCPercent(100), debug.SetMemoryLimit(-1))
+	fmt.Fprintf(os.Stdout, "%d %d\n", debug.SetGCPercent(100), debug.SetMemoryLimit(-1))
 	os.Exit(0)
 }
 

@@ -82,6 +82,31 @@ func TestLoadConnectionConfig_ReloadFails_KeepsLastGoodConfig(t *testing.T) {
 	}
 }
 
+// The CLI skips a config file that fails to parse and creates schemas for the rest,
+// so the FDW must load the same connections or every query on them fails.
+func TestLoadConnectionConfig_MalformedFile_OtherConnectionsLoad(t *testing.T) {
+	resetGlobalConfig(t)
+	steampipeconfig.GlobalConfig = nil
+
+	writeInstallDir(t, map[string]string{
+		"good.spc":    `connection "chaos" { plugin = "chaos" }`,
+		"broken.spc":  "connection \"broken\" {\n  plugin = \"chaos\"\n",
+		"broken.json": malformedConnectionConfigJSON,
+	})
+
+	h := &RemoteHub{}
+	if _, err := h.LoadConnectionConfig(); err != nil {
+		t.Fatalf("expected the malformed files to be skipped without an error, got: %v", err)
+	}
+
+	if _, ok := steampipeconfig.GlobalConfig.Connections["chaos"]; !ok {
+		t.Fatal("expected connection 'chaos' from good.spc to be loaded")
+	}
+	if _, ok := steampipeconfig.GlobalConfig.Connections["broken"]; ok {
+		t.Fatal("expected connection 'broken' from the malformed file to be skipped")
+	}
+}
+
 func TestLoadConnectionConfig_DuplicateAndInvalidConnectionNames_LoadWithoutError(t *testing.T) {
 	resetGlobalConfig(t)
 	steampipeconfig.GlobalConfig = nil

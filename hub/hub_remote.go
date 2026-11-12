@@ -133,7 +133,7 @@ func (h *RemoteHub) LoadConnectionConfig() (bool, error) {
 		}
 		return false, errorsAndWarnings.GetError()
 	}
-	// the loader skips a duplicate or invalid connection with only a warning, so log it or the dropped connection leaves no trace
+	// the loader skips a config file that fails to parse, and a bad block or a duplicate or invalid connection, with only a warning, so log it or what was dropped leaves no trace
 	for _, w := range errorsAndWarnings.Warnings {
 		log.Printf("[WARN] LoadConnectionConfig: %s", w)
 	}

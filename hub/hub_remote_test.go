@@ -10,8 +10,8 @@ import (
 	"github.com/turbot/steampipe/v2/pkg/steampipeconfig"
 )
 
-// malformed JSON connection config: a config load failure that stays a hard
-// error regardless of how duplicate/invalid-name connections are tolerated.
+// malformed JSON connection config: the loader skips the file with a warning, and
+// fails the load only when it is the sole config file, so no connection loads.
 const malformedConnectionConfigJSON = `{"connection": {"chaos": {"plugin": "chaos"`
 
 // writeInstallDir sets app_specific.InstallDir to a fresh temp dir containing a

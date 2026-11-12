@@ -119,6 +119,9 @@ func (l *HubLocal) GetSchema(_, connectionName string) (*proto.Schema, error) {
 func (l *HubLocal) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
+	if err != nil {
+		return nil, err
+	}
 	connectionName := opts["connection"]
 	table := opts["table"]
 	log.Printf("[TRACE] RemoteHub GetIterator() table '%s'", table)

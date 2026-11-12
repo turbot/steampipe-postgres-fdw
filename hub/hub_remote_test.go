@@ -10,8 +10,8 @@ import (
 	"github.com/turbot/steampipe/v2/pkg/steampipeconfig"
 )
 
-// malformed JSON connection config: a config load failure that stays a hard
-// error regardless of how duplicate/invalid-name connections are tolerated.
+// malformed JSON connection config: the loader skips the file with a warning, and
+// fails the load only when no connection loads.
 const malformedConnectionConfigJSON = `{"connection": {"chaos": {"plugin": "chaos"`
 
 // writeInstallDir sets app_specific.InstallDir to a fresh temp dir containing a
@@ -79,6 +79,31 @@ func TestLoadConnectionConfig_ReloadFails_KeepsLastGoodConfig(t *testing.T) {
 
 	if steampipeconfig.GlobalConfig != goodConfig {
 		t.Fatal("a failed reload discarded the last successfully loaded config")
+	}
+}
+
+// The CLI skips a config file that fails to parse and creates schemas for the rest,
+// so the FDW must load the same connections or every query on them fails.
+func TestLoadConnectionConfig_MalformedFile_OtherConnectionsLoad(t *testing.T) {
+	resetGlobalConfig(t)
+	steampipeconfig.GlobalConfig = nil
+
+	writeInstallDir(t, map[string]string{
+		"good.spc":    `connection "chaos" { plugin = "chaos" }`,
+		"broken.spc":  "connection \"broken\" {\n  plugin = \"chaos\"\n",
+		"broken.json": malformedConnectionConfigJSON,
+	})
+
+	h := &RemoteHub{}
+	if _, err := h.LoadConnectionConfig(); err != nil {
+		t.Fatalf("expected the malformed files to be skipped without an error, got: %v", err)
+	}
+
+	if _, ok := steampipeconfig.GlobalConfig.Connections["chaos"]; !ok {
+		t.Fatal("expected connection 'chaos' from good.spc to be loaded")
+	}
+	if _, ok := steampipeconfig.GlobalConfig.Connections["broken"]; ok {
+		t.Fatal("expected connection 'broken' from the malformed file to be skipped")
 	}
 }
 

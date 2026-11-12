@@ -15,9 +15,7 @@ const localStreamBufferSize = 1024
 var _ proto.WrapperPlugin_ExecuteServer = (*localStream)(nil)
 
 // localStream carries rows from an in-process plugin Execute to the scan iterator and keeps the
-// error Execute ends with. anywhere.LocalPluginStream (used by CallExecuteAsync) loses it: the
-// plugin sends a nil "done" row before returning its error, and Recv returns (nil, nil) once the
-// stream is done, so a plugin error after the first row ended the scan as complete.
+// error Execute ends with.
 //
 // It satisfies proto.WrapperPlugin_ExecuteServer, so the plugin streams rows to it as to a gRPC
 // client and ends the stream by returning, not with a nil row.

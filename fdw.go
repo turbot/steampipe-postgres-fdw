@@ -450,7 +450,13 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 
 	// a scan whose quals reference run-time parameters creates its iterator now that they are set
 	if s.Iter == nil {
-		if err := createIterator(node, s); err != nil {
+		// IterateForeignScan runs in per-tuple memory, reset before the next row. Initializing a qual
+		// value that contains a SubPlan adds its state to the scan node's subPlan list, which a rescan
+		// and EXPLAIN ANALYZE read later, so it must be allocated in the query's memory instead.
+		oldContext := C.MemoryContextSwitchTo(node.ss.ps.state.es_query_cxt)
+		err := createIterator(node, s)
+		C.MemoryContextSwitchTo(oldContext)
+		if err != nil {
 			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
 			FdwError(err)
 			return slot

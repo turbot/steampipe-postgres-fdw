@@ -3,7 +3,7 @@ package types
 import (
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
-	"golang.org/x/exp/slices"
+	"slices"
 	"testing"
 )
 

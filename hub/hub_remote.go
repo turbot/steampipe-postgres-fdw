@@ -30,7 +30,7 @@ const (
 
 // RemoteHub is a structure representing plugin hub
 type RemoteHub struct {
-	hubBase
+	*hubBase
 	connections *connectionFactory
 }
 

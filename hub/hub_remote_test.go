@@ -25,7 +25,7 @@ func writeInstallDir(t *testing.T, files map[string]string) {
 		t.Fatalf("failed to create config dir: %v", err)
 	}
 	for name, content := range files {
-		if err := os.WriteFile(filepath.Join(configDir, name), []byte(content), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(configDir, name), []byte(content), 0600); err != nil {
 			t.Fatalf("failed to write %s: %v", name, err)
 		}
 	}

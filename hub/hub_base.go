@@ -36,8 +36,8 @@ type hubBase struct {
 	queryTiming           *queryTimingMetadata
 }
 
-func newHubBase(enableScanMetadata bool) hubBase {
-	h := hubBase{
+func newHubBase(enableScanMetadata bool) *hubBase {
+	h := &hubBase{
 		runningIterators: make(map[Iterator]struct{}),
 	}
 	if enableScanMetadata {

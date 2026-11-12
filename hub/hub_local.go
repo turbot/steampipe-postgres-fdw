@@ -19,7 +19,7 @@ import (
 )
 
 type HubLocal struct {
-	hubBase
+	*hubBase
 	plugin      *grpc.PluginServer
 	pluginName  string
 	pluginAlias string

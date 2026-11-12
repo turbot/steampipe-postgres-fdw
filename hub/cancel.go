@@ -2,17 +2,16 @@ package hub
 
 import "time"
 
-// queryCancelPollInterval is how often the per-scan watcher goroutine asks
-// Postgres whether the current backend has a pending cancellation. 250ms gives
-// sub-second responsiveness to statement_timeout / pg_cancel_backend without
-// noticeable cgo overhead (a single inline read of two sig_atomic_t globals).
+// queryCancelPollInterval is how often a scan waiting for its next row asks Postgres whether the
+// backend has a pending cancellation. 250ms gives sub-second responsiveness to statement_timeout /
+// pg_cancel_backend without noticeable cgo overhead (a single inline read of two sig_atomic_t globals).
 const queryCancelPollInterval = 250 * time.Millisecond
 
 // queryCancelChecker is set by the FDW (cgo) layer at init via
 // SetQueryCancelChecker. It returns true when Postgres has set
-// QueryCancelPending or ProcDiePending on the current backend. The hub uses
-// this from a polling goroutine to bridge Postgres cancellation into the
-// iterator's Go context, which is otherwise unreachable while the cgo
+// QueryCancelPending or ProcDiePending on the current backend. The hub polls
+// it while a scan waits for its next row, to bridge Postgres cancellation into
+// the iterator's Go context, which is otherwise unreachable while the cgo
 // IterateForeignScan call is blocked on a hung plugin gRPC stream (issue
 // #671).
 var queryCancelChecker func() bool
@@ -36,8 +35,7 @@ func isQueryCancelPending() bool {
 }
 
 // queryCancelCheckerConfigured reports whether a cancellation checker has
-// been registered. Callers can use this to skip starting the per-scan
-// watcher goroutine entirely when the bridge isn't wired up.
+// been registered. Without one, a scan waiting for a row has nothing to poll.
 func queryCancelCheckerConfigured() bool {
 	return queryCancelChecker != nil
 }

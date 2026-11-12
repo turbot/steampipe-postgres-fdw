@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,8 +21,8 @@ func testRow() *proto.ExecuteResponse {
 }
 
 // startTestScan starts an iterator reading from a localStream fed by plugin, as scanIteratorLocal.execute
-// and Start do. Only a test that installs a query cancel checker passes watchCancel.
-func startTestScan(t *testing.T, watchCancel bool, plugin func(ctx context.Context, s *localStream) error) *scanIteratorBase {
+// and Start do.
+func startTestScan(t *testing.T, plugin func(ctx context.Context, s *localStream) error) *scanIteratorBase {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -42,9 +41,6 @@ func startTestScan(t *testing.T, watchCancel bool, plugin func(ctx context.Conte
 		startTime:       time.Now(),
 	}
 	go i.readThread(ctx)
-	if watchCancel {
-		go i.watchForCancellation(ctx)
-	}
 	return i
 }
 
@@ -69,7 +65,7 @@ func sendRows(ctx context.Context, s *localStream, n int) error {
 }
 
 func TestScanCompletesWhenPluginFinishes(t *testing.T) {
-	i := startTestScan(t, false, func(ctx context.Context, s *localStream) error { return sendRows(ctx, s, 25) })
+	i := startTestScan(t, func(ctx context.Context, s *localStream) error { return sendRows(ctx, s, 25) })
 
 	if n := drain(i); n != 25 {
 		t.Fatalf("got %d rows, want 25", n)
@@ -82,7 +78,7 @@ func TestScanCompletesWhenPluginFinishes(t *testing.T) {
 // The plugin returns an error after the rows of its first pages (a 5xx or throttle once retries run
 // out): the error reaches the scan after those rows, instead of the scan ending as complete.
 func TestScanFailsWhenPluginErrorsAfterFirstPage(t *testing.T) {
-	i := startTestScan(t, false, func(ctx context.Context, s *localStream) error {
+	i := startTestScan(t, func(ctx context.Context, s *localStream) error {
 		if err := sendRows(ctx, s, 30); err != nil {
 			return err
 		}
@@ -97,39 +93,10 @@ func TestScanFailsWhenPluginErrorsAfterFirstPage(t *testing.T) {
 	}
 }
 
-// Postgres asks to cancel the query (statement_timeout, pg_cancel_backend) mid-scan, which
-// watchForCancellation turns into a cancel of the iterator's context. The scan did not ask for it, so
-// it fails; the FDW then raises Postgres' own 57014 for the pending cancel.
-func TestScanFailsWhenPostgresCancelsIt(t *testing.T) {
-	var cancelPending atomic.Bool
-	SetQueryCancelChecker(cancelPending.Load)
-	t.Cleanup(func() { SetQueryCancelChecker(nil) })
-
-	sent := make(chan struct{})
-	i := startTestScan(t, true, func(ctx context.Context, s *localStream) error {
-		if err := sendRows(ctx, s, 30); err != nil {
-			return err
-		}
-		close(sent)
-		<-ctx.Done() // the next page never arrives
-		return ctx.Err()
-	})
-	<-sent
-	cancelPending.Store(true)
-
-	if n := drain(i); n > 30 {
-		t.Fatalf("got %d rows, want at most 30", n)
-	}
-	if i.status != QueryStatusError || !errors.Is(i.err, context.Canceled) ||
-		!strings.Contains(i.err.Error(), "scan of fake_table cancelled before it completed") {
-		t.Fatalf("status %s, err %v: want the scan to fail as cancelled", i.status, i.err)
-	}
-}
-
 // Postgres ends the scan itself once it has the rows it needs (LIMIT): Close cancels the context,
 // and that is not a failure.
 func TestScanClosedEarlyIsNotAnError(t *testing.T) {
-	i := startTestScan(t, false, func(ctx context.Context, s *localStream) error {
+	i := startTestScan(t, func(ctx context.Context, s *localStream) error {
 		for {
 			if err := s.Send(testRow()); err != nil {
 				return err

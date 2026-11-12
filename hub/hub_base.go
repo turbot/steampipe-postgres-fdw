@@ -173,7 +173,9 @@ func (h *hubBase) StartScan(i Iterator) error {
 
 	// ask the iterator for the executor interface
 	// (the iterator just returns itself - we need to do it this way because of the way nested structs work )
-	iterator.Start(i.(pluginExecutor))
+	if err := iterator.Start(i.(pluginExecutor)); err != nil {
+		return err
+	}
 
 	// add iterator to running list
 	h.addIterator(iterator)
@@ -611,12 +613,12 @@ func (h *hubBase) HandleLegacyCacheCommand(command string) error {
 	switch command {
 	case constants.LegacyCommandCacheClear:
 		// set the cache clear time for the remote query cache
-		h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "")
+		return h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "")
 
 	case constants.LegacyCommandCacheOn:
-		h.cacheSettings.Apply(string(settings.SettingKeyCacheEnabled), "true")
+		return h.cacheSettings.Apply(string(settings.SettingKeyCacheEnabled), "true")
 	case constants.LegacyCommandCacheOff:
-		h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "false")
+		return h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "false")
 	}
 	return nil
 }

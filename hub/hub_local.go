@@ -262,7 +262,10 @@ func (l *HubLocal) cacheEnabled(s string) bool {
 
 	if envStr, ok := os.LookupEnv(constants.EnvCacheEnabled); ok {
 		// set this so that we don't keep looking up the env var
-		l.cacheSettings.SetEnabled(envStr)
+		if err := l.cacheSettings.SetEnabled(envStr); err != nil {
+			log.Printf("[WARN] ignoring invalid %s value '%s': %s", constants.EnvCacheEnabled, envStr, err)
+			return true
+		}
 		return l.cacheEnabled(s)
 	}
 	return true
@@ -276,7 +279,10 @@ func (l *HubLocal) cacheTTL(s string) time.Duration {
 	}
 	if envStr, ok := os.LookupEnv(constants.EnvCacheMaxTTL); ok {
 		// set this so that we don't keep looking up the env var
-		l.cacheSettings.SetTtl(envStr)
+		if err := l.cacheSettings.SetTtl(envStr); err != nil {
+			log.Printf("[WARN] ignoring invalid %s value '%s': %s", constants.EnvCacheMaxTTL, envStr, err)
+			return 10 * time.Hour
+		}
 		return l.cacheTTL(s)
 	}
 	return 10 * time.Hour

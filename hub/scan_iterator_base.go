@@ -88,7 +88,7 @@ func (i *scanIteratorBase) Next() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("scanIteratorBase cannot iterate: connection %s, status: %s", i.GetConnectionName(), i.Status())
 	}
 
-	row := <-i.rows
+	row := i.nextRow()
 
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
@@ -185,38 +185,37 @@ func (i *scanIteratorBase) Start(executor pluginExecutor) error {
 
 	// read the results - this will loop until it hits an error or the stream is closed
 	go i.readThread(ctx)
-	// bridge Postgres cancellation (statement_timeout, pg_cancel_backend, etc.) into
-	// the iterator's context — without this, a hung plugin call leaves the cgo
-	// IterateForeignScan call blocked and Postgres has no way to recover the
-	// backend. See issue #671.
-	go i.watchForCancellation(ctx)
 	return nil
 }
 
-// watchForCancellation polls Postgres for a pending query cancel or backend
-// die request and cancels the iterator's context when one is observed. Exits
-// naturally when the iterator's context is done (i.e. when the scan ends
-// normally and Close() has been called).
+// nextRow receives the next row, or nil once the row channel is closed.
 //
-// Returns immediately if no cancellation checker has been installed (e.g.
-// hub used outside the FDW cgo init, or in unit tests). In that case there
-// is nothing useful for the watcher to do — keeping it running would just
-// add idle goroutines that can never trigger.
-func (i *scanIteratorBase) watchForCancellation(ctx context.Context) {
+// While it waits, the backend is inside this scan's IterateForeignScan and cannot run
+// CHECK_FOR_INTERRUPTS, so a hung plugin would leave statement_timeout and pg_cancel_backend with no
+// effect (issue #671). It polls Postgres' cancel flag and cancels the scan when one is pending. The
+// flag is backend-wide, so it is read only here: a cancel seen while this call is in flight is for the
+// statement this scan belongs to, whereas a cursor's scan sitting idle between FETCHes must not be
+// cancelled by another statement's cancel.
+func (i *scanIteratorBase) nextRow() *proto.Row {
+	select {
+	case row := <-i.rows:
+		return row
+	default:
+	}
 	if !queryCancelCheckerConfigured() {
-		return
+		return <-i.rows
 	}
 	ticker := time.NewTicker(queryCancelPollInterval)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-ctx.Done():
-			return
+		case row := <-i.rows:
+			return row
 		case <-ticker.C:
 			if isQueryCancelPending() {
 				log.Printf("[INFO] Postgres query cancel pending; cancelling iterator (%p)", i)
 				i.cancel()
-				return
+				return <-i.rows
 			}
 		}
 	}
@@ -386,7 +385,7 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 }
 
 // recordCancellation fails the scan when its context was cancelled by anything but Close: a
-// statement_timeout or query cancel seen by watchForCancellation stops the scan before the plugin
+// statement_timeout or query cancel seen by nextRow stops the scan before the plugin
 // finished, and without an error Next would report the rows read so far as the complete result.
 // Close (end of scan, or Postgres ending it early, e.g. for a LIMIT) is not a failure.
 func (i *scanIteratorBase) recordCancellation(ctx context.Context) {

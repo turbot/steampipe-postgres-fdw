@@ -513,7 +513,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		}
 	}
 
-	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
+	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss) //nolint:gocritic // false positive from the code cgo generates for this C call
 	logging.LogTime("[fdw] IterateForeignScan end")
 
 	return slot

@@ -31,14 +31,15 @@ func TestHelperProcess(t *testing.T) {
 // refused the value and stopped the child.
 func runtimeSetting(t *testing.T, key, value string) (percent int, limit int64, ok bool) {
 	t.Helper()
-	cmd := exec.Command(os.Args[0], "-test.run=^TestHelperProcess$")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestHelperProcess$") //nolint:gosec // re-runs this test binary as the child process
 	var env []string
 	for _, e := range os.Environ() {
 		if !strings.HasPrefix(e, "GOGC=") && !strings.HasPrefix(e, "GOMEMLIMIT=") {
 			env = append(env, e)
 		}
 	}
-	cmd.Env = append(env, helperEnv+"=1", key+"="+value)
+	cmd.Env = env
+	cmd.Env = append(cmd.Env, helperEnv+"=1", key+"="+value)
 	out, err := cmd.Output()
 	if err != nil {
 		return 0, 0, false

@@ -618,7 +618,7 @@ func (h *hubBase) HandleLegacyCacheCommand(command string) error {
 	case constants.LegacyCommandCacheOn:
 		return h.cacheSettings.Apply(string(settings.SettingKeyCacheEnabled), "true")
 	case constants.LegacyCommandCacheOff:
-		return h.cacheSettings.Apply(string(settings.SettingKeyCacheClearTimeOverride), "false")
+		return h.cacheSettings.Apply(string(settings.SettingKeyCacheEnabled), "false")
 	}
 	return nil
 }

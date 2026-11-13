@@ -24,9 +24,10 @@ import (
 	"unsafe"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
+	"github.com/turbot/steampipe-postgres-fdw/v2/gcenv"
 	"github.com/turbot/steampipe-postgres-fdw/v2/hub"
 	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"github.com/turbot/steampipe-postgres-fdw/v2/version"
@@ -65,6 +66,8 @@ func init() {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
+	// the Go runtime started before SetEnvVars, so it did not see GOGC or GOMEMLIMIT
+	gcenv.Apply()
 	// create hub
 	if err := hub.CreateHub(); err != nil {
 		panic(err)
@@ -219,8 +222,6 @@ func goFdwGetRelSize(state *C.FdwPlanState, root *C.PlannerInfo, rows *C.double,
 
 	*rows = C.double(result.Rows)
 	*width = C.int(result.Width)
-
-	return
 }
 
 //export goFdwGetPathKeys
@@ -347,22 +348,11 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	}
 
 	log.Printf("[INFO] goFdwBeginForeignScan, canPushdownAllSortFields %v", execState.canPushdownAllSortFields)
-	var columns []string
-	if execState.target_list != nil {
-		columns = CStringListToGoArray(execState.target_list)
-	}
 
 	// get conversion info
 	var tupdesc C.TupleDesc = node.ss.ss_currentRelation.rd_att
 	C.initConversioninfo(execState.cinfos, C.TupleDescGetAttInMetadata(tupdesc))
 
-	// create a wrapper struct for cinfos
-	cinfos := newConversionInfos(execState)
-	quals, unhandledRestrictions := restrictionsToQuals(node, cinfos)
-
-	// start the plugin hub
-
-	pluginHub := hub.GetHub()
 	s := &ExecState{
 		Rel:   rel,
 		Opts:  opts,
@@ -370,30 +360,57 @@ func goFdwBeginForeignScan(node *C.ForeignScanState, eflags C.int) {
 	}
 	// if we are NOT explaining, create an iterator to scan for us
 	if !explain {
-		var sortOrder = getSortColumns(execState)
-		log.Printf("[INFO] goFdwBeginForeignScan, table '%s', sortOrder: %v", opts["table"], sortOrder)
-		// get the limit
-		limit := int64(execState.limit)
-		// if we cannot push down ALL sort fields, do not push down limit
-		if !execState.canPushdownAllSortFields {
-			log.Printf("[INFO] goFdwBeginForeignScan, table '%s', cannot push down all sort fields, setting limit to -1", opts["table"])
-			limit = -1
-		}
-
-		ts := int64(C.GetSQLCurrentTimestamp(0))
-		iter, err := pluginHub.GetIterator(columns, quals, unhandledRestrictions, limit, sortOrder, ts, opts)
-		if err != nil {
+		// A qual value referencing a parameter the executor only sets at run time (a nested loop's
+		// outer reference, a correlated SubPlan's argument or an InitPlan's output) has no value yet
+		// here, as BeginForeignScan runs while the plan is being initialized: evaluating it would pass
+		// a garbage value to the plugin, or crash the backend when a function such as a text
+		// concatenation is applied to it. Such a scan creates its iterator on its first
+		// IterateForeignScan instead, by which time a nested loop has set the parameter and rescanned
+		// the scan, and an InitPlan can be evaluated.
+		if C.containsExecParam((*C.Node)(unsafe.Pointer(plan.fdw_exprs))) {
+			log.Printf("[INFO] goFdwBeginForeignScan, table '%s', quals reference run-time parameters, creating the iterator on the first IterateForeignScan", opts["table"])
+		} else if err := createIterator(node, s); err != nil {
 			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
 			FdwError(err)
 			return
 		}
-		s.Iter = iter
 	}
 
 	log.Printf("[TRACE] goFdwBeginForeignScan: save exec state %v\n", s)
 	node.fdw_state = SaveExecState(s)
 
 	logging.LogTime("[fdw] BeginForeignScan end")
+}
+
+// createIterator converts the scan's restrictions to quals and creates the iterator scanning for them.
+func createIterator(node *C.ForeignScanState, s *ExecState) error {
+	execState := s.State
+	var columns []string
+	if execState.target_list != nil {
+		columns = CStringListToGoArray(execState.target_list)
+	}
+
+	// create a wrapper struct for cinfos
+	cinfos := newConversionInfos(execState)
+	quals, unhandledRestrictions := restrictionsToQuals(node, cinfos)
+
+	var sortOrder = getSortColumns(execState)
+	log.Printf("[INFO] createIterator, table '%s', sortOrder: %v", s.Opts["table"], sortOrder)
+	// get the limit
+	limit := int64(execState.limit)
+	// if we cannot push down ALL sort fields, do not push down limit
+	if !execState.canPushdownAllSortFields {
+		log.Printf("[INFO] createIterator, table '%s', cannot push down all sort fields, setting limit to -1", s.Opts["table"])
+		limit = -1
+	}
+
+	ts := int64(C.GetSQLCurrentTimestamp(0))
+	iter, err := hub.GetHub().GetIterator(columns, quals, unhandledRestrictions, limit, sortOrder, ts, s.Opts)
+	if err != nil {
+		return err
+	}
+	s.Iter = iter
+	return nil
 }
 
 func getSortColumns(state *C.FdwExecState) []*proto.SortColumn {
@@ -431,6 +448,21 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	C.ExecClearTuple(slot)
 	pluginHub := hub.GetHub()
 
+	// a scan whose quals reference run-time parameters creates its iterator now that they are set
+	if s.Iter == nil {
+		// IterateForeignScan runs in per-tuple memory, reset before the next row. Initializing a qual
+		// value that contains a SubPlan adds its state to the scan node's subPlan list, which a rescan
+		// and EXPLAIN ANALYZE read later, so it must be allocated in the query's memory instead.
+		oldContext := C.MemoryContextSwitchTo(node.ss.ps.state.es_query_cxt)
+		err := createIterator(node, s)
+		C.MemoryContextSwitchTo(oldContext)
+		if err != nil {
+			log.Printf("[WARN] pluginHub.GetIterator FAILED: %s", err)
+			FdwError(err)
+			return slot
+		}
+	}
+
 	log.Printf("[TRACE] goFdwIterateForeignScan, table '%s' (%p)", s.Opts["table"], s.Iter)
 	// if the iterator has not started, start
 	if s.Iter.Status() == hub.QueryStatusReady {
@@ -445,6 +477,8 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 	row, err := s.Iter.Next()
 	if err != nil {
 		log.Printf("[INFO] goFdwIterateForeignScan Next returned error: %s (%p)", err.Error(), s.Iter)
+		// a scan ended by a Postgres cancel fails with Postgres' error, not a generic FDW one
+		C.fdw_checkForInterrupts()
 		FdwError(err)
 		return slot
 	}
@@ -483,7 +517,7 @@ func goFdwIterateForeignScan(node *C.ForeignScanState) *C.TupleTableSlot {
 		}
 	}
 
-	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss)
+	C.fdw_saveTuple(&data[0], &isNull[0], &node.ss) //nolint:gocritic // false positive from the code cgo generates for this C call
 	logging.LogTime("[fdw] IterateForeignScan end")
 
 	return slot
@@ -515,7 +549,8 @@ func goFdwEndForeignScan(node *C.ForeignScanState) {
 	}()
 	s := GetExecState(node.fdw_state)
 	pluginHub := hub.GetHub()
-	if s != nil {
+	// the iterator is nil when the scan ended before its first IterateForeignScan created it
+	if s != nil && s.Iter != nil {
 		log.Printf("[INFO] goFdwEndForeignScan, iterator: %p", s.Iter)
 		pluginHub.EndScan(s.Iter, int64(s.State.limit))
 	}

@@ -18,12 +18,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/turbot/go-kit/helpers"
 	typeHelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // CStringListToGoArray converts a C string list into a go array
@@ -244,5 +244,9 @@ func PgTimeToTimestamp(t int64) (*timestamp.Timestamp, error) {
 	time := epoch.Add(time.Duration(t*1000) * time.Nanosecond)
 
 	// now convert to protoibuf timestamp
-	return ptypes.TimestampProto(time)
+	ts := timestamppb.New(time)
+	if err := ts.CheckValid(); err != nil {
+		return nil, err
+	}
+	return ts, nil
 }

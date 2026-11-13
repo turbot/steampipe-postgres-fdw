@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync/atomic"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
-	"github.com/turbot/steampipe-postgres-fdw/v2/types"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v6/row_stream"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
 	"github.com/turbot/steampipe/v2/pkg/query/queryresult"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -26,7 +25,6 @@ type scanIteratorBase struct {
 	rows               chan *proto.Row
 	scanMetadata       map[string]queryresult.ScanMetadataRow
 	pluginRowStream    row_stream.Receiver
-	rel                *types.Relation
 	hub                Hub
 	table              string
 	connectionName     string
@@ -40,6 +38,9 @@ type scanIteratorBase struct {
 
 	startTime time.Time
 	callId    string
+	// set by Close before it cancels the context, so readPluginResult can tell a cancellation the
+	// iterator asked for (scan finished, or Postgres ended it early, e.g. LIMIT) from one it did not
+	closing int32
 }
 
 func newBaseScanIterator(hub Hub, connectionName, table string, connectionLimitMap map[string]int64, qualMap map[string]*proto.Quals, columns []string, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, traceCtx *telemetry.TraceCtx) scanIteratorBase {
@@ -87,7 +88,7 @@ func (i *scanIteratorBase) Next() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("scanIteratorBase cannot iterate: connection %s, status: %s", i.GetConnectionName(), i.Status())
 	}
 
-	row := <-i.rows
+	row := i.nextRow()
 
 	// if the row channel closed, complete the iterator state
 	var res map[string]interface{}
@@ -119,6 +120,7 @@ func (i *scanIteratorBase) closeSpan() {
 }
 
 func (i *scanIteratorBase) Close() {
+	atomic.StoreInt32(&i.closing, 1)
 	// call the context cancellation function
 	i.cancel()
 
@@ -183,38 +185,37 @@ func (i *scanIteratorBase) Start(executor pluginExecutor) error {
 
 	// read the results - this will loop until it hits an error or the stream is closed
 	go i.readThread(ctx)
-	// bridge Postgres cancellation (statement_timeout, pg_cancel_backend, etc.) into
-	// the iterator's context — without this, a hung plugin call leaves the cgo
-	// IterateForeignScan call blocked and Postgres has no way to recover the
-	// backend. See issue #671.
-	go i.watchForCancellation(ctx)
 	return nil
 }
 
-// watchForCancellation polls Postgres for a pending query cancel or backend
-// die request and cancels the iterator's context when one is observed. Exits
-// naturally when the iterator's context is done (i.e. when the scan ends
-// normally and Close() has been called).
+// nextRow receives the next row, or nil once the row channel is closed.
 //
-// Returns immediately if no cancellation checker has been installed (e.g.
-// hub used outside the FDW cgo init, or in unit tests). In that case there
-// is nothing useful for the watcher to do — keeping it running would just
-// add idle goroutines that can never trigger.
-func (i *scanIteratorBase) watchForCancellation(ctx context.Context) {
+// While it waits, the backend is inside this scan's IterateForeignScan and cannot run
+// CHECK_FOR_INTERRUPTS, so a hung plugin would leave statement_timeout and pg_cancel_backend with no
+// effect (issue #671). It polls Postgres' cancel flag and cancels the scan when one is pending. The
+// flag is backend-wide, so it is read only here: a cancel seen while this call is in flight is for the
+// statement this scan belongs to, whereas a cursor's scan sitting idle between FETCHes must not be
+// cancelled by another statement's cancel.
+func (i *scanIteratorBase) nextRow() *proto.Row {
+	select {
+	case row := <-i.rows:
+		return row
+	default:
+	}
 	if !queryCancelCheckerConfigured() {
-		return
+		return <-i.rows
 	}
 	ticker := time.NewTicker(queryCancelPollInterval)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-ctx.Done():
-			return
+		case row := <-i.rows:
+			return row
 		case <-ticker.C:
 			if isQueryCancelPending() {
 				log.Printf("[INFO] Postgres query cancel pending; cancelling iterator (%p)", i)
 				i.cancel()
-				return
+				return <-i.rows
 			}
 		}
 	}
@@ -285,7 +286,11 @@ func (i *scanIteratorBase) populateRow(row *proto.Row) (map[string]interface{}, 
 			}
 		} else if timestamp := column.GetTimestampValue(); timestamp != nil {
 			// convert from protobuf timestamp to a RFC 3339 time string
-			val = ptypes.TimestampString(timestamp)
+			if err := timestamp.CheckValid(); err != nil {
+				val = fmt.Sprintf("(%v)", err)
+			} else {
+				val = timestamp.AsTime().Format(time.RFC3339Nano)
+			}
 		} else {
 			// get the first field descriptor and value (we only expect column message to contain a single field
 			column.ProtoReflect().Range(func(descriptor protoreflect.FieldDescriptor, v protoreflect.Value) bool {
@@ -349,6 +354,7 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 	// check for cancellation first - this takes precedence over reading the grpc stream
 	case <-ctx.Done():
 		log.Printf("[TRACE] readPluginResult context is cancelled (%p)", i)
+		i.recordCancellation(ctx)
 		continueReading = false
 	case rowResult := <-rcvChan:
 		if rowResult == nil {
@@ -365,6 +371,9 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 	case err := <-errChan:
 		if err.Error() == "EOF" {
 			log.Printf("[TRACE] readPluginResult EOF error received - stop reading (%p) (%s)", i, i.callId)
+		} else if ctx.Err() != nil {
+			// the stream ended because the context was cancelled, as in the ctx.Done case above
+			i.recordCancellation(ctx)
 		} else {
 			log.Printf("[WARN] stream receive error %v (%p)\n", err, i)
 			i.setError(err)
@@ -373,6 +382,18 @@ func (i *scanIteratorBase) readPluginResult(ctx context.Context) bool {
 		continueReading = false
 	}
 	return continueReading
+}
+
+// recordCancellation fails the scan when its context was cancelled by anything but Close: a
+// statement_timeout or query cancel seen by nextRow stops the scan before the plugin
+// finished, and without an error Next would report the rows read so far as the complete result.
+// Close (end of scan, or Postgres ending it early, e.g. for a LIMIT) is not a failure.
+func (i *scanIteratorBase) recordCancellation(ctx context.Context) {
+	if atomic.LoadInt32(&i.closing) == 1 {
+		return
+	}
+	log.Printf("[WARN] scan of %s cancelled before it completed (%p)", i.table, i)
+	i.setError(fmt.Errorf("scan of %s cancelled before it completed: %w", i.table, ctx.Err()))
 }
 
 func (i *scanIteratorBase) newScanMetadata(connection string, m *proto.QueryMetadata) queryresult.ScanMetadataRow {

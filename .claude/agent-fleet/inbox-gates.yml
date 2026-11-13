@@ -1,0 +1,50 @@
+# What a change to the FDW must run and show before an agent's PR counts as done.
+#
+# Left out on purpose:
+# - golangci-lint: .golangci.yml is in the v1 format, which golangci-lint v2 refuses to load.
+# - The tests in ./sql: TestGetSQLForTable fails on develop.
+# - The acceptance test in test.yml: it installs the FDW into a steampipe install directory and
+#   starts steampipe's service, which a shared worker should not do (see never_run).
+
+ci_is_proof: false
+
+needs:
+  # The FDW builds against PostgreSQL 14, the version steampipe embeds. PG14_BIN is the folder
+  # holding PostgreSQL 14's pg_config, set per worker.
+  pg14: {probe: '"$PG14_BIN/pg_config" --version | grep -q " 14\."'}
+
+never_run:
+  # Releases and published artifacts
+  - gh workflow run
+  - gh release
+  - git tag
+  - docker push
+  - oras push
+  - make release*
+  - scripts/upload_arm_asset.sh
+  # Copies the build into ~/.steampipe, the machine's own steampipe install
+  - make install
+  - scripts/install.sh
+  - scripts/steampipe_postgres_installer.sh
+  # Builds in Docker containers for Linux ARM and installs packages there
+  - scripts/build-linux-arm-*
+  - scripts/script_to_build.sh
+  # Stops every steampipe service on the machine
+  - steampipe service stop --force
+
+checks:
+  # make clean first: a failed build leaves a prebuild.go pointing at the previous Postgres.
+  build: {run: 'make clean && PATH="$PG14_BIN:$PATH" make', needs: [pg14], cost: 1}
+  unit: {run: "go test -count=1 ./hub/... ./types/... ./gcenv/...", cost: 1}
+
+kinds:
+  code:
+    paths: ["*.go", "**/*.go", "go.mod", "go.sum", "fdw/**", "prebuild.tmpl", "hub/**", "types/**", "gcenv/**", "settings/**", "sql/**", "templates/**", "generate/**", "version/**", "standalone_setup/**", "Makefile", ".golangci.yml"]
+    checks: [build, unit]
+    show: [test]
+  workflows:
+    paths: [".github/**", "scripts/**", "Dockerfile", ".gitignore"]
+    show: [none]
+  docs:
+    paths: ["**/*.md", ".claude/**", ".idea/**", "out/**", "LICENSE"]
+    show: [none]

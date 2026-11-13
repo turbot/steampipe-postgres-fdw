@@ -9,7 +9,7 @@ import (
 	"github.com/turbot/pipe-fittings/v2/utils"
 	"github.com/turbot/steampipe/v2/pkg/pluginmanager"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe/v2/pkg/steampipeconfig"
 )
 
@@ -27,14 +27,6 @@ func newConnectionFactory(hub *RemoteHub) *connectionFactory {
 		connectionPlugins: make(map[string]*steampipeconfig.ConnectionPlugin),
 		hub:               hub,
 	}
-}
-
-// extract the plugin FQN and connection name from a map key
-func (f *connectionFactory) parsePluginKey(key string) (pluginFQN, connectionName string) {
-	split := strings.Split(key, keySeparator)
-	pluginFQN = split[0]
-	connectionName = split[1]
-	return
 }
 
 // if a connection plugin for the plugin and connection, return it. If it does not, create it, store in map and return it

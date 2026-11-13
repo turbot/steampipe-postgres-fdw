@@ -1,10 +1,9 @@
 package types
 
 import (
-	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-	"golang.org/x/exp/slices"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
+	"slices"
 	"testing"
 )
 
@@ -601,12 +600,12 @@ func TestKeyColumnsToPathKeys(t *testing.T) {
 
 			for _, pk := range got {
 				slices.Sort(pk.ColumnNames)
-				fmt.Printf("PathKey: %v, Rows: %f\n", pk.ColumnNames, pk.Rows)
+				t.Logf("PathKey: %v, Rows: %f", pk.ColumnNames, pk.Rows)
 			}
 
 			for _, pk := range tt.want {
 				slices.Sort(pk.ColumnNames)
-				fmt.Printf("Expected PathKey%v, Rows: %f\n", pk.ColumnNames, pk.Rows)
+				t.Logf("Expected PathKey%v, Rows: %f", pk.ColumnNames, pk.Rows)
 			}
 
 			if !pathKeyArraysEqual(got, tt.want) {

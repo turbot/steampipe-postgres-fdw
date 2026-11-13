@@ -134,5 +134,6 @@ List *serializeDeparsedSortGroup(List *pathkeys);
 List *deserializeDeparsedSortGroup(List *items);
 OpExpr *canonicalOpExpr(OpExpr *opExpr, Relids base_relids);
 ScalarArrayOpExpr *canonicalScalarArrayOpExpr(ScalarArrayOpExpr *opExpr, Relids base_relids);
+bool containsExecParam(Node *node);
 char *getOperatorString(Oid opoid);
 #endif // FDW_COMMON_H

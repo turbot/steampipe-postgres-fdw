@@ -3,7 +3,7 @@ package hub
 import (
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 )
 

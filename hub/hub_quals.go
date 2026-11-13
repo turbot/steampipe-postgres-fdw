@@ -1,7 +1,7 @@
 package hub
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
 func buildQualMap(quals *proto.Quals) (map[string]*proto.Quals, error) {

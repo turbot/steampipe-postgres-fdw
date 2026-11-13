@@ -13,11 +13,11 @@ import (
 	"github.com/turbot/pipe-fittings/v2/app_specific"
 	"github.com/turbot/pipe-fittings/v2/modconfig"
 	"github.com/turbot/pipe-fittings/v2/utils"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
 	"github.com/turbot/steampipe-postgres-fdw/v2/settings"
 	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"github.com/turbot/steampipe/v2/pkg/constants"
@@ -30,7 +30,7 @@ const (
 
 // RemoteHub is a structure representing plugin hub
 type RemoteHub struct {
-	hubBase
+	*hubBase
 	connections *connectionFactory
 }
 
@@ -58,7 +58,8 @@ func newRemoteHub() (*RemoteHub, error) {
 
 	log.Printf("[INFO] newRemoteHub RemoteHub.LoadConnectionConfig ")
 	if _, err := hub.LoadConnectionConfig(); err != nil {
-		return nil, err
+		// returning the error would panic init() and kill the backend; each statement reloads the config and fails with the real error instead
+		log.Printf("[ERROR] newRemoteHub RemoteHub.LoadConnectionConfig failed, continuing: %v", err)
 	}
 
 	hub.cacheSettings = settings.NewCacheSettings(hub.clearConnectionCache, hub.getServerCacheEnabled())
@@ -93,6 +94,9 @@ func (h *RemoteHub) GetSchema(remoteSchema string, localSchema string) (*proto.S
 func (h *RemoteHub) GetIterator(columns []string, quals *proto.Quals, unhandledRestrictions int, limit int64, sortOrder []*proto.SortColumn, queryTimestamp int64, opts types.Options) (Iterator, error) {
 	logging.LogTime("GetIterator start")
 	qualMap, err := buildQualMap(quals)
+	if err != nil {
+		return nil, err
+	}
 	connectionName := opts["connection"]
 	table := opts["table"]
 	log.Printf("[TRACE] RemoteHub GetIterator() table '%s'", table)
@@ -120,8 +124,18 @@ func (h *RemoteHub) LoadConnectionConfig() (bool, error) {
 	// load connection conFig
 	connectionConfig, errorsAndWarnings := steampipeconfig.LoadConnectionConfig(context.Background())
 	if errorsAndWarnings.GetError() != nil {
-		log.Printf("[WARN] LoadConnectionConfig failed %v ", errorsAndWarnings)
+		// GlobalConfig must stay non-nil: hub methods dereference it directly with no nil check.
+		if steampipeconfig.GlobalConfig == nil {
+			log.Printf("[ERROR] LoadConnectionConfig failed, no connections loaded: %v", errorsAndWarnings.GetError())
+			steampipeconfig.GlobalConfig = steampipeconfig.NewSteampipeConfig("")
+		} else {
+			log.Printf("[ERROR] LoadConnectionConfig failed, keeping the last good connection config: %v", errorsAndWarnings.GetError())
+		}
 		return false, errorsAndWarnings.GetError()
+	}
+	// the loader skips a config file that fails to parse, and a bad block or a duplicate or invalid connection, with only a warning, so log it or what was dropped leaves no trace
+	for _, w := range errorsAndWarnings.Warnings {
+		log.Printf("[WARN] LoadConnectionConfig: %s", w)
 	}
 
 	configChanged := steampipeconfig.GlobalConfig == connectionConfig

@@ -13,6 +13,7 @@ static ForeignScan *fdwGetForeignPlan(
     List *scan_clauses,
     Plan *outer_plan
 );
+static bool fdwIsForeignScanParallelSafe(PlannerInfo *root, RelOptInfo *rel, RangeTblEntry *rte);
 
 // Define our handling functions with Postgres, following the V1 protocol.
 PG_FUNCTION_INFO_V1(steampipe_{{.Plugin}}_fdw_handler);
@@ -21,6 +22,7 @@ PG_FUNCTION_INFO_V1(steampipe_{{.Plugin}}_fdw_validator);
 
 Datum steampipe_{{.Plugin}}_fdw_handler(PG_FUNCTION_ARGS) {
   FdwRoutine *fdw_routine = makeNode(FdwRoutine);
+  fdw_routine->IsForeignScanParallelSafe = fdwIsForeignScanParallelSafe;
   fdw_routine->GetForeignRelSize = fdwGetForeignRelSize;
   fdw_routine->GetForeignPaths = fdwGetForeignPaths;
   fdw_routine->GetForeignPlan = fdwGetForeignPlan;

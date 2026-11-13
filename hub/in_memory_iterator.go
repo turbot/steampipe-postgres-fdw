@@ -6,7 +6,7 @@ import (
 
 	"github.com/turbot/steampipe/v2/pkg/query/queryresult"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
 )
 
 type inMemoryIterator struct {

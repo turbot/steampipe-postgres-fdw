@@ -1,0 +1,131 @@
+package hub
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/turbot/pipe-fittings/v2/app_specific"
+	"github.com/turbot/steampipe/v2/pkg/steampipeconfig"
+)
+
+// malformed JSON connection config: the loader skips the file with a warning, and
+// fails the load only when no connection loads.
+const malformedConnectionConfigJSON = `{"connection": {"chaos": {"plugin": "chaos"`
+
+// writeInstallDir sets app_specific.InstallDir to a fresh temp dir containing a
+// config/ folder with the given connection config files, and restores the
+// previous InstallDir on test cleanup.
+func writeInstallDir(t *testing.T, files map[string]string) {
+	t.Helper()
+	dir := t.TempDir()
+	configDir := filepath.Join(dir, "config")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(configDir, name), []byte(content), 0600); err != nil {
+			t.Fatalf("failed to write %s: %v", name, err)
+		}
+	}
+
+	prevInstallDir := app_specific.InstallDir
+	app_specific.InstallDir = dir
+	t.Cleanup(func() { app_specific.InstallDir = prevInstallDir })
+}
+
+// resetGlobalConfig saves and restores steampipeconfig.GlobalConfig around a test,
+// since it is process-global state shared with every other hub test.
+func resetGlobalConfig(t *testing.T) {
+	t.Helper()
+	prev := steampipeconfig.GlobalConfig
+	t.Cleanup(func() { steampipeconfig.GlobalConfig = prev })
+}
+
+func TestLoadConnectionConfig_FirstLoadFails_GlobalConfigStaysNonNil(t *testing.T) {
+	resetGlobalConfig(t)
+	steampipeconfig.GlobalConfig = nil
+
+	writeInstallDir(t, map[string]string{
+		"broken.json": malformedConnectionConfigJSON,
+	})
+
+	h := &RemoteHub{}
+	_, err := h.LoadConnectionConfig()
+	if err == nil || !strings.Contains(err.Error(), "Unclosed object") {
+		t.Fatalf("expected an unclosed-JSON-object error, got: %v", err)
+	}
+
+	if steampipeconfig.GlobalConfig == nil {
+		t.Fatal("GlobalConfig is nil after a failed load - this is the nil pointer panic waiting to happen")
+	}
+}
+
+func TestLoadConnectionConfig_ReloadFails_KeepsLastGoodConfig(t *testing.T) {
+	resetGlobalConfig(t)
+	goodConfig := steampipeconfig.NewSteampipeConfig("")
+	steampipeconfig.GlobalConfig = goodConfig
+
+	writeInstallDir(t, map[string]string{
+		"broken.json": malformedConnectionConfigJSON,
+	})
+
+	h := &RemoteHub{}
+	_, err := h.LoadConnectionConfig()
+	if err == nil || !strings.Contains(err.Error(), "Unclosed object") {
+		t.Fatalf("expected an unclosed-JSON-object error, got: %v", err)
+	}
+
+	if steampipeconfig.GlobalConfig != goodConfig {
+		t.Fatal("a failed reload discarded the last successfully loaded config")
+	}
+}
+
+// The CLI skips a config file that fails to parse and creates schemas for the rest,
+// so the FDW must load the same connections or every query on them fails.
+func TestLoadConnectionConfig_MalformedFile_OtherConnectionsLoad(t *testing.T) {
+	resetGlobalConfig(t)
+	steampipeconfig.GlobalConfig = nil
+
+	writeInstallDir(t, map[string]string{
+		"good.spc":    `connection "chaos" { plugin = "chaos" }`,
+		"broken.spc":  "connection \"broken\" {\n  plugin = \"chaos\"\n",
+		"broken.json": malformedConnectionConfigJSON,
+	})
+
+	h := &RemoteHub{}
+	if _, err := h.LoadConnectionConfig(); err != nil {
+		t.Fatalf("expected the malformed files to be skipped without an error, got: %v", err)
+	}
+
+	if _, ok := steampipeconfig.GlobalConfig.Connections["chaos"]; !ok {
+		t.Fatal("expected connection 'chaos' from good.spc to be loaded")
+	}
+	if _, ok := steampipeconfig.GlobalConfig.Connections["broken"]; ok {
+		t.Fatal("expected connection 'broken' from the malformed file to be skipped")
+	}
+}
+
+func TestLoadConnectionConfig_DuplicateAndInvalidConnectionNames_LoadWithoutError(t *testing.T) {
+	resetGlobalConfig(t)
+	steampipeconfig.GlobalConfig = nil
+
+	writeInstallDir(t, map[string]string{
+		"a.spc": `connection "chaos" { plugin = "chaos" }`,
+		"b.spc": `connection "chaos" { plugin = "chaos" }`,
+		"c.spc": `connection "1bad" { plugin = "chaos" }`,
+	})
+
+	h := &RemoteHub{}
+	if _, err := h.LoadConnectionConfig(); err != nil {
+		t.Fatalf("expected duplicate and invalid connection names to be skipped without an error, got: %v", err)
+	}
+
+	if _, ok := steampipeconfig.GlobalConfig.Connections["chaos"]; !ok {
+		t.Fatal("expected connection 'chaos' to be loaded")
+	}
+	if _, ok := steampipeconfig.GlobalConfig.Connections["1bad"]; ok {
+		t.Fatal("expected invalid connection '1bad' to be skipped")
+	}
+}

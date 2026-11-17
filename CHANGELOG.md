@@ -1,3 +1,7 @@
+## v2.3.1 [2026-11-17]
+_Whats new_
+- Add `make standalone_darwin_cross`, which cross-compiles the standalone macOS FDW on Linux in goreleaser-cross. Building the standalone FDW no longer needs `rsync`. ([#758](https://github.com/turbot/steampipe-postgres-fdw/pull/758))
+
 ## v2.3.0 [2026-11-12]
 _Whats new_
 - Apply `GOGC` and `GOMEMLIMIT` from the Postgres environment to the FDW's Go runtime. ([#731](https://github.com/turbot/steampipe-postgres-fdw/pull/731))

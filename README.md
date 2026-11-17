@@ -71,6 +71,21 @@ Suppose you want to build the FDW for your own plugin(not maintained by Turbot) 
 $ make standalone plugin="scalingo" plugin_github_url="github.com/francois2metz/steampipe-plugin-scalingo"
 ```
 
+#### Cross-compiling for macOS on Linux
+
+The macOS extension can be built on Linux in the [goreleaser-cross](https://github.com/goreleaser/goreleaser-cross) image. `make standalone_darwin_cross` fetches the Postgres headers from Homebrew's macOS bottles (pinned in `scripts/darwin_cross_deps.sh`) and builds against them. For Postgres 14 on Apple Silicon:
+
+```bash
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
+  -v "$PWD:/src" -w /src \
+  -e GOOS=darwin -e GOARCH=arm64 -e CGO_ENABLED=1 -e CC=oa64-clang \
+  -e MACOSX_DEPLOYMENT_TARGET=14.0 \
+  --entrypoint make ghcr.io/goreleaser/goreleaser-cross:v1.26.10 \
+  standalone_darwin_cross plugin=aws pg_major=14
+```
+
+For Intel Macs, use `GOARCH=amd64` and `CC=o64-clang`. For Postgres 15, use `pg_major=15`. The build lands in `build-Darwin`.
+
 #### Installing the built standalone FDW
 
 Once you have built the standalone FDW, the binaries will be available in a folder `build-Darwin` or `build-Linux` depending on your OS. Run the `install.sh` script available in that directory. This will detect the installed PostrgeSQL version and location and copy the binaries there.

@@ -29,3 +29,5 @@ build-*/
 *.bc
 # work directory created by the standalone fdw building
 /work
+# Postgres headers and tools fetched for macOS cross builds
+/darwin-cross

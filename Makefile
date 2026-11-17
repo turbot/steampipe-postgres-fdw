@@ -3,7 +3,14 @@ default: build
 
 STEAMPIPE_INSTALL_DIR ?= ~/.steampipe
 
-PLATFORM=$(shell uname)
+# The platform follows the target OS (GOOS), not the host, so a Darwin build
+# cross-compiled on Linux lands in build-Darwin.
+ifeq ($(shell go env GOOS), darwin)
+PLATFORM = Darwin
+else
+PLATFORM = Linux
+endif
+
 GETTEXT_INCLUDE=$(shell dirname $(shell dirname $(shell readlink -f $(shell which gettext))))/include
 
 install: build
@@ -13,44 +20,26 @@ install: build
 		cp ./build-$(PLATFORM)/steampipe_postgres_fdw.so $(STEAMPIPE_INSTALL_DIR)/db/14.17.0/postgres/lib/postgresql/; \
 	fi
 
-# build standalone 
-standalone: validate_plugin validate_version prebuild.go
+# build standalone: render the code for the plugin, then build it
+standalone: render
 	@echo "Building standalone FDW for plugin: $(plugin)"
+	$(MAKE) build_from_work
 
-	# Remove existing work dir and create a new directory for the render process
-	rm -rf work && \
-	mkdir -p work
+# Cross-compile the standalone FDW for macOS on Linux, in the goreleaser-cross
+# image. Fetches the pinned Homebrew Postgres headers for pg_major (14 or 15)
+# and GOARCH, then runs the standalone target against them. Set GOOS=darwin,
+# GOARCH, CGO_ENABLED=1, CC (oa64-clang or o64-clang) and
+# MACOSX_DEPLOYMENT_TARGET in the environment.
+DARWIN_CROSS_DIR = $(CURDIR)/darwin-cross
 
-	# Copy the entire source tree, excluding .git directory, into the new directory
-	rsync -a --exclude='.git' . work/ >/dev/null 2>&1
+standalone_darwin_cross: validate_plugin validate_version validate_pg_major
+	@if [ "$$(go env GOOS)" != darwin ]; then echo "Set GOOS=darwin for $@" >&2; exit 1; fi
+	@if [ "$$(go env GOHOSTOS)" = darwin ]; then echo "$@ is for building on Linux; on macOS, use make standalone" >&2; exit 1; fi
+	scripts/darwin_cross_deps.sh $(pg_major) $$(go env GOARCH) $(DARWIN_CROSS_DIR)
 
-	# Change to the new directory to perform operations
-	cd work && \
-	go run generate/generator.go templates . $(plugin) $(plugin_version) $(plugin_github_url) && \
-	if [ ! -z "$(plugin_version)" ]; then \
-		MAJOR_VERSION=$$(echo $(plugin_version) | grep -o '^v[0-9]\+' || echo "v1") && \
-		if [ "$$MAJOR_VERSION" = "v1" ] || [ "$$MAJOR_VERSION" = "v0" ]; then \
-			echo "go get $(plugin_github_url)@$(plugin_version)" && \
-			go get $(plugin_github_url)@$(plugin_version); \
-		else \
-			echo "go get $(plugin_github_url)/$$MAJOR_VERSION@$(plugin_version)" && \
-			go get $(plugin_github_url)/$$MAJOR_VERSION@$(plugin_version); \
-		fi; \
-	fi && \
-	go mod tidy && \
-	$(MAKE) -C ./fdw clean && \
-	$(MAKE) -C ./fdw go && \
-	$(MAKE) -C ./fdw && \
-	$(MAKE) -C ./fdw standalone
-
-	# Delete existing build-${PLATFORM} and copy the binaries to the actual 
-	# build-${PLATFORM} folder
-	rm -rf build-${PLATFORM} && \
-	mkdir -p build-${PLATFORM} && \
-	cp -a work/build-${PLATFORM}/* build-${PLATFORM}/
-
-	# Note: The work directory will contain the full code tree with changes, 
-	# binaries will be copied to build-${PLATFORM} folder
+	# prebuild.go holds the Postgres include paths, so render it afresh
+	rm -f prebuild.go
+	PATH="$(DARWIN_CROSS_DIR)/bin:$$PATH" $(MAKE) standalone GETTEXT_INCLUDE=$(DARWIN_CROSS_DIR)/intl
 
 # render target
 render: validate_plugin validate_version prebuild.go
@@ -60,12 +49,15 @@ render: validate_plugin validate_version prebuild.go
 	rm -rf work && \
 	mkdir -p work
 
-	# Copy the entire source tree, excluding .git directory, into the new directory
-	rsync -a --exclude='.git' . work/ >/dev/null 2>&1
+	# Copy the source tree into the new directory (tar rather than rsync, which
+	# the goreleaser-cross image doesn't have)
+	tar -cf - --exclude=./.git --exclude=./work --exclude=./darwin-cross . | tar -xf - -C work
 
-	# Change to the new directory to perform operations
+	# Change to the new directory to perform operations. The generator runs on
+	# the build host, so it's built for the host even when GOOS/GOARCH are set
+	# for a cross build (e.g. GOOS=darwin on Linux).
 	cd work && \
-	go run generate/generator.go templates . $(plugin) $(plugin_version) $(plugin_github_url) && \
+	GOOS=$$(go env GOHOSTOS) GOARCH=$$(go env GOHOSTARCH) CGO_ENABLED=0 go run generate/generator.go templates . $(plugin) $(plugin_version) $(plugin_github_url) && \
 	if [ ! -z "$(plugin_version)" ]; then \
 		MAJOR_VERSION=$$(echo $(plugin_version) | grep -o '^v[0-9]\+' || echo "v1") && \
 		if [ "$$MAJOR_VERSION" = "v1" ] || [ "$$MAJOR_VERSION" = "v0" ]; then \
@@ -116,6 +108,11 @@ ifndef plugin_github_url
 endif
 endif
 
+validate_pg_major:
+ifeq ($(filter 14 15,$(pg_major)),)
+	$(error "The 'pg_major' variable must be 14 or 15")
+endif
+
 build: prebuild.go
 	$(MAKE) -C ./fdw clean
 	$(MAKE) -C ./fdw go
@@ -146,7 +143,7 @@ clean:
 	rm -f prebuild.go
 	rm -f steampipe_postgres_fdw.a
 	rm -f steampipe_postgres_fdw.h
-	rm -rf work
+	rm -rf work darwin-cross
 
 # Used to build the Darwin ARM binaries and upload to the github draft release.
 # Usage: make release input="v1.7.2"

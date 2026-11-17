@@ -15,6 +15,9 @@ env:
   ORG: turbot
   CONFIG_SCHEMA_VERSION: "2020-11-18"
   VERSION: ${{ github.event.ref }}
+  # Darwin builds otherwise take the runner's macOS (or SDK) version as their
+  # minimum, so the FDW's minimum macOS would change with the runner image.
+  MACOSX_DEPLOYMENT_TARGET: "14.0"
 
 jobs:
   build-osx:

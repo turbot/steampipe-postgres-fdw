@@ -9,11 +9,8 @@ import "C"
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"log"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 	"unsafe"
@@ -21,6 +18,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/turbot/go-kit/helpers"
 	typeHelpers "github.com/turbot/go-kit/types"
+	"github.com/turbot/steampipe-postgres-fdw/v2/jsonb"
 	"github.com/turbot/steampipe-postgres-fdw/v2/types"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -192,7 +190,7 @@ func valToBuffer(val interface{}, oid C.Oid, buffer C.StringInfo) (err error) {
 	var valueString string
 	// handle json explicitly
 	if oid == C.JSONBOID {
-		valueString, err = jsonValueString(val)
+		valueString, err = jsonb.Marshal(val)
 		if err != nil {
 			return err
 		}
@@ -208,23 +206,6 @@ func valToBuffer(val interface{}, oid C.Oid, buffer C.StringInfo) (err error) {
 	C.fdw_appendBinaryStringInfo(buffer, cValueString, C.int(len(valueString)))
 	C.free(unsafe.Pointer(cValueString))
 	return
-}
-
-func jsonValueString(val interface{}) (string, error) {
-	jsonBytes, err := json.Marshal(val)
-	if err != nil {
-		return "", err
-	}
-	valueString := string(jsonBytes)
-
-	// remove unicode null char "\u0000", UNLESS escaped, i.e."\\u0000"
-	if strings.Contains(valueString, `\u0000`) {
-		log.Printf("[TRACE] null unicode character detected in JSON value - removing if not escaped")
-		re := regexp.MustCompile(`((?:^|[^\\])(?:\\\\)*)(?:\\u0000)+`)
-		valueString = re.ReplaceAllString(valueString, "$1")
-	}
-
-	return valueString, nil
 }
 
 func TimeToPgTime(t time.Time) int64 {

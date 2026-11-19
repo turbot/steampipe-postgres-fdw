@@ -16,7 +16,7 @@ require (
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/turbot/pipe-fittings/v2 v2.9.5
-	github.com/turbot/steampipe/v2 v2.4.10-0.20261111115954-600783961125
+	github.com/turbot/steampipe/v2 v2.5.0
 	go.opentelemetry.io/otel/metric v1.47.0
 )
 
@@ -82,7 +82,7 @@ require (
 	github.com/hashicorp/terraform-registry-address v0.2.4 // indirect
 	github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jackc/pgx/v5 v5.9.2 // indirect
+	github.com/jackc/pgx/v5 v5.10.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.6.9 // indirect
@@ -98,9 +98,9 @@ require (
 	github.com/sagikazarmark/locafero v0.8.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/spf13/cobra v1.10.1 // indirect
+	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.8.1 // indirect
-	github.com/thediveo/enumflag/v2 v2.0.7 // indirect
+	github.com/thediveo/enumflag/v2 v2.2.1 // indirect
 	github.com/turbot/pipes-sdk-go v0.12.1 // indirect
 	github.com/turbot/terraform-components v0.0.0-20250114051614-04b806a9cbed // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
@@ -135,7 +135,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/fatih/color v1.18.0 // indirect
+	github.com/fatih/color v1.19.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/gertd/go-pluralize v0.2.1
 	github.com/ghodss/yaml v1.0.0 // indirect

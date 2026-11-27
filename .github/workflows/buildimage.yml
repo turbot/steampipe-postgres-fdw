@@ -15,6 +15,9 @@ env:
   ORG: turbot
   CONFIG_SCHEMA_VERSION: "2020-11-18"
   VERSION: ${{ github.event.ref }}
+  # Darwin builds otherwise take the runner's macOS (or SDK) version as their
+  # minimum, so the FDW's minimum macOS would change with the runner image.
+  MACOSX_DEPLOYMENT_TARGET: "14.0"
 
 jobs:
   build-osx:
@@ -109,6 +112,16 @@ jobs:
           export PG_LDFLAGS=$(pg_config --ldfalgs)
 
           make
+
+      - name: Check the FDW's architecture and minimum macOS version
+        run: |-
+          so=build-Darwin/steampipe_postgres_fdw.so
+          archs=$(lipo -archs "$so")
+          echo "archs: $archs"
+          [ "$archs" = x86_64 ] || { echo "::error::archs are $archs, expected x86_64"; exit 1; }
+          minos=$(otool -l "$so" | awk '/cmd LC_BUILD_VERSION/ {f=1} f && !m && $1 == "minos" {print $2; m=1}')
+          echo "minos: $minos"
+          [ "$minos" = "$MACOSX_DEPLOYMENT_TARGET" ] || { echo "::error::minos is $minos, expected $MACOSX_DEPLOYMENT_TARGET"; exit 1; }
 
       - name: gzip the steampipe_postgres_fdw.so
         run: |-
@@ -228,6 +241,16 @@ jobs:
           export PG_LDFLAGS=$(pg_config --ldfalgs)
 
           make
+
+      - name: Check the FDW's architecture and minimum macOS version
+        run: |-
+          so=build-Darwin/steampipe_postgres_fdw.so
+          archs=$(lipo -archs "$so")
+          echo "archs: $archs"
+          [ "$archs" = arm64 ] || { echo "::error::archs are $archs, expected arm64"; exit 1; }
+          minos=$(otool -l "$so" | awk '/cmd LC_BUILD_VERSION/ {f=1} f && !m && $1 == "minos" {print $2; m=1}')
+          echo "minos: $minos"
+          [ "$minos" = "$MACOSX_DEPLOYMENT_TARGET" ] || { echo "::error::minos is $minos, expected $MACOSX_DEPLOYMENT_TARGET"; exit 1; }
 
       - name: gzip the steampipe_postgres_fdw.so
         run: |-
